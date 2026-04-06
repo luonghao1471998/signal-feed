@@ -13,7 +13,7 @@
       "args": [
         "-y",
         "@modelcontextprotocol/server-postgres",
-        "postgresql://signalfeed:password@localhost:5432/signalfeed"
+        "postgresql://ipro:Signalfeed@2026@localhost:5432/signalfeed"
       ]
     },
     "fetch": {
