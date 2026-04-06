@@ -1,0 +1,9 @@
+---
+alwaysApply: true
+---
+- Luôn follow Architecture Patterns trong CLAUDE.md
+- Không generate toàn bộ module 1 lần — implement từng function
+- Không tự thêm dependency không có trong SPEC.md
+- Không modify file ngoài scope của task được giao
+- Response: code only, không giải thích trừ khi được hỏi
+- Mỗi fix chỉ address 1 vấn đề, không refactor thêm
