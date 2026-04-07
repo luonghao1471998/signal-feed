@@ -4,17 +4,20 @@
 **Date:** 2026-04-06
 **Phase:** Giai đoạn 3 - Implementation
 **Sprint:** Sprint 1 - Wedge Delivery
-**Tasks Covered:** 1.1.1 - 1.2.5
+**Tasks Covered (đã làm):** 1.1.1 – 1.2.5, **1.3.1** (OAuth X.com redirect + callback)  
+**Next:** **1.3.2** — xác minh / bổ sung nếu thiếu (token + upsert đã có trong 1.3.1); **1.3.3** — Onboarding Screen #3 (category selection)
+
+**Lưu ý cho agent / Claude:** Khi user chỉ nhắc `SESSION-LOG` + SPEC để **cập nhật log / context**, **không** tự implement code trừ khi user ghi rõ *Implement Feature* / *làm task X*. OAuth X.com (1.3.1) **đã có trong repo** (Socialite + `twitter-oauth-2`).
 
 ---
 
 ## Pre-Session Checklist
 
-- [x] Reviewed PROJECT-STATUS.md  ← Check ngay
-- [x] Reviewed previous SESSION-LOG (if any)
-- [x] Checked for blockers
-- [x] CLAUDE.md is up-to-date
-- [x] Git status clean (committed previous work)
+1. [x] Reviewed PROJECT-STATUS.md — check ngay
+2. [x] Reviewed previous SESSION-LOG (if any)
+3. [x] Checked for blockers
+4. [x] CLAUDE.md is up-to-date
+5. [x] Git status clean (committed previous work)
 
 ---
 
@@ -24,9 +27,9 @@
 Complete Phase 1: Setup + Infrastructure (Tasks 1.1.1 - 1.2.5)
 
 **Success Criteria:**
-- [ ] Laravel 11.x + React 18 SPA scaffolded
-- [ ] PostgreSQL + Redis connected
-- [ ] All database migrations created and run
+- [x] Laravel 11.x + React 18 SPA scaffolded
+- [x] PostgreSQL + Redis connected
+- [x] All database migrations created and run
 - [ ] Schema matches SPEC-api.md Section 9
 
 ### Task 1.1.1 - Initialize Laravel 11.x + React 18 SPA
@@ -36,7 +39,7 @@ Complete Phase 1: Setup + Infrastructure (Tasks 1.1.1 - 1.2.5)
   - `composer.json` (created)
   - `package.json` (created)
   - `vite.config.js` (created)
-  - `resources/js/App.jsx` (created)
+  - `resources/js/app.jsx` (created)
   - `.env.example` (created)
 - **Key Decisions:**
   - Used Vite plugin for React (Laravel 11 standard)
@@ -69,7 +72,163 @@ Complete Phase 1: Setup + Infrastructure (Tasks 1.1.1 - 1.2.5)
 
 **Đã thử / fail:** `php artisan migrate:status` trên môi trường không có `DB_PASSWORD` / Postgres chưa mở auth → lỗi kết nối (expected); sau khi điền `.env` đúng host/user/pass hoặc `DB_URL` thì verify lại.
 
-**Tool/agent sau cần biết:** Entrypoint React là `resources/js/app.jsx` (không phải `App.jsx`). Cần `.env` thật cho Postgres trước khi `migrate`; nếu `QUEUE_CONNECTION=redis` thì Redis phải chạy trước `queue:work` (artisan vẫn boot được nếu chỉ migrate). Schema lock = `SPEC-api.md` §9 — đổi cột/bảng sau này = change request.
+**Tool/agent sau cần biết:** Entrypoint React (Vite) là `resources/js/main.tsx` + `App.tsx`. Cần `.env` thật cho Postgres trước khi `migrate`; nếu `QUEUE_CONNECTION=redis` thì Redis phải chạy trước `queue:work` (artisan vẫn boot được nếu chỉ migrate). Schema lock = `SPEC-api.md` §9 — đổi cột/bảng sau này = change request.
+
+**Model `User` + factory:** khớp bảng `users` (`x_user_id`, tokens, …); **AuthService** (1.3.1) đã upsert + lưu token từ OAuth 2.
+
+---
+
+## Pre-Task 1.3.1 Checklist
+
+*Làm xong lần lượt trước khi code `IMPLEMENTATION-ROADMAP` task **1.3.1** (OAuth redirect). Thứ tự đánh số 1→16.*
+
+### Environment
+
+1. [x] PostgreSQL running
+2. [x] Laravel server can start (`php artisan serve`)
+3. [x] Database migrated (all tables exist)
+
+### Twitter OAuth Credentials (X Developer Portal)
+
+4. [x] Twitter Developer Account approved
+5. [x] App created (**SignalFeed New**)
+6. [x] OAuth 2.0 configured for user auth
+7. [x] Callback URL registered: `http://127.0.0.1:8000/auth/twitter/callback` (khớp tuyệt đối với redirect thực tế + `APP_URL`)
+8. [x] Client ID copied to `.env` → `TWITTER_CLIENT_ID`
+9. [x] Client Secret copied to `.env` → `TWITTER_CLIENT_SECRET`
+10. [x] `TWITTER_CALLBACK_URL` hoặc `TWITTER_REDIRECT_URI` khớp callback; verified: `config('services.twitter-oauth-2.client_id')` / `client_secret` trong `php artisan tinker` (sau `config:clear` nếu đã cache)
+
+### Other keys — **NOT** required for 1.3.1
+
+11. [ ] ~~twitterapi.io~~ — Task **1.6.1**
+12. [ ] ~~Anthropic~~ — Task **1.7.1**
+13. [ ] ~~Stripe~~ — Sprint **3**
+14. [ ] ~~Resend~~ — Sprint **2+**
+15. [ ] ~~Telegram~~ — Sprint **2+**
+
+### Gate → bước tiếp theo
+
+16. [x] **Ready:** Mục **1–3** và **4–10** đều ✅ → **1.3.1** đã implement (xem mục dưới).
+
+---
+
+## Task 1.3.1 - OAuth X.com Redirect + Callback
+
+**Started:** 11:24  
+**Completed:** 11:48  
+**Duration:** 24 minutes  
+**Status:** ✅ DONE
+
+### Implementation Summary
+
+**Files Created:**
+- `app/Http/Controllers/Auth/TwitterAuthController.php`
+- `app/Services/AuthService.php`
+
+**Files Modified:**
+- `routes/web.php` (added OAuth routes)
+- `config/services.php` (added `twitter-oauth-2` config)
+
+**Dependencies Added:**
+- `laravel/socialite` ^5.26
+
+### Key Decisions
+
+1. **OAuth Provider:** Used `twitter-oauth-2` driver (not `twitter`)  
+   - **Reason:** Twitter OAuth 2.0 API format compatibility  
+2. **Scopes:** `users.read`, `tweet.read`, `offline.access`  
+   - **Reason:** User profile + refresh token  
+3. **Architecture:** Controller → Service → Model  
+   - **Reason:** Follow `CLAUDE.md` architecture pattern  
+
+### Issues Encountered
+
+#### Issue #1: Undefined array key "data"
+
+**Timestamp:** 11:35  
+**Error:** `TwitterProvider.php:58` — response format mismatch  
+**Root Cause:** Using `twitter` driver instead of `twitter-oauth-2`  
+**Resolution:**
+- Changed driver to `twitter-oauth-2`
+- Updated scopes to include `offline.access`  
+**Time Lost:** 15 minutes  
+
+### Test Results
+
+**Tested at:** 11:48
+
+#### Test 1: Happy Path ✅
+
+- [x] OAuth redirect working
+- [x] User authorization successful
+- [x] Callback processed correctly
+- [x] User record created:
+
+```sql
+  id: 1
+  x_user_id: 1470788175010295809
+  x_username: luonghao1407
+  plan: free
+  tokens: stored ✅
+```
+
+- [x] Audit log created:
+
+```sql
+  event_type: oauth_login
+  user_id: 1
+  ip_address: 127.0.0.1
+```
+
+- [x] Session active (redirected to landing page)
+
+**All verifications:** ✅ PASS
+
+### Prompt Budget
+
+- **Prompts used:** 2/5 ✅  
+  1. Initial implementation (Cursor)  
+  2. Fix `twitter-oauth-2` driver (Cursor)  
+- **Iterations:** 1 (driver fix)  
+
+### Git Commit
+
+```bash
+git add .
+git commit -m "feat(auth): Task 1.3.1 - OAuth X.com authentication
+
+- TwitterAuthController (redirect, callback, logout)
+- AuthService (user upsert from Twitter OAuth)
+- Routes: /auth/twitter, /auth/twitter/callback, /logout
+- Config: twitter-oauth-2 provider
+- Socialite package integrated
+- Audit logging for OAuth events
+- Handles: new user, token storage, session creation
+- Fix: Use twitter-oauth-2 driver for OAuth 2.0 API
+- Tests: OAuth flow verified, user created, audit logged
+- Refs: IMPLEMENTATION-ROADMAP.md Task 1.3.1"
+```
+
+**Commit hash:** *(điền sau khi commit — hiện repo có thể chưa có commit riêng cho task này)*  
+**Tag:** `task-1.3.1-complete`
+
+### Next Task
+
+- **Task 1.3.2** — OAuth token exchange + user upsert *(đã implement trong 1.3.1; có thể skip hoặc verify)*  
+**OR**  
+- **Task 1.3.3** — Onboarding Screen #3: Category selection  
+
+---
+
+## Next Focus
+
+**1.3.1:** ✅ Hoàn thành (Socialite, `twitter-oauth-2`, audit `oauth_login`, session web).
+
+**Tiếp theo:** `IMPLEMENTATION-ROADMAP.md` — **1.3.2** (verify token/upsert nếu roadmap còn checklist riêng); **1.3.3** categories (sau auth + seed `1.4.1` nếu cần).
+
+**Contract (`SPEC-api.md` §11):** `GET /auth/twitter`, `GET /auth/twitter/callback`; redirect URI khớp X Developer Portal + env.
+
+**Sanctum / SPA:** Stateful cookie + `FRONTEND_URL` — nối khi SPA gọi API có auth (task sau).
 
 ---
 
@@ -78,3 +237,5 @@ Complete Phase 1: Setup + Infrastructure (Tasks 1.1.1 - 1.2.5)
 | Date       | Summary |
 |------------|---------|
 | 2026-04-06 | Scaffold Laravel 11 + React/Vite/Sanctum; env vendor + Postgres/Redis queue config; migrations 1.2.1–1.2.5 + category seed theo SPEC-api §9. |
+| 2026-04-06 | SESSION-LOG: Pre-Task 1.3.1 checklist + gate; nhắc agent chỉ sửa log khi không yêu cầu implement. User/Factory khớp schema `x_*` (OAuth code revert). |
+| 2026-04-06 | **Task 1.3.1:** OAuth X.com — `TwitterAuthController`, `AuthService`, routes, `config/services.php` (`twitter-oauth-2`), Socialite ^5.26; fix driver + scopes (`offline.access`); audit `oauth_login`; E2E happy path verified. |

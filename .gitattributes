@@ -9,3 +9,26 @@
 /.github export-ignore
 CHANGELOG.md export-ignore
 .styleci.yml export-ignore
+
+# Đảm bảo tất cả file text dùng LF
+* text=auto eol=lf
+
+# Các file code TypeScript/JavaScript/JSON luôn LF
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.js   text eol=lf
+*.jsx  text eol=lf
+*.json text eol=lf
+
+# Các file cấu hình
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.md   text eol=lf
+
+# Các file nhị phân giữ nguyên
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.svg  binary
+*.ico  binary

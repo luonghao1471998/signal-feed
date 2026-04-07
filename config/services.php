@@ -35,4 +35,14 @@ return [
         ],
     ],
 
+    /*
+    | OAuth 2.0 X.com (Socialite) — driver `twitter-oauth-2` (TwitterOAuth2Provider).
+    | Khóa config phải trùng tên driver. .env: TWITTER_CLIENT_ID, TWITTER_CLIENT_SECRET, TWITTER_CALLBACK_URL.
+    */
+    'twitter-oauth-2' => [
+        'client_id' => env('TWITTER_CLIENT_ID'),
+        'client_secret' => env('TWITTER_CLIENT_SECRET'),
+        'redirect' => env('TWITTER_CALLBACK_URL', env('TWITTER_REDIRECT_URI')),
+    ],
+
 ];

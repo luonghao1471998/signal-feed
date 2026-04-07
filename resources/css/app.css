@@ -1,3 +1,113 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+    --background: 0 0% 100%;
+    --foreground: 210 17% 8%;
+
+    --surface: 0 0% 100%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 210 17% 8%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 17% 8%;
+
+    /* Twitter blue #1d9bf0 */
+    --primary: 203 89% 53%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 210 17% 8%;
+
+    --muted: 210 20% 97%;
+    --muted-foreground: 205 12% 45%;
+
+    --accent: 203 89% 53%;
+    --accent-foreground: 0 0% 100%;
+    --accent-hover: 203 89% 45%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 204 20% 95%;
+    --input: 204 20% 95%;
+    --ring: 203 89% 53%;
+
+    --radius: 1rem;
+
+    --rank-high: 160 84% 39%;
+    --rank-mid: 38 92% 50%;
+    --rank-low: 218 11% 65%;
+
+    --mysources: 160 68% 37%;
+
+    --cat-ai-ml-bg: 263 83% 95%;
+    --cat-ai-ml-text: 263 72% 42%;
+    --cat-dev-tools-bg: 214 95% 93%;
+    --cat-dev-tools-text: 224 76% 48%;
+    --cat-indie-saas-bg: 149 80% 90%;
+    --cat-indie-saas-text: 160 90% 20%;
+    --cat-marketing-bg: 46 97% 88%;
+    --cat-marketing-text: 32 95% 29%;
+    --cat-startup-vc-bg: 0 93% 94%;
+    --cat-startup-vc-text: 0 74% 35%;
+    --cat-crypto-bg: 27 100% 92%;
+    --cat-crypto-text: 17 88% 34%;
+    --cat-finance-bg: 185 96% 90%;
+    --cat-finance-text: 196 72% 27%;
+    --cat-design-product-bg: 326 78% 95%;
+    --cat-design-product-text: 329 72% 35%;
+    --cat-creator-bg: 85 80% 90%;
+    --cat-creator-text: 85 49% 23%;
+    --cat-tech-policy-bg: 210 17% 95%;
+    --cat-tech-policy-text: 220 13% 18%;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 210 17% 8%;
+    --sidebar-primary: 203 89% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 204 20% 95%;
+    --sidebar-accent-foreground: 210 17% 8%;
+    --sidebar-border: 204 20% 95%;
+    --sidebar-ring: 203 89% 53%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+    color: #0f1419;
+  }
+}
+
+@layer utilities {
+  .transition-default {
+    @apply transition-all duration-150 ease-in-out;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.sf-slide-up-root {
+  animation: slideUp 0.3s ease-out;
+}
+
+.sf-install-banner-enter {
+  animation: slideUp 0.25s ease-out;
+}
