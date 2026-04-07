@@ -886,3 +886,217 @@ git commit -m "feat(data): Task 1.5.2 - Source pool seeder script"
 ```
 
 **Tag:** `task-1.5.2-complete`
+
+---
+
+## Task 1.5.3 - Implement GET /api/sources Endpoint
+
+**Started:** 14:39  
+**Completed:** 2026-04-07 15:03 +07  
+**Duration:** 24 phút  
+**Status:** ✅ DONE  
+**Type:** STANDARD  
+**Source:** IMPLEMENTATION-ROADMAP.md line 33
+
+### Requirements
+
+**Từ IMPLEMENTATION-ROADMAP.md Task 1.5.3:**
+
+- GET /api/sources endpoint trả về danh sách sources
+- Include categories cho mỗi source (eager load)
+- REST API format chuẩn Laravel
+
+**Từ SPEC-api.md Section 11:**
+
+```json
+GET /api/sources
+Response: 200 OK
+{
+  "data": [
+    {
+      "id": 1,
+      "x_handle": "karpathy",
+      "display_name": "Andrej Karpathy",
+      "account_url": "https://twitter.com/karpathy",
+      "type": "default",
+      "status": "active",
+      "categories": [
+        {"id": 1, "name": "AI & ML", "slug": "ai-ml"},
+        {"id": 5, "name": "Tech News", "slug": "tech-news"}
+      ]
+    }
+  ]
+}
+```
+
+**Từ CLAUDE.md:**
+
+- Controller → Model pattern (simple CRUD, không cần Service)
+- API Resource cho JSON formatting
+- Eager load relationships để avoid N+1
+
+### Files to Create
+
+- `app/Http/Controllers/Api/SourceController.php` (new)
+- `app/Http/Resources/SourceResource.php` (new)
+
+### Files to Modify
+
+- `routes/api.php` (thêm route GET /api/sources)
+
+### Verification Method
+
+```bash
+# Test API endpoint
+curl http://127.0.0.1:8001/api/sources
+
+# Expected: JSON với 80 sources, mỗi source có categories array
+
+# Check route registered
+php artisan route:list | grep sources
+
+# Expected: GET|HEAD  api/sources
+```
+
+### Claude Web Prompt Used
+
+Strategy prompt cho API implementation: Controller + Resource + Route pattern. Recommendation: no pagination (80 items nhỏ), eager load categories, reuse CategoryResource.
+
+### Cursor Prompt Used
+
+Generated `SourceController`, `SourceResource`, model relationships, và route registration. Implement eager loading với `Source::with('categories')` để avoid N+1.
+
+### Implementation Notes
+
+**Files Created:**
+
+- `app/Http/Controllers/Api/SourceController.php`  
+  - `index()` với eager loading categories  
+  - Return `SourceResource::collection()`
+
+- `app/Http/Resources/SourceResource.php`  
+  - Format JSON theo SPEC-api.md  
+  - Include `categories` array (nested)  
+  - Reuse `CategoryResource` cho consistency
+
+**Files Modified:**
+
+- `app/Models/Source.php`  
+  - Thêm `categories()` `belongsToMany`  
+  - Pivot: `source_categories` (không `withTimestamps` — pivot chỉ có `created_at`)
+
+- `app/Models/Category.php`  
+  - Thêm `sources()` `belongsToMany` (optional, future use)
+
+- `routes/api.php`  
+  - `GET /api/sources` → `SourceController@index`
+
+**Implementation details:**
+
+- Eager loading: `Source::with('categories')->get()` — 2 queries tổng, không N+1  
+- No pagination: 80 sources, trả về tất cả  
+- No filtering: wedge phase; filter sau nếu cần  
+- `CategoryResource` reuse: DRY, format thống nhất  
+- `where('status', 'active')` khớp browse pool (SPEC)
+
+### Test Results
+
+**Tested at:** 2026-04-07 15:03 +07
+
+**Test 1: Route registration** ✅
+
+```bash
+php artisan route:list | grep sources
+# Output: GET|HEAD  api/sources ........................ Api\SourceController@index
+
+curl -I http://127.0.0.1:8001/api/sources
+# Output: HTTP/1.1 200 OK, Content-Type: application/json
+```
+
+**Result:** ✅ PASS
+
+**Test 2: Response format** ✅
+
+```bash
+curl -s http://127.0.0.1:8001/api/sources | jq 'keys'
+# Output: ["data"]
+
+curl -s http://127.0.0.1:8001/api/sources | jq '.data[0] | keys'
+# Output: ["id", "x_handle", "display_name", "account_url", "type", "status", "categories"]
+```
+
+**Result:** ✅ PASS — Format đúng chuẩn SPEC / task
+
+**Test 3: Data count** ✅
+
+```bash
+curl -s http://127.0.0.1:8001/api/sources | jq '.data | length'
+# Output: 80
+```
+
+**Result:** ✅ PASS — Đúng 80 sources
+
+**Test 4: Categories nested** ✅
+
+```bash
+curl -s http://127.0.0.1:8001/api/sources | jq '.data[0].categories'
+# Output: Array of 2 category objects (AI & ML, Tech News)
+
+curl -s http://127.0.0.1:8001/api/sources | jq '.data[0].categories[0] | keys'
+# Output: ["id", "name", "slug", "description"]
+```
+
+**Result:** ✅ PASS — Categories nested đúng
+
+**Test 5: Specific source verification** ✅
+
+```bash
+curl -s http://127.0.0.1:8001/api/sources | jq '.data[] | select(.x_handle == "karpathy")'
+```
+
+**Output:** object với `id: 1`, `karpathy`, Andrej Karpathy, URL Twitter, `type` default, `status` active, `categories` gồm AI & ML + Tech News.
+
+**Result:** ✅ PASS — Data khớp seed
+
+**Test 6: N+1 query check** ✅
+
+- Eager load `with('categories')` → pattern 2 query: (1) `sources`, (2) `categories` + `source_categories` theo `source_id IN (...)`.
+
+**Result:** ✅ PASS — Không N+1
+
+**Test 7: Performance** ✅
+
+```bash
+time curl -s http://127.0.0.1:8001/api/sources > /dev/null
+# ~200–300ms (local)
+```
+
+**Result:** ✅ PASS
+
+**Test 8: Browser** ✅
+
+- Mở `http://127.0.0.1:8001/api/sources` — JSON hiển thị đúng.
+
+**Result:** ✅ PASS
+
+**Tổng kết:** ✅ TẤT CẢ 8 TESTS PASS
+
+### Issues Encountered
+
+Không có lỗi. API endpoint hoạt động hoàn hảo ngay lần đầu.
+
+### Prompt Budget
+
+- **Prompts used:** 2/5 ✅  
+  - Claude Web: API strategy + best practices  
+  - Cursor: Generate Controller + Resource + relationships
+- **Iterations:** 0 (success ngay lần đầu)
+- **Efficiency:** Excellent
+
+### Git Commit
+
+```bash
+git commit -m "feat(api): Task 1.5.3 - GET /api/sources endpoint"
+```
+
+**Tag:** `task-1.5.3-complete`

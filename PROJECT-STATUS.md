@@ -1,33 +1,51 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-07 14:34 +07
+**Last Updated:** 2026-04-07 15:06 +07
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 1 - Wedge Delivery
-**Current Task:** **1.5.3** — `GET /api/sources` endpoint
+**Current Task:** **1.6.1** — Integrate twitterapi.io crawler
 
 ---
 
 ## Quick Stats
 
 ### Sprint 1 Progress (34 tasks total)
-- **Completed:** 13/34 (38%)
+- **Completed:** 14/34 (41%)
 - **In Progress:** None
 - **Blocked:** None
 
 ### Code Metrics
-- **Backend:** 42% (Auth + DB + Categories + Sources complete)
+- **Backend:** 45% (Auth + DB + Categories + Sources + API complete)
 - **Frontend:** 5% (Scaffold only)
 - **Database:** 100% (All migrations done)
 - **Seed Data:** 100% (Categories ✅, Sources CSV ✅, Sources imported ✅)
-- **Tests:** 4/4 manual tests passed (OAuth, Categories seed, Categories API, Source CSV)
+- **Tests:** 5/5 manual tests passed (OAuth, Categories seed, Categories API, Sources seed, Sources API)
 
 ### Integration Status
 - [x] OAuth X.com (Task 1.3.1 complete) ✅
 - [x] Categories API (Task 1.4.2 complete) ✅
-- [ ] twitterapi.io (Task 1.6.x)
-- [ ] Anthropic Claude (Task 1.7.x)
+- [x] Sources API (Task 1.5.3 complete) ✅
+- [ ] twitterapi.io (Task 1.6.x) — API key needed
+- [ ] Anthropic Claude (Task 1.7.x) — API key needed
 - [ ] Stripe (Sprint 3)
 - [ ] Resend (Sprint 2+)
+
+### API Endpoints Available
+
+**Public APIs** (no auth required):
+
+- `GET /api/categories` — 10 categories ✅
+- `GET /api/sources` — 80 sources kèm categories ✅
+
+**Authenticated APIs:**
+
+- Chưa có (Phase 3–4)
+
+**Next APIs to build:**
+
+- `GET /api/tweets` (hậu Task 1.6.x)
+- `GET /api/signals` (Task 1.7.x)
+- `POST /api/user/categories` (liên quan Task 1.3.3)
 
 ---
 
@@ -44,6 +62,9 @@
 - [x] 1.2.5 - Create indexes migration
 
 ### Phase 2: Auth + Data Seed (Tasks 1.3-1.5) — 8 tasks
+
+**Status:** 6/8 complete (75%)
+
 - [x] 1.3.1 - OAuth X.com redirect + callback flow ✅
 - [x] 1.3.2 - OAuth token exchange + user upsert (merged với 1.3.1) ✅
 - [ ] 1.3.3 - Onboarding Screen #3: Category selection
@@ -51,9 +72,9 @@
 - [x] 1.4.2 - Implement GET /api/categories endpoint ✅
 - [x] 1.5.1 - Create source pool CSV seed data ✅
 - [x] 1.5.2 - Implement source pool seed script ✅
-- [ ] 1.5.3 - Implement GET /api/sources endpoint
+- [x] 1.5.3 - Implement GET /api/sources endpoint ✅
 
-**Next Task:** 1.5.3 (`GET /api/sources` endpoint)
+**Next Task:** 1.6.1 (twitterapi.io crawler)
 
 ### Phase 3: Pipeline Core (Tasks 1.6-1.9) — 11 tasks
 _(Will expand after Phase 2 complete)_
@@ -67,11 +88,21 @@ _(Will expand after Phase 3 complete)_
 
 ### Vừa Hoàn Thành
 
-✅ **Task 1.5.2** — Source pool seeder script (26 phút)
+✅ **Task 1.5.3** — `GET /api/sources` endpoint (24 phút)
 
-- 80 sources imported from CSV
-- 190 category links created
-- M:N relationship verified
+- REST API với 80 sources
+- Categories nested trong response
+- Eager loading (no N+1 queries)
+- Performance: ~200–300ms response time
+
+### Phase 2 Progress
+
+✅ **6/8** tasks complete (**75%**)
+
+⏸️ **2 tasks còn lại:**
+
+- **1.3.3** — Onboarding UI (frontend, defer)
+- Chuyển sang **Phase 3** (Tweet Crawling)
 
 ### Đang Làm
 
@@ -79,12 +110,13 @@ Không có
 
 ### Task Tiếp Theo
 
-🔜 **Task 1.5.3** — `GET /api/sources` endpoint
+🔜 **Task 1.6.1** — Integrate twitterapi.io crawler
 
-- **Loại:** STANDARD
-- **Ước tính:** 15–20 phút
-- **Dependencies:** Task 1.5.2 ✅
-- **Mục tiêu:** REST API trả về sources kèm categories
+- **Loại:** CRITICAL
+- **Ước tính:** 45–60 phút
+- **Dependencies:** Cần API key twitterapi.io
+- **Blocker:** Cần đăng ký tài khoản twitterapi.io
+- **Mục tiêu:** Fetch tweets từ source handles
 
 ---
 
@@ -113,6 +145,23 @@ Tuỳ scope task tiếp theo (1.5.3 vs 1.3.3)
 ---
 
 ## Recent Decisions
+
+**2026-04-07 15:06 +07 — Task 1.5.3 API Design**
+
+- **Quyết định:** Không pagination, không filtering cho wedge MVP.
+- **Lý do:**
+  - Dataset nhỏ: 80 sources ≈ ~30–50KB response
+  - Frontend có thể filter/search phía client
+  - Đơn giản > tính năng cho wedge validation
+  - Pagination/filtering bổ sung sau khi scale
+- **Kết quả:**
+  - ✅ API phản hồi nhanh (~200ms)
+  - ✅ Triển khai đơn giản (~24 phút session)
+  - ✅ Đủ tốt cho founder dogfood test
+- **Trade-off chấp nhận:**
+  - Không scale sẵn cho 10.000+ sources
+  - Frontend phải xử lý filtering
+  - OK cho wedge phase; refactor khi đã proven
 
 **2026-04-07 14:34 +07 — Task 1.5.2 Seeder Success**
 
