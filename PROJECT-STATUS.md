@@ -1,9 +1,9 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-07 13:57
+**Last Updated:** 2026-04-07 14:34 +07
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 1 - Wedge Delivery
-**Current Task:** **1.5.2** — Source pool seed script (import CSV → `sources` + `source_categories`)
+**Current Task:** **1.5.3** — `GET /api/sources` endpoint
 
 ---
 
@@ -15,10 +15,10 @@
 - **Blocked:** None
 
 ### Code Metrics
-- **Backend:** 38% (Auth + DB + Categories + Source CSV complete)
+- **Backend:** 42% (Auth + DB + Categories + Sources complete)
 - **Frontend:** 5% (Scaffold only)
 - **Database:** 100% (All migrations done)
-- **Seed Data:** 60% (Categories ✅, Sources CSV ✅, Sources import pending)
+- **Seed Data:** 100% (Categories ✅, Sources CSV ✅, Sources imported ✅)
 - **Tests:** 4/4 manual tests passed (OAuth, Categories seed, Categories API, Source CSV)
 
 ### Integration Status
@@ -50,10 +50,10 @@
 - [x] 1.4.1 - Seed 10 categories migration ✅
 - [x] 1.4.2 - Implement GET /api/categories endpoint ✅
 - [x] 1.5.1 - Create source pool CSV seed data ✅
-- [ ] 1.5.2 - Implement source pool seed script
+- [x] 1.5.2 - Implement source pool seed script ✅
 - [ ] 1.5.3 - Implement GET /api/sources endpoint
 
-**Next Task:** 1.5.2 (source pool seed script)
+**Next Task:** 1.5.3 (`GET /api/sources` endpoint)
 
 ### Phase 3: Pipeline Core (Tasks 1.6-1.9) — 11 tasks
 _(Will expand after Phase 2 complete)_
@@ -67,24 +67,24 @@ _(Will expand after Phase 3 complete)_
 
 ### Vừa Hoàn Thành
 
-✅ **Task 1.5.1** — Source pool CSV seed data (35 phút)
+✅ **Task 1.5.2** — Source pool seeder script (26 phút)
 
-- 80 Twitter KOL accounts sample data
-- Format: CSV với categories mapping
-- Fixed: UTF-8 BOM issue
+- 80 sources imported from CSV
+- 190 category links created
+- M:N relationship verified
 
 ### Đang Làm
 
-Không có task nào đang in progress.
+Không có
 
 ### Task Tiếp Theo
 
-🔜 **Task 1.5.2** — Implement source pool seed script
+🔜 **Task 1.5.3** — `GET /api/sources` endpoint
 
 - **Loại:** STANDARD
-- **Ước tính:** 20–30 phút
-- **Dependencies:** Task 1.5.1 ✅ (CSV ready)
-- **Mục tiêu:** Import CSV → populate `sources` + `source_categories` tables
+- **Ước tính:** 15–20 phút
+- **Dependencies:** Task 1.5.2 ✅
+- **Mục tiêu:** REST API trả về sources kèm categories
 
 ---
 
@@ -97,7 +97,7 @@ Không có task nào đang in progress.
 ## Next Session Plan
 
 ### Target
-- **1.5.2** — seed script import CSV; song song có thể **1.3.3** (onboarding UI) tuỳ ưu tiên.
+- **1.5.3** — `GET /api/sources`; song song có thể **1.3.3** (onboarding UI) tuỳ ưu tiên.
 
 ### Pre-requisites
 - [x] WSL / dev environment
@@ -105,13 +105,26 @@ Không có task nào đang in progress.
 - [x] OAuth X.com (1.3.1)
 - [x] Category seed + API (1.4.1–1.4.2)
 - [x] Source pool CSV (1.5.1)
+- [x] Source pool seeder (1.5.2)
 
 ### Expected Duration
-Tuỳ scope task tiếp theo (1.5.2 vs 1.3.3)
+Tuỳ scope task tiếp theo (1.5.3 vs 1.3.3)
 
 ---
 
 ## Recent Decisions
+
+**2026-04-07 14:34 +07 — Task 1.5.2 Seeder Success**
+
+- **Quyết định:** Import trực tiếp từ CSV vào DB (không qua API).
+- **Lý do:**
+  - Seeder pattern phù hợp cho platform-curated data
+  - Transaction-wrapped đảm bảo data integrity
+  - Preload categories mapping tránh N+1 queries
+- **Kết quả:**
+  - ✅ 80 sources imported successfully
+  - ✅ 190 category links created (avg 2.4/source)
+  - ✅ No errors, data integrity perfect
 
 **2026-04-07 13:55 — Task 1.5.1 Sample Data Strategy**
 

@@ -4,8 +4,8 @@
 **Date:** 2026-04-06
 **Phase:** Giai đoạn 3 - Implementation
 **Sprint:** Sprint 1 - Wedge Delivery
-**Tasks Covered (đã làm):** 1.1.1 – 1.2.5, **1.3.1** (OAuth X.com), **1.4.1** (categories seed), **1.4.2** (`GET /api/categories`), **1.5.1** (source pool CSV 80 rows)  
-**Next:** **1.5.2** — source pool seeder script; **1.3.2** / **1.3.3** — verify / onboarding UI (tuỳ ưu tiên)
+**Tasks Covered (đã làm):** 1.1.1 – 1.2.5, **1.3.1** (OAuth X.com), **1.4.1** (categories seed), **1.4.2** (`GET /api/categories`), **1.5.1** (source pool CSV 80 rows), **1.5.2** (source pool seeder)  
+**Next:** **1.3.2** / **1.3.3** — verify / onboarding UI (tuỳ ưu tiên)
 
 **Lưu ý cho agent / Claude:** Khi user chỉ nhắc `SESSION-LOG` + SPEC để **cập nhật log / context**, **không** tự implement code trừ khi user ghi rõ *Implement Feature* / *làm task X*. OAuth X.com (1.3.1) **đã có trong repo** (Socialite + `twitter-oauth-2`).
 
@@ -546,7 +546,7 @@ Không có lỗi. API endpoint hoạt động ngay lập tức.
 
 **1.4.1 / 1.4.2:** ✅ Categories seed + `GET /api/categories`.
 
-**Tiếp theo:** `IMPLEMENTATION-ROADMAP.md` — **1.5.2** source pool seeder script; **1.3.2** / **1.3.3** (verify / onboarding UI) tuỳ ưu tiên.
+**Tiếp theo:** `IMPLEMENTATION-ROADMAP.md` — **1.3.2** / **1.3.3** (verify / onboarding UI) tuỳ ưu tiên.
 
 **Contract (`SPEC-api.md` §11):** `GET /auth/twitter`, `GET /auth/twitter/callback`; redirect URI khớp X Developer Portal + env.
 
@@ -563,6 +563,7 @@ Không có lỗi. API endpoint hoạt động ngay lập tức.
 | 2026-04-06 | **Task 1.3.1:** OAuth X.com — `TwitterAuthController`, `AuthService`, routes, `config/services.php` (`twitter-oauth-2`), Socialite ^5.26; fix driver + scopes (`offline.access`); audit `oauth_login`; E2E happy path verified. |
 | 2026-04-07 | **Tasks 1.4.1–1.4.2:** `CategorySeeder` (10 categories, UTC, TRUNCATE+seed PG), `DatabaseSeeder`; `Category` model, `CategoryController`, `CategoryResource`, `GET /api/categories`; manual verify + curl. |
 | 2026-04-07 | **Task 1.5.1:** `database/seeders/data/source_pool.csv` — 80 KOL + header, UTF-8, BOM removed; ready for 1.5.2 seeder. |
+| 2026-04-07 | **Task 1.5.2:** `SourcePoolSeeder`, model `Source`; CSV → `sources` + `source_categories`; PG `TRUNCATE … CASCADE`; `migrate:fresh --seed` verified 80 sources / 190 links. |
 
 ---
 
@@ -693,3 +694,195 @@ git commit -m "feat(data): Task 1.5.1 - Source pool CSV"
 - ✅ Format đúng; BOM đã xóa
 - ✅ Data quality tốt
 - ✅ Task 1.5.1 hoàn thành — **ready cho Task 1.5.2** (seeder script)
+
+---
+
+## Task 1.5.2 - Implement Source Pool Seed Script
+
+**Started:** 14:06  
+**Completed:** 2026-04-07 14:32 +07  
+**Duration:** 26 phút  
+**Status:** ✅ DONE  
+**Type:** STANDARD  
+**Source:** IMPLEMENTATION-ROADMAP.md line 32
+
+### Requirements
+
+**Từ IMPLEMENTATION-ROADMAP.md Task 1.5.2:**
+
+- Artisan command import CSV → tạo `Source` records (`type='default'`)
+- Tạo `SourceCategory` links (quan hệ M:N)
+- Parse categories từ CSV (chuỗi pipe-separated)
+- Set `tenant_id = 1` cho tất cả records
+
+**Từ SPEC-core.md Flow 1:**
+
+- Source `status`: `'active'` (Option A — user-added sources cũng active ngay)
+- Source `type`: `'default'` (platform-curated pool)
+
+**Từ SPEC-api.md Section 9:**
+
+- Bảng `sources`: `id`, `type`, `status`, `x_handle`, `x_user_id`, `display_name`, `account_url`, `last_crawled_at`, `added_by_user_id`, `tenant_id`, timestamps
+- Bảng `source_categories`: `source_id`, `category_id`, `tenant_id`, `created_at`
+
+### Files to Create
+
+- `database/seeders/SourcePoolSeeder.php` (new)
+
+### Files to Modify
+
+- `database/seeders/DatabaseSeeder.php` (thêm call `SourcePoolSeeder`)
+
+### Verification Method
+
+```bash
+# Chạy seeder
+php artisan db:seed --class=SourcePoolSeeder
+
+# Kiểm tra sources table
+psql -U signalfeed -d signalfeed -c "SELECT COUNT(*) FROM sources;"
+# Expected: 80 (từ CSV)
+
+# Kiểm tra source_categories junction table
+psql -U signalfeed -d signalfeed -c "SELECT COUNT(*) FROM source_categories;"
+# Expected: ~120–160 (vì mỗi source có 1–3 categories)
+
+# Kiểm tra data mẫu
+psql -U signalfeed -d signalfeed -c "
+SELECT s.id, s.x_handle, s.display_name, s.status, s.type
+FROM sources s
+LIMIT 5;
+"
+```
+
+### Implementation Notes
+
+**Files Created:**
+
+- `database/seeders/SourcePoolSeeder.php`
+- `app/Models/Source.php`
+
+**Hành vi chính:**
+
+- Đọc CSV từ `database/seeders/data/source_pool.csv`
+- Parse categories (chuỗi pipe-separated `|`)
+- Insert `sources` với `type='default'`, `status='active'`, `tenant_id=1`
+- Tạo liên kết M:N trong `source_categories`
+- Bọc truncate + import trong một transaction DB (`beginTransaction` / `commit` / `rollBack`)
+
+**Files Modified:**
+
+- `database/seeders/DatabaseSeeder.php` — thêm `SourcePoolSeeder` sau `CategorySeeder`
+
+**Implementation details:**
+
+- CSV parsing: PHP `fgetcsv` (không thêm package; khớp SPEC dependency)
+- Categories: preload map `name → id` trong memory (tránh N+1)
+- Transaction: một transaction cho toàn bộ seeder; rollback khi lỗi nghiêm trọng
+- Error handling: cảnh báo category thiếu tên; bỏ qua row không hợp lệ; tóm tắt success/skipped
+- Progress: `$this->command->info` mỗi 10 sources
+- PostgreSQL dev: `TRUNCATE … CASCADE` trên bảng phụ thuộc `sources` trước khi seed lại
+
+### Test Results
+
+**Tested at:** 2026-04-07 14:32 +07
+
+**Test 1: Sources Import** ✅
+
+```bash
+psql -U ipro -d signalfeed -c "SELECT COUNT(*) FROM sources;"
+# Output: 80
+```
+
+**Result:** ✅ PASS — Đúng 80 sources từ CSV
+
+**Test 2: Sources Data Quality** ✅
+
+```sql
+SELECT id, x_handle, display_name, type, status FROM sources LIMIT 5;
+```
+
+**Output:**
+
+| id | x_handle       | display_name    | type    | status |
+|----|----------------|-----------------|---------|--------|
+| 1  | karpathy       | Andrej Karpathy | default | active |
+| 2  | ylecun         | Yann LeCun      | default | active |
+| 3  | goodfellow_ian | Ian Goodfellow  | default | active |
+| 4  | AndrewYNg      | Andrew Ng       | default | active |
+| 5  | hardmaru       | David Ha        | default | active |
+
+**Result:** ✅ PASS — Data chính xác, type/status đúng
+
+**Test 3: Categories Linking** ✅
+
+```sql
+SELECT
+  COUNT(*) AS total_links,
+  COUNT(DISTINCT source_id) AS unique_sources,
+  COUNT(DISTINCT category_id) AS unique_categories
+FROM source_categories;
+```
+
+**Output:**
+
+| total_links | unique_sources | unique_categories |
+|-------------|----------------|-------------------|
+| 190         | 80             | 10                |
+
+**Result:** ✅ PASS — Tất cả sources có categories; ~2.4 categories/source
+
+**Test 4: Categories Distribution** ✅
+
+```sql
+SELECT c.name, COUNT(sc.source_id) AS source_count
+FROM categories c
+LEFT JOIN source_categories sc ON c.id = sc.category_id
+GROUP BY c.id, c.name
+ORDER BY source_count DESC;
+```
+
+**Output:**
+
+| name            | source_count |
+|-----------------|--------------|
+| Startups        | 44           |
+| Tech News       | 29           |
+| Marketing       | 24           |
+| SaaS            | 19           |
+| Developer Tools | 17           |
+| AI & ML         | 17           |
+| Crypto & Web3   | 13           |
+| Indie Hacking   | 13           |
+| Design          | 10           |
+| Productivity    | 4            |
+
+**Result:** ✅ PASS — Phân bố hợp lý; mọi category đều có ít nhất một source
+
+**Test 5: Data Integrity** ✅
+
+- Foreign keys: ✅ không bản ghi orphan
+- Unique `x_handle`: ✅ không trùng
+- Timestamps: ✅ mọi bản ghi có `created_at`, `updated_at` (UTC)
+
+**Tổng kết:** ✅ TẤT CẢ TESTS PASS
+
+### Issues Encountered
+
+Không có lỗi phát sinh. Seeder hoạt động hoàn hảo ngay lần đầu.
+
+### Prompt Budget
+
+- **Prompts used:** 2/5 ✅  
+  - Claude Web: strategy + implementation guidance  
+  - Cursor: generate `SourcePoolSeeder` + model `Source`
+- **Iterations:** 0 (success ngay lần đầu)
+- **Efficiency:** Excellent
+
+### Git Commit
+
+```bash
+git commit -m "feat(data): Task 1.5.2 - Source pool seeder script"
+```
+
+**Tag:** `task-1.5.2-complete`
