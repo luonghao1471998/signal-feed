@@ -220,6 +220,73 @@ git commit -m "feat(auth): Task 1.3.1 - OAuth X.com authentication
 
 ---
 
+## Task 1.4.1 - Seed 10 Categories Migration
+
+**Started:** 13:03
+**Status:** 🚧 In Progress
+**Type:** STANDARD
+**Source:** IMPLEMENTATION-ROADMAP.md line 29
+
+### Requirements
+- Seed 10 hardcoded categories to database
+- Categories: AI/ML, Crypto, Marketing, Startups, Tech News, DevTools, Design, SaaS, Indie, Productivity
+- All with tenant_id = 1
+
+### Files to Create/Modify
+- database/seeders/CategorySeeder.php (new)
+- database/seeders/DatabaseSeeder.php (modify)
+
+### Verification Method
+```sql
+psql -U signalfeed -d signalfeed -c "SELECT COUNT(*) FROM categories;"
+-- Expected: 10
+```
+
+### Cursor Prompt Used
+_(Will fill after Claude Web generates prompt)_
+
+### Implementation Notes
+_(Will fill during implementation)_
+
+### Test Results
+_(Will fill after running seeder)_
+
+### Issues Encountered
+_(Will fill if any errors occur)_
+
+---
+
+## Task 1.4.2 - GET /api/categories Endpoint
+
+**Started:** [TBD]
+**Status:** ⏸️ Pending (after 1.4.1)
+**Type:** STANDARD
+**Source:** IMPLEMENTATION-ROADMAP.md line 30
+
+### Requirements
+- REST endpoint: GET /api/categories
+- Return all categories as JSON
+- Use Laravel Resource pattern
+
+### Files to Create/Modify
+- app/Http/Controllers/Api/CategoryController.php (new)
+- app/Http/Resources/CategoryResource.php (new)
+- routes/api.php (modify)
+
+### Verification Method
+```bash
+curl http://127.0.0.1:8001/api/categories
+# Expected: 200 OK with 10 categories JSON
+```
+
+### Cursor Prompt Used
+_(Will fill after implementation)_
+
+### Test Results
+_(Will fill after testing)_
+
+---
+
 ## Next Focus
 
 **1.3.1:** ✅ Hoàn thành (Socialite, `twitter-oauth-2`, audit `oauth_login`, session web).
