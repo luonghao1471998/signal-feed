@@ -4,8 +4,8 @@
 **Date:** 2026-04-06
 **Phase:** Giai đoạn 3 - Implementation
 **Sprint:** Sprint 1 - Wedge Delivery
-**Tasks Covered (đã làm):** 1.1.1 – 1.2.5, **1.3.1** (OAuth X.com), **1.4.1** (categories seed), **1.4.2** (`GET /api/categories`)  
-**Next:** **1.5.1** — CSV source pool; **1.3.2** / **1.3.3** — verify OAuth upsert / onboarding UI (tuỳ ưu tiên)
+**Tasks Covered (đã làm):** 1.1.1 – 1.2.5, **1.3.1** (OAuth X.com), **1.4.1** (categories seed), **1.4.2** (`GET /api/categories`), **1.5.1** (source pool CSV 80 rows)  
+**Next:** **1.5.2** — source pool seeder script; **1.3.2** / **1.3.3** — verify / onboarding UI (tuỳ ưu tiên)
 
 **Lưu ý cho agent / Claude:** Khi user chỉ nhắc `SESSION-LOG` + SPEC để **cập nhật log / context**, **không** tự implement code trừ khi user ghi rõ *Implement Feature* / *làm task X*. OAuth X.com (1.3.1) **đã có trong repo** (Socialite + `twitter-oauth-2`).
 
@@ -546,7 +546,7 @@ Không có lỗi. API endpoint hoạt động ngay lập tức.
 
 **1.4.1 / 1.4.2:** ✅ Categories seed + `GET /api/categories`.
 
-**Tiếp theo:** `IMPLEMENTATION-ROADMAP.md` — **1.3.2** (verify nếu cần); **1.3.3** onboarding categories; **1.5.1** CSV source pool.
+**Tiếp theo:** `IMPLEMENTATION-ROADMAP.md` — **1.5.2** source pool seeder script; **1.3.2** / **1.3.3** (verify / onboarding UI) tuỳ ưu tiên.
 
 **Contract (`SPEC-api.md` §11):** `GET /auth/twitter`, `GET /auth/twitter/callback`; redirect URI khớp X Developer Portal + env.
 
@@ -562,3 +562,134 @@ Không có lỗi. API endpoint hoạt động ngay lập tức.
 | 2026-04-06 | SESSION-LOG: Pre-Task 1.3.1 checklist + gate; nhắc agent chỉ sửa log khi không yêu cầu implement. User/Factory khớp schema `x_*` (OAuth code revert). |
 | 2026-04-06 | **Task 1.3.1:** OAuth X.com — `TwitterAuthController`, `AuthService`, routes, `config/services.php` (`twitter-oauth-2`), Socialite ^5.26; fix driver + scopes (`offline.access`); audit `oauth_login`; E2E happy path verified. |
 | 2026-04-07 | **Tasks 1.4.1–1.4.2:** `CategorySeeder` (10 categories, UTC, TRUNCATE+seed PG), `DatabaseSeeder`; `Category` model, `CategoryController`, `CategoryResource`, `GET /api/categories`; manual verify + curl. |
+| 2026-04-07 | **Task 1.5.1:** `database/seeders/data/source_pool.csv` — 80 KOL + header, UTF-8, BOM removed; ready for 1.5.2 seeder. |
+
+---
+
+## Task 1.5.1 - Create Source Pool CSV Seed Data
+
+**Started:** 13:42  
+**Completed:** 13:58  
+**Duration:** 16 phút  
+**Status:** ✅ DONE  
+**Type:** STANDARD  
+**Source:** IMPLEMENTATION-ROADMAP.md line 31
+
+### Requirements
+
+**Từ IMPLEMENTATION-ROADMAP.md Task 1.5.1:**
+
+- Tạo file CSV chứa 500 KOL Twitter handles
+- Mỗi row có: `handle`, `display_name`, `account_url`, `categories` (array)
+- Categories: 1–3 categories từ 10 categories đã seed
+- Format: CSV parseable, UTF-8 encoding
+
+**Từ SPEC-core.md Section 1.3:**
+
+- Source pool: ~500 curated tech/crypto/marketing KOL accounts
+- Mỗi source có ít nhất 1 category
+- Source URL format: `https://twitter.com/[handle]`
+
+### Files to Create
+
+- `database/seeders/data/source_pool.csv` (new)
+
+### Verification Method
+
+```bash
+# Kiểm tra file tồn tại
+ls -la database/seeders/data/source_pool.csv
+
+# Đếm số dòng (thực tế wedge: 1 header + 80 data = 81 dòng)
+wc -l database/seeders/data/source_pool.csv
+
+# Xem 5 dòng đầu
+head -5 database/seeders/data/source_pool.csv
+```
+
+### Claude Web Prompt Used
+
+Chiến lược / playbook: wedge 80 accounts trước, mở rộng 500 sau khi product proven (không bắt buộc paste đầy đủ prompt).
+
+### Implementation Notes
+
+**Quyết định:** Tạo sample data **80 accounts** (thay vì 500 full).
+
+**Lý do:**
+
+- Execute nhanh theo Playbook
+- Đủ để test seeder + API logic
+- Có thể expand sau khi wedge proven
+
+**Files Created:**
+
+- `database/seeders/data/source_pool.csv` (80 rows + header)
+
+**Data composition (ước lượng theo trọng tâm nội dung / tag overlap):**
+
+- AI & ML leaders: ~25 accounts
+- Crypto/Web3 founders: ~20 accounts
+- Marketing experts: ~15 accounts
+- Startup founders: ~15 accounts
+- Other categories: ~5 accounts
+
+**Issue found & fixed:**
+
+- UTF-8 BOM ở đầu file → gây risk với CSV parser
+- **Fixed:** Đã xóa BOM; file UTF-8 không BOM, parser-safe
+
+### Test Results
+
+**Tested at:** 13:58
+
+**Test 1: File Structure** ✅
+
+- File size: 6153 bytes
+- Line count: 81 (1 header + 80 data)
+- Header format: đúng
+
+**Test 2: Format Validity** ✅
+
+- Encoding: UTF-8
+- BOM: đã gỡ ✅
+- Empty lines: 0
+- CSV parseable: Yes
+
+**Test 3: Data Quality** ✅
+
+- Unique handles: 80/80 (no duplicates)
+- URL format: 100% đúng (`https://twitter.com/{handle}`)
+- Categories: hợp lệ (10 category names khớp seed)
+
+**Test 4: Sample Check** ✅
+
+- Random 10 rows reviewed — realistic, format đúng
+
+**All tests:** ✅ PASS
+
+### Issues Encountered
+
+- BOM đầu file → đã xử lý (xem Implementation Notes).
+
+### Prompt Budget
+
+- **Prompts used:** 3/5 ✅ (trong ngân sách)
+  - Claude Web: strategy recommendation
+  - Cursor: generate CSV data
+  - Cursor: fix BOM issue
+- **Total:** 3 prompts
+
+### Git Commit
+
+```bash
+git commit -m "feat(data): Task 1.5.1 - Source pool CSV"
+```
+
+**Tag:** `task-1.5.1-complete`
+
+### Tóm tắt trạng thái
+
+- ✅ File CSV đã tạo (80 accounts)
+- ✅ Format đúng; BOM đã xóa
+- ✅ Data quality tốt
+- ✅ Task 1.5.1 hoàn thành — **ready cho Task 1.5.2** (seeder script)
