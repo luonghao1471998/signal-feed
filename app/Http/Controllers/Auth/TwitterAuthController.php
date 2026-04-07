@@ -61,7 +61,7 @@ class TwitterAuthController extends Controller
                 'x_username' => $user->x_username,
             ]);
 
-            return redirect('/')
+            return redirect('/digest')
                 ->with('success', 'Successfully logged in!');
         } catch (InvalidStateException $e) {
             Log::warning('Twitter OAuth invalid state', [
