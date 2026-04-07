@@ -1,0 +1,81 @@
+handle,display_name,account_url,categories
+karpathy,Andrej Karpathy,https://twitter.com/karpathy,AI & ML|Tech News
+ylecun,Yann LeCun,https://twitter.com/ylecun,AI & ML|Tech News
+goodfellow_ian,Ian Goodfellow,https://twitter.com/goodfellow_ian,AI & ML
+AndrewYNg,Andrew Ng,https://twitter.com/AndrewYNg,AI & ML|Startups
+hardmaru,David Ha,https://twitter.com/hardmaru,AI & ML|Developer Tools
+emollick,Ethan Mollick,https://twitter.com/emollick,AI & ML|Startups|Marketing
+sama,Sam Altman,https://twitter.com/sama,AI & ML|Startups|Tech News
+gdb,Greg Brockman,https://twitter.com/gdb,AI & ML|Developer Tools|Startups
+fchollet,François Chollet,https://twitter.com/fchollet,AI & ML
+lexfridman,Lex Fridman,https://twitter.com/lexfridman,AI & ML|Tech News
+jeremyphoward,Jeremy Howard,https://twitter.com/jeremyphoward,AI & ML|Startups
+lilianweng,Lilian Weng,https://twitter.com/lilianweng,AI & ML
+VitalikButerin,Vitalik Buterin,https://twitter.com/VitalikButerin,Crypto & Web3|Startups
+cz_binance,Changpeng Zhao,https://twitter.com/cz_binance,Crypto & Web3|Marketing
+balajis,Balaji Srinivasan,https://twitter.com/balajis,Crypto & Web3|Startups|Tech News
+APompliano,Anthony Pompliano,https://twitter.com/APompliano,Crypto & Web3|Marketing
+hasufl,Hasu,https://twitter.com/hasufl,Crypto & Web3|Tech News
+lawmaster,Larry Cermak,https://twitter.com/lawmaster,Crypto & Web3|Tech News
+sassal0x,Sassal,https://twitter.com/sassal0x,Crypto & Web3|Tech News
+rleshner,Robert Leshner,https://twitter.com/rleshner,Crypto & Web3|Startups
+haydenzadams,Hayden Adams,https://twitter.com/haydenzadams,Crypto & Web3|Developer Tools
+cdixon,Chris Dixon,https://twitter.com/cdixon,Crypto & Web3|Startups|Tech News
+hnshah,Hiten Shah,https://twitter.com/hnshah,Marketing|Startups|SaaS
+jhooks,Joel Hooks,https://twitter.com/jhooks,Marketing|Startups
+andrewchen,Andrew Chen,https://twitter.com/andrewchen,Marketing|Startups|Tech News
+randfish,Rand Fishkin,https://twitter.com/randfish,Marketing|Startups
+AprilDunford,April Dunford,https://twitter.com/AprilDunford,Marketing|Startups
+neilpatel,Neil Patel,https://twitter.com/neilpatel,Marketing
+thejustinwelsh,Justin Welsh,https://twitter.com/thejustinwelsh,Marketing|SaaS|Indie Hacking
+katelynbourgoin,Katelyn Bourgoin,https://twitter.com/katelynbourgoin,Marketing
+pmarca,Marc Andreessen,https://twitter.com/pmarca,Startups|AI & ML|Tech News
+paulg,Paul Graham,https://twitter.com/paulg,Startups
+ycombinator,Y Combinator,https://twitter.com/ycombinator,Startups|Tech News
+garrytan,Garry Tan,https://twitter.com/garrytan,Startups|Tech News
+jason,Jason Calacanis,https://twitter.com/jason,Startups|Marketing|Tech News
+chamath,Chamath Palihapitiya,https://twitter.com/chamath,Startups|Tech News
+patrick_oshag,Patrick O'Shaughnessy,https://twitter.com/patrick_oshag,Marketing|Startups|Tech News
+eriktorenberg,Erik Torenberg,https://twitter.com/eriktorenberg,Startups|Tech News
+mwseibel,Michael Seibel,https://twitter.com/mwseibel,Startups|AI & ML
+justinkan,Justin Kan,https://twitter.com/justinkan,Indie Hacking|Startups|Crypto & Web3
+rabois,Keith Rabois,https://twitter.com/rabois,Startups|Tech News
+naval,Naval Ravikant,https://twitter.com/naval,Startups|Crypto & Web3|Productivity
+benthompson,Ben Thompson,https://twitter.com/benthompson,Tech News|Startups|SaaS
+asymco,Horace Dediu,https://twitter.com/asymco,Tech News|Startups
+caseynewton,Casey Newton,https://twitter.com/caseynewton,Tech News|Startups
+mgsiegler,MG Siegler,https://twitter.com/mgsiegler,Tech News|Startups
+reckless,Nilay Patel,https://twitter.com/reckless,Tech News|Startups
+alexeheath,Alex Heath,https://twitter.com/alexeheath,Tech News|Startups
+pkafka,Peter Kafka,https://twitter.com/pkafka,Tech News|Marketing
+levie,Aaron Levie,https://twitter.com/levie,Tech News|Startups|SaaS
+natfriedman,Nat Friedman,https://twitter.com/natfriedman,Developer Tools|Startups|AI & ML
+dhh,David Heinemeier Hansson,https://twitter.com/dhh,Developer Tools|Startups|Productivity
+tjholowaychuk,TJ Holowaychuk,https://twitter.com/tjholowaychuk,Developer Tools
+rauchg,Guillermo Rauch,https://twitter.com/rauchg,Developer Tools|Design|SaaS
+zenorocha,Zeno Rocha,https://twitter.com/zenorocha,Developer Tools|Design
+cassidoo,Cassidy Williams,https://twitter.com/cassidoo,Developer Tools|Design|Tech News
+swyx,Shawn Wang,https://twitter.com/swyx,Developer Tools|Tech News|AI & ML
+ThePrimeagen,ThePrimeagen,https://twitter.com/ThePrimeagen,Developer Tools|Tech News|Indie Hacking
+jongold,Jon Gold,https://twitter.com/jongold,Design|Startups
+mds,Matt D. Smith,https://twitter.com/mds,Design
+rogie,Rogie King,https://twitter.com/rogie,Design|Developer Tools
+steveschoger,Steve Schoger,https://twitter.com/steveschoger,Design|SaaS
+chriscoyier,Chris Coyier,https://twitter.com/chriscoyier,Design|Developer Tools
+joulee,Julie Zhuo,https://twitter.com/joulee,Design|Startups|SaaS
+patio11,Patrick McKenzie,https://twitter.com/patio11,SaaS|Marketing|Indie Hacking
+agazdecki,Andrew Gazdecki,https://twitter.com/agazdecki,SaaS|Startups|Marketing
+mijustin,Justin Jackson,https://twitter.com/mijustin,SaaS|Indie Hacking|Marketing
+robwalling,Rob Walling,https://twitter.com/robwalling,SaaS|Startups|Indie Hacking
+dvassallo,Daniel Vassallo,https://twitter.com/dvassallo,SaaS|Indie Hacking|Crypto & Web3
+arvidkahl,Arvid Kahl,https://twitter.com/arvidkahl,SaaS|Marketing|Indie Hacking
+ajlkn,Adam Wathan,https://twitter.com/ajlkn,SaaS|Developer Tools|Design
+dharmesh,Dharmesh Shah,https://twitter.com/dharmesh,SaaS|Marketing|Startups
+lennysan,Lenny Rachitsky,https://twitter.com/lennysan,SaaS|Marketing|Startups
+levelsio,Pieter Levels,https://twitter.com/levelsio,Indie Hacking|SaaS|Startups
+dannypostmaa,Danny Postma,https://twitter.com/dannypostmaa,Indie Hacking|Developer Tools|Marketing
+marc_louvion,Marc Lou,https://twitter.com/marc_louvion,Indie Hacking|SaaS|Marketing
+tdinh_me,Tony Dinh,https://twitter.com/tdinh_me,Indie Hacking|Developer Tools|SaaS
+simonw,Simon Willison,https://twitter.com/simonw,Indie Hacking|Developer Tools|AI & ML
+fortelabs,Tiago Forte,https://twitter.com/fortelabs,Productivity|Marketing|Startups
+jamesclear,James Clear,https://twitter.com/jamesclear,Productivity|Marketing|Startups
