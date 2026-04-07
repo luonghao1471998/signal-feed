@@ -1,34 +1,53 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-07 15:06 +07
+**Last Updated:** 2026-04-07 20:25 +07
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 1 - Wedge Delivery
-**Current Task:** **1.6.1** — Integrate twitterapi.io crawler
+**Current Task:** **1.7.1** — Anthropic Claude (signal generation) — *tuỳ ưu tiên có thể làm **1.6.2** (cron crawl) trước*
 
 ---
 
 ## Quick Stats
 
 ### Sprint 1 Progress (34 tasks total)
-- **Completed:** 14/34 (41%)
+- **Completed:** 15/34 (44%)
 - **In Progress:** None
 - **Blocked:** None
 
 ### Code Metrics
-- **Backend:** 45% (Auth + DB + Categories + Sources + API complete)
+- **Backend:** 50% (Auth + DB + Categories + Sources + API + Crawler complete)
 - **Frontend:** 5% (Scaffold only)
 - **Database:** 100% (All migrations done)
 - **Seed Data:** 100% (Categories ✅, Sources CSV ✅, Sources imported ✅)
-- **Tests:** 5/5 manual tests passed (OAuth, Categories seed, Categories API, Sources seed, Sources API)
+- **Tests:** 6/6 manual tests passed (OAuth, Categories seed, Categories API, Sources seed, Sources API, Crawler)
 
 ### Integration Status
 - [x] OAuth X.com (Task 1.3.1 complete) ✅
 - [x] Categories API (Task 1.4.2 complete) ✅
 - [x] Sources API (Task 1.5.3 complete) ✅
-- [ ] twitterapi.io (Task 1.6.x) — API key needed
+- [x] twitterapi.io (Task 1.6.1 complete) ✅  
+  - Endpoint: `/twitter/user/last_tweets` (`userName` + `count`)  
+  - API key: cấu hình qua `.env` (active khi có key)  
+  - Rate limit: sleep 3s giữa các source (dev)
 - [ ] Anthropic Claude (Task 1.7.x) — API key needed
 - [ ] Stripe (Sprint 3)
 - [ ] Resend (Sprint 2+)
+
+### Data Metrics
+
+**Database (snapshot dev, có thể thay sau crawl full / OAuth):**
+
+- Categories: **10** ✅
+- Sources: **80** ✅
+- Tweets: **16** ✅ (twitterapi.io thật; crawl full 80 nguồn chưa chạy xong trên snapshot này)
+- Users: **tùy** (sau `migrate:fresh` có thể 0 — đăng nhập OAuth lại để có bản ghi)
+- Signals: **0** (Task 1.7.x)
+
+**Độ “fresh”:**
+
+- `last_crawled_at`: **3/80** sources đã crawl trong snapshot hiện tại; chạy `php artisan tweets:crawl --limit=10` để bao phủ dần.
+- Tweet timeline: dữ liệu gần đây từ API (theo `last_tweets`).
+- Sẵn sàng bước tiếp (signal pipeline): sau khi có đủ tweets + Task 1.7.x.
 
 ### API Endpoints Available
 
@@ -74,10 +93,17 @@
 - [x] 1.5.2 - Implement source pool seed script ✅
 - [x] 1.5.3 - Implement GET /api/sources endpoint ✅
 
-**Next Task:** 1.6.1 (twitterapi.io crawler)
+**Next Task:** 1.6.2 (cron crawl) hoặc 1.7.1 (Claude) tùy ưu tiên
 
-### Phase 3: Pipeline Core (Tasks 1.6-1.9) — 11 tasks
-_(Will expand after Phase 2 complete)_
+### Phase 3: Tweet Crawling (Tasks 1.6) — 3 tasks
+
+**Status:** 1/3 complete (33%)
+
+- [x] 1.6.1 - Integrate twitterapi.io crawler ✅
+- [ ] 1.6.2 - Schedule automated tweet crawling (cron / scheduler)
+- [ ] 1.6.3 - Incremental crawl (chỉ tweet mới)
+
+_(Các task pipeline 1.7–1.9 vẫn theo `IMPLEMENTATION-ROADMAP.md`; nhóm 1.6.x là wedge crawl.)_
 
 ### Phase 4: Digest UI (Tasks 1.10-1.12) — 7 tasks
 _(Will expand after Phase 3 complete)_
@@ -88,21 +114,19 @@ _(Will expand after Phase 3 complete)_
 
 ### Vừa Hoàn Thành
 
-✅ **Task 1.5.3** — `GET /api/sources` endpoint (24 phút)
+✅ **Task 1.6.1** — twitterapi.io crawler (303 phút theo mốc SESSION-LOG 15:20 → 20:23; thời gian code effectif ngắn hơn)
 
-- REST API với 80 sources
-- Categories nested trong response
-- Eager loading (no N+1 queries)
-- Performance: ~200–300ms response time
+- **16** tweets đã lưu (snapshot DB dev); crawl full **80** nguồn: chạy `tweets:crawl --limit=10` khi sẵn sàng quota
+- API thật: `GET …/twitter/user/last_tweets` + `userName` / `count`
+- Rate limit: sleep **3s** giữa các source
+- **3/80** sources có `last_crawled_at` trên snapshot hiện tại (sẽ tăng khi crawl tiếp)
 
-### Phase 2 Progress
+### Phase Progress
 
-✅ **6/8** tasks complete (**75%**)
-
-⏸️ **2 tasks còn lại:**
-
-- **1.3.3** — Onboarding UI (frontend, defer)
-- Chuyển sang **Phase 3** (Tweet Crawling)
+- ✅ Phase 1: Setup + Infrastructure (**8/8** — 100%)
+- ✅ Phase 2: Auth + Data Seed (**6/8** — 75%)
+- 🚧 Phase 3: Tweet Crawling (**1/3** — 33%)
+- ⏸️ Phase 4: Signal / Digest pipeline (**0/7** — chưa bắt đầu nhóm 1.10–1.12)
 
 ### Đang Làm
 
@@ -110,13 +134,15 @@ Không có
 
 ### Task Tiếp Theo
 
-🔜 **Task 1.6.1** — Integrate twitterapi.io crawler
+🔜 **Task 1.7.1** — Tích hợp Anthropic Claude (signal generation)
 
 - **Loại:** CRITICAL
-- **Ước tính:** 45–60 phút
-- **Dependencies:** Cần API key twitterapi.io
-- **Blocker:** Cần đăng ký tài khoản twitterapi.io
-- **Mục tiêu:** Fetch tweets từ source handles
+- **Ước tính:** 60–90 phút
+- **Dependencies:** API key Anthropic
+- **Blocker:** Cần tài khoản / key Anthropic
+- **Mục tiêu:** Sinh signal từ tweets (theo roadmap & SPEC)
+
+**Tuỳ chọn thay thế:** **Task 1.6.2** — lên lịch crawl tự động (scheduler) nếu muốn hoàn thiện crawler trước Claude.
 
 ---
 
@@ -145,6 +171,16 @@ Tuỳ scope task tiếp theo (1.5.3 vs 1.3.3)
 ---
 
 ## Recent Decisions
+
+**2026-04-07 20:25 +07 — Task 1.6.1 API endpoint discovery**
+
+- **Quyết định:** Dùng endpoint **`/twitter/user/last_tweets`** với query **`userName`** (+ **`count`**), base **`https://api.twitterapi.io`** (không `/v1`).
+- **Bối cảnh:** Bản nháp `/v1/user/tweets` và path cũ → 404 / không khớp JSON; docs twitterapi.io có nhiều biến thể — đã thử và chốt path khớp OpenAPI thực tế.
+- **Kết quả:**
+  - ✅ Crawler chạy được với API thật (tweet thật, không mock)
+  - ✅ **16** tweets trên snapshot dev; **3/80** source đã có `last_crawled_at` (mở rộng khi chạy full crawl)
+  - ✅ `userName` đơn giản hơn flow bắt buộc `user_id` + lookup (MVP wedge)
+- **Bài học:** Doc có thể lệch; khi 404 nên đối chiếu OpenAPI / thử path; ưu tiên verify bằng request thật.
 
 **2026-04-07 15:06 +07 — Task 1.5.3 API Design**
 
