@@ -45,4 +45,16 @@ return [
         'redirect' => env('TWITTER_CALLBACK_URL', env('TWITTER_REDIRECT_URI')),
     ],
 
+    /*
+    | twitterapi.io — crawl (Artisan tweets:crawl). Base: https://api.twitterapi.io (không /v1).
+    | GET /twitter/user/last_tweets?userName=&count= — response: data.tweets[] (hoặc tweets[] legacy).
+    */
+    'twitterapi' => [
+        'key' => env('TWITTERAPI_KEY', env('TWITTER_API_KEY')),
+        'base_url' => rtrim((string) (env('TWITTERAPI_BASE_URL', env('TWITTER_API_BASE_URL')) ?: 'https://api.twitterapi.io'), '/'),
+        'rate_limit_requests' => 420,
+        'rate_limit_window' => 900,
+        'timeout' => (int) env('TWITTERAPI_TIMEOUT', 30),
+    ],
+
 ];
