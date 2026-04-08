@@ -11,6 +11,60 @@
 
 ---
 
+### Session: 2026-04-08 - Task 1.7.1 Implementation Complete
+
+**Duration:** ~4 hours  
+**Objective:** Integrate Anthropic Claude API for AI-powered signal generation from tweets
+
+**Key Accomplishments:**
+
+1. ✅ Database migrations (impact_score, digest title)
+2. ✅ SignalGeneratorService implemented (350+ lines)
+3. ✅ Claude Sonnet 4 API integration working
+4. ✅ PostgreSQL array handling fixed
+5. ✅ Command `signals:generate` functional
+6. ✅ Successfully generated 5 signals from 16 tweets (31% conversion, 0.71 avg impact)
+
+**Technical Decisions:**
+
+- Model: `claude-sonnet-4-20250514` (Claude 3.5 deprecated)
+- PostgreSQL arrays: Used `DB::raw()` instead of Laravel casts to avoid serialization conflicts
+- Junction table: Added `ON CONFLICT DO NOTHING` to prevent duplicate key violations
+- Batch size: 100 tweets/batch (configurable)
+- Cost: ~$0.05 per 16-100 tweets (~$0.03-0.05/day in production)
+
+**Challenges Resolved:**
+
+1. Model name discovery (404 errors) → Found correct model via test script
+2. PostgreSQL array format (`[1]` vs `{1}`) → Used DB::raw for proper format
+3. Duplicate junction keys → ON CONFLICT handling
+4. Laravel array mutators interfering → Switched to insertGetId with raw values
+
+**Files Modified:**
+
+- `database/migrations/2026_04_07_210000_add_impact_score_to_signals.php` (new)
+- `database/migrations/2026_04_08_010000_add_title_to_digests_table.php` (new)
+- `config/anthropic.php` (new)
+- `app/Models/Signal.php` (updated - custom array getters)
+- `app/Models/Tweet.php` (updated)
+- `app/Models/Digest.php` (updated)
+- `app/Services/SignalGeneratorService.php` (new - 350 lines)
+- `app/Console/Commands/GenerateSignalsCommand.php` (new)
+
+**API Credits:**
+
+- Purchased: $5.00
+- Spent: ~$0.05 (testing)
+- Remaining: $4.95
+
+**Next Session Goals:**
+
+- Schedule daily signal generation (cron: 7:00 AM)
+- Update SPEC-api.md with actual implementation details
+- Add monitoring/logging for production
+
+---
+
 ## Pre-Session Checklist
 
 1. [x] Reviewed PROJECT-STATUS.md — check ngay
@@ -1369,3 +1423,149 @@ git commit -m "feat(crawler): Task 1.6.1 - twitterapi.io integration"
 ```
 
 **Tag:** `task-1.6.1-complete`
+
+---
+
+## Task 1.7.1 - Integrate Anthropic Claude for Signal Generation
+
+**Started:** 20:48  
+**Status:** 🚧 In Progress  
+**Type:** CRITICAL  
+**Source:** IMPLEMENTATION-ROADMAP.md line 37
+
+### Requirements
+
+**Từ IMPLEMENTATION-ROADMAP.md Task 1.7.1:**
+
+- Artisan command analyze tweets → generate signals
+- Use Anthropic Claude API (model theo SPEC / env, ví dụ family Sonnet hoặc Haiku Phase 1)
+- Store signals vào bảng `signals`
+- Signals = actionable insights extracted từ tweets (theo Flow 3)
+
+**Từ SPEC-api.md Section 10.1 — Anthropic Claude API:**
+
+```
+Model: (theo SPEC / prompt version — verify trước khi lock)
+Endpoint: POST https://api.anthropic.com/v1/messages
+Headers:
+  - x-api-key: {API_KEY}
+  - anthropic-version: 2023-06-01
+  - content-type: application/json
+
+Request body (khái niệm):
+{
+  "model": "<model_id>",
+  "max_tokens": 1024,
+  "messages": [
+    {"role": "user", "content": "…"}
+  ]
+}
+```
+
+**Từ SPEC-core.md Flow 3 — Signal generation:**
+
+- Input: batch tweets gần đây (sau crawl / classify)
+- Process: LLM phân tích, cluster / summarize theo roadmap Phase 1 (**prompt-based** đã lock)
+- Output: signals gắn digest / ranking — chi tiết cột DB dưới đây
+
+**Từ SPEC-api.md Section 9 — bảng `signals` (migration lock hiện tại):**
+
+```sql
+id BIGSERIAL PRIMARY KEY
+digest_id BIGINT NOT NULL REFERENCES digests(id) ON DELETE CASCADE
+cluster_id VARCHAR(100) NOT NULL
+title VARCHAR(200) NOT NULL
+summary TEXT NOT NULL
+categories INTEGER[] DEFAULT '{}'
+topic_tags VARCHAR(50)[] DEFAULT '{}'
+source_count INT NOT NULL DEFAULT 0
+rank_score DECIMAL(5,4) DEFAULT 0
+tenant_id BIGINT NOT NULL DEFAULT 1
+created_at, updated_at TIMESTAMPTZ
+```
+
+_(Không có `impact_score` / `related_tweet_ids` / `category_id` đơn trong migration lock — attribution tweet ↔ signal qua `signal_sources` / digest pipeline theo SPEC.)_
+
+**Từ CLAUDE.md:**
+
+- Command → Service → Model
+- External API: try/catch, logging, audit nếu áp dụng
+- Batch / prompt versioning (`docs/prompts/v1/`)
+
+### Pre-requisites
+
+**BLOCKER** — Cần Anthropic API key:
+
+```bash
+# 1. Sign up tại https://console.anthropic.com
+# 2. API key trong Settings
+# 3. Add to .env:
+ANTHROPIC_API_KEY=sk-ant-api03-...
+
+# 4. Verify (không commit key thật):
+curl https://api.anthropic.com/v1/messages \
+  --header "x-api-key: $ANTHROPIC_API_KEY" \
+  --header "anthropic-version: 2023-06-01" \
+  --header "content-type: application/json" \
+  --data '{"model":"claude-3-5-haiku-20241022","max_tokens":100,"messages":[{"role":"user","content":"Hello"}]}'
+```
+
+Nếu chưa có API key: SKIP task này.
+
+### Files to Create
+
+- `app/Console/Commands/GenerateSignalsCommand.php` (new)
+- `app/Services/SignalGeneratorService.php` (new)
+
+### Files to Modify
+
+- `config/services.php` (thêm `anthropic` config)
+- `app/Models/Signal.php` (nếu chưa có)
+- Có thể cần `Digest` / job pipeline — đối chiếu task roadmap chi tiết
+
+### Verification Method
+
+```bash
+# Chạy signal generation (signature tên lệnh TBD theo implement)
+php artisan signals:generate
+
+# Kỳ vọng (mô tả): phân tích batch tweet → gọi Anthropic → ghi signals + quan hệ digest/signal_sources theo SPEC
+
+# Đếm signals
+psql -U ipro -d signalfeed -c "SELECT COUNT(*) FROM signals;"
+
+# Mẫu signal (schema thực tế)
+psql -U ipro -d signalfeed -c "
+SELECT id, digest_id, cluster_id, LEFT(title, 60) AS title_preview, rank_score, source_count
+FROM signals
+ORDER BY rank_score DESC
+LIMIT 5;
+"
+
+# Liên kết signal ↔ tweets (junction signal_sources — khi đã có dữ liệu)
+psql -U ipro -d signalfeed -c "
+SELECT signal_id, source_id, tweet_id
+FROM signal_sources
+LIMIT 10;
+"
+```
+
+### Claude Web Prompt Used
+
+_(Sẽ paste sau khi nhận response từ Claude Web)_
+
+### Cursor Prompt Used
+
+_(Sẽ paste sau khi Cursor implement)_
+
+### Implementation Notes
+
+_(Sẽ điền trong quá trình implementation)_
+
+### Test Results
+
+_(Sẽ điền sau khi chạy generator)_
+
+### Issues Encountered
+
+_(Sẽ điền nếu có lỗi)_

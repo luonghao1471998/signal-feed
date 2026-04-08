@@ -1,21 +1,21 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-07 20:25 +07
+**Last Updated:** 2026-04-08 (Task 1.7.1 complete)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 1 - Wedge Delivery
-**Current Task:** **1.7.1** — Anthropic Claude (signal generation) — *tuỳ ưu tiên có thể làm **1.6.2** (cron crawl) trước*
+**Current Task:** **1.7.2** — Build Digest Compilation Engine — *tuỳ ưu tiên có thể làm **1.6.2** (cron crawl) trước*
 
 ---
 
 ## Quick Stats
 
 ### Sprint 1 Progress (34 tasks total)
-- **Completed:** 15/34 (44%)
+- **Completed:** 16/34 (47%)
 - **In Progress:** None
 - **Blocked:** None
 
 ### Code Metrics
-- **Backend:** 50% (Auth + DB + Categories + Sources + API + Crawler complete)
+- **Backend:** 55% (Auth + DB + Categories + Sources + API + Crawler + Signal generation complete)
 - **Frontend:** 5% (Scaffold only)
 - **Database:** 100% (All migrations done)
 - **Seed Data:** 100% (Categories ✅, Sources CSV ✅, Sources imported ✅)
@@ -29,7 +29,10 @@
   - Endpoint: `/twitter/user/last_tweets` (`userName` + `count`)  
   - API key: cấu hình qua `.env` (active khi có key)  
   - Rate limit: sleep 3s giữa các source (dev)
-- [ ] Anthropic Claude (Task 1.7.x) — API key needed
+- [x] Anthropic Claude (Task 1.7.1 complete) ✅  
+  - Model: `claude-sonnet-4-20250514`  
+  - Command: `php artisan signals:generate [--date] [--dry-run]`  
+  - Credits: ~$4.95 remaining (snapshot sau test)
 - [ ] Stripe (Sprint 3)
 - [ ] Resend (Sprint 2+)
 
@@ -41,7 +44,7 @@
 - Sources: **80** ✅
 - Tweets: **16** ✅ (twitterapi.io thật; crawl full 80 nguồn chưa chạy xong trên snapshot này)
 - Users: **tùy** (sau `migrate:fresh` có thể 0 — đăng nhập OAuth lại để có bản ghi)
-- Signals: **0** (Task 1.7.x)
+- Signals: **5** ✅ (Task 1.7.1 — manual run từ 16 tweets; conversion ~31%, avg impact ~0.71)
 
 **Độ “fresh”:**
 
@@ -93,7 +96,7 @@
 - [x] 1.5.2 - Implement source pool seed script ✅
 - [x] 1.5.3 - Implement GET /api/sources endpoint ✅
 
-**Next Task:** 1.6.2 (cron crawl) hoặc 1.7.1 (Claude) tùy ưu tiên
+**Next Task:** 1.7.2 (digest compilation) hoặc 1.6.2 (cron crawl) tùy ưu tiên
 
 ### Phase 3: Tweet Crawling (Tasks 1.6) — 3 tasks
 
@@ -105,6 +108,37 @@
 
 _(Các task pipeline 1.7–1.9 vẫn theo `IMPLEMENTATION-ROADMAP.md`; nhóm 1.6.x là wedge crawl.)_
 
+### Phase 1 — Core Infrastructure (AI / pipeline wedge): Task 1.7 AI Integration Layer ✅ COMPLETED (2026-04-08)
+
+**1.7.1 Integrate Anthropic Claude for Signal Generation** ✅ DONE
+
+- **Status:** Production-ready (theo mốc session 2026-04-08)
+- **Service:** `SignalGeneratorService` (350+ lines)
+- **Model:** `claude-sonnet-4-20250514`
+- **Performance:** ~31% conversion rate, ~0.71 avg impact score (5 signals / 16 tweets, snapshot test)
+- **Cost:** ~$0.03–0.05/day estimated (session note)
+- **Command:** `php artisan signals:generate [--date] [--dry-run]`
+- **Database:** PostgreSQL array format via `DB::raw()`; junction `ON CONFLICT (signal_id, source_id) DO NOTHING`
+- **Testing:** Manual tests passing per session log
+
+**Blocking Issues:** None
+
+**Technical Debt:**
+
+- [ ] Add cron scheduling for daily runs (e.g. 7:00 AM)
+- [ ] Update SPEC-api.md documentation
+- [ ] Add production monitoring/alerts
+- [ ] Optimize prompt to reduce token usage
+
+**Dependencies Ready:**
+
+- [x] Anthropic API key configured
+- [x] Database schema updated (impact_score, digest title, …)
+- [x] Models with proper array handling
+- [x] Command with progress reporting
+
+**Next Task:** **1.7.2** Build Digest Compilation Engine (pending start)
+
 ### Phase 4: Digest UI (Tasks 1.10-1.12) — 7 tasks
 _(Will expand after Phase 3 complete)_
 
@@ -113,6 +147,12 @@ _(Will expand after Phase 3 complete)_
 ## Current Focus
 
 ### Vừa Hoàn Thành
+
+✅ **Task 1.7.1** — Anthropic Claude signal generation (~4h session 2026-04-08)
+
+- `SignalGeneratorService` + `signals:generate`; model `claude-sonnet-4-20250514`
+- **5** signals từ **16** tweets (~31% conversion, ~0.71 avg impact); PostgreSQL arrays + `insertGetId` + `ON CONFLICT` junction
+- Credits: ~$5 purchased, ~$0.05 spent testing, ~$4.95 remaining (snapshot log)
 
 ✅ **Task 1.6.1** — twitterapi.io crawler (303 phút theo mốc SESSION-LOG 15:20 → 20:23; thời gian code effectif ngắn hơn)
 
@@ -126,7 +166,8 @@ _(Will expand after Phase 3 complete)_
 - ✅ Phase 1: Setup + Infrastructure (**8/8** — 100%)
 - ✅ Phase 2: Auth + Data Seed (**6/8** — 75%)
 - 🚧 Phase 3: Tweet Crawling (**1/3** — 33%)
-- ⏸️ Phase 4: Signal / Digest pipeline (**0/7** — chưa bắt đầu nhóm 1.10–1.12)
+- 🚧 AI signal layer Task **1.7.1** ✅; **1.7.2+** pending
+- ⏸️ Phase 4: Digest UI (**0/7** — chưa bắt đầu nhóm 1.10–1.12)
 
 ### Đang Làm
 
@@ -134,15 +175,13 @@ Không có
 
 ### Task Tiếp Theo
 
-🔜 **Task 1.7.1** — Tích hợp Anthropic Claude (signal generation)
+🔜 **Task 1.7.2** — Build Digest Compilation Engine
 
-- **Loại:** CRITICAL
-- **Ước tính:** 60–90 phút
-- **Dependencies:** API key Anthropic
-- **Blocker:** Cần tài khoản / key Anthropic
-- **Mục tiêu:** Sinh signal từ tweets (theo roadmap & SPEC)
+- **Loại:** CRITICAL (pipeline wedge)
+- **Dependencies:** 1.7.1 ✅ (signals + digest row)
+- **Mục tiêu:** Biên dịch digest từ signals theo roadmap & SPEC
 
-**Tuỳ chọn thay thế:** **Task 1.6.2** — lên lịch crawl tự động (scheduler) nếu muốn hoàn thiện crawler trước Claude.
+**Tuỳ chọn song song:** **Task 1.6.2** — cron crawl; **cron signals** (7:00 AM) — technical debt đã ghi trong Task 1.7 block.
 
 ---
 
@@ -155,7 +194,7 @@ Không có
 ## Next Session Plan
 
 ### Target
-- **1.5.3** — `GET /api/sources`; song song có thể **1.3.3** (onboarding UI) tuỳ ưu tiên.
+- **1.7.2** — Digest compilation engine; hoặc **1.6.2** scheduler crawl; **1.3.3** onboarding tuỳ ưu tiên.
 
 ### Pre-requisites
 - [x] WSL / dev environment
@@ -164,13 +203,38 @@ Không có
 - [x] Category seed + API (1.4.1–1.4.2)
 - [x] Source pool CSV (1.5.1)
 - [x] Source pool seeder (1.5.2)
+- [x] Anthropic signal generation (1.7.1)
 
 ### Expected Duration
-Tuỳ scope task tiếp theo (1.5.3 vs 1.3.3)
+Tuỳ scope (1.7.2 vs 1.6.2 vs 1.3.3)
+
+---
+
+## Metrics Update (2026-04-08)
+
+### API Integration
+
+- **Anthropic API:** ✅ Connected
+- **Model:** `claude-sonnet-4-20250514`
+- **Credits:** ~$4.95 remaining (session snapshot)
+- **Test results:** 5 signals, ~0.71 avg impact, ~31% conversion (16 tweets)
+
+### Code Quality (1.7.1)
+
+- **Service layer:** ✅ Transactions (`storeSignals`)
+- **Error handling:** ✅ Try-catch + logging (batch / API / parse)
+- **PostgreSQL compatibility:** ✅ Raw array literals + junction conflict handling
+- **Command interface:** ✅ `signals:generate` với `--date`, `--dry-run`
 
 ---
 
 ## Recent Decisions
+
+**2026-04-08 — Task 1.7.1 Anthropic signal generation**
+
+- **Quyết định:** Model API `claude-sonnet-4-20250514`; lưu `categories`/`topic_tags` PostgreSQL bằng `DB::raw()`; `signal_sources` insert kèm `ON CONFLICT (signal_id, source_id) DO NOTHING`; lấy `signal` id sau insert bằng `insertGetId` (tránh `latest()` theo `created_at` gây trùng PK).
+- **Kết quả:** Command `signals:generate` chạy được; snapshot test 5 signals / 16 tweets.
+- **Chi phí / credits:** ~$5 nạp, ~$0.05 test (ghi nhận trong SESSION-LOG).
 
 **2026-04-07 20:25 +07 — Task 1.6.1 API endpoint discovery**
 
@@ -250,7 +314,7 @@ Tuỳ scope task tiếp theo (1.5.3 vs 1.3.3)
 ## Files to Sync to Project Knowledge
 
 - [x] PROJECT-STATUS.md (this file)
-- [ ] SESSION-LOG.md
+- [x] SESSION-LOG.md
 - [ ] schema.sql (after migrations / dump nếu cần)
 
 ---
