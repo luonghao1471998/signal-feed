@@ -32,7 +32,7 @@
 - [x] Anthropic Claude (Task 1.7.1 complete) ✅  
   - Model: `claude-sonnet-4-20250514`  
   - Command: `php artisan signals:generate [--date] [--dry-run]`  
-  - Credits: ~$4.95 remaining (snapshot sau test)
+  - Credits: ~$4.71 remaining (snapshot sau test)
 - [ ] Stripe (Sprint 3)
 - [ ] Resend (Sprint 2+)
 
@@ -152,7 +152,7 @@ _(Will expand after Phase 3 complete)_
 
 - `SignalGeneratorService` + `signals:generate`; model `claude-sonnet-4-20250514`
 - **5** signals từ **16** tweets (~31% conversion, ~0.71 avg impact); PostgreSQL arrays + `insertGetId` + `ON CONFLICT` junction
-- Credits: ~$5 purchased, ~$0.05 spent testing, ~$4.95 remaining (snapshot log)
+- Credits: ~$5 purchased, ~$0.29 spent testing, ~$4.71 remaining (snapshot log)
 
 ✅ **Task 1.6.1** — twitterapi.io crawler (303 phút theo mốc SESSION-LOG 15:20 → 20:23; thời gian code effectif ngắn hơn)
 
@@ -216,7 +216,7 @@ Tuỳ scope (1.7.2 vs 1.6.2 vs 1.3.3)
 
 - **Anthropic API:** ✅ Connected
 - **Model:** `claude-sonnet-4-20250514`
-- **Credits:** ~$4.95 remaining (session snapshot)
+- **Credits:** ~$4.71 remaining (session snapshot)
 - **Test results:** 5 signals, ~0.71 avg impact, ~31% conversion (16 tweets)
 
 ### Code Quality (1.7.1)
@@ -234,7 +234,7 @@ Tuỳ scope (1.7.2 vs 1.6.2 vs 1.3.3)
 
 - **Quyết định:** Model API `claude-sonnet-4-20250514`; lưu `categories`/`topic_tags` PostgreSQL bằng `DB::raw()`; `signal_sources` insert kèm `ON CONFLICT (signal_id, source_id) DO NOTHING`; lấy `signal` id sau insert bằng `insertGetId` (tránh `latest()` theo `created_at` gây trùng PK).
 - **Kết quả:** Command `signals:generate` chạy được; snapshot test 5 signals / 16 tweets.
-- **Chi phí / credits:** ~$5 nạp, ~$0.05 test (ghi nhận trong SESSION-LOG).
+- **Chi phí / credits:** ~$5 nạp, ~$0.29 test (ghi nhận trong SESSION-LOG).
 
 **2026-04-07 20:25 +07 — Task 1.6.1 API endpoint discovery**
 

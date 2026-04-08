@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Source;
+use App\Models\Tweet;
 use Carbon\Carbon;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
@@ -15,7 +16,7 @@ class TwitterCrawlerService
     /**
      * Crawl tweets for one source (by handle only; does not populate {@see Source::$x_user_id}).
      *
-     * @return array{success: bool, tweets_count: int, message: string}
+     * @return array{success: bool, tweets_count: int, new_tweets_count: int, message: string}
      */
     public function crawlSource(Source $source, int $maxResults = 10): array
     {
@@ -24,6 +25,25 @@ class TwitterCrawlerService
             $userName = ltrim(trim($source->x_handle), '@');
 
             $normalizedTweets = $this->fetchTweetsFromAPI($userName, $maxResults);
+
+            $tweetIds = array_values(array_filter(array_map(
+                static fn (array $t): string => $t['tweet_id'],
+                $normalizedTweets
+            )));
+
+            $newTweetsCount = 0;
+            if ($tweetIds !== []) {
+                $existing = Tweet::query()
+                    ->whereIn('tweet_id', $tweetIds)
+                    ->pluck('tweet_id')
+                    ->all();
+                $existingSet = array_flip($existing);
+                foreach ($tweetIds as $id) {
+                    if (! isset($existingSet[$id])) {
+                        $newTweetsCount++;
+                    }
+                }
+            }
 
             DB::transaction(function () use ($source, $normalizedTweets): void {
                 $this->storeTweets($source, $normalizedTweets);
@@ -34,10 +54,11 @@ class TwitterCrawlerService
             return [
                 'success' => true,
                 'tweets_count' => count($normalizedTweets),
+                'new_tweets_count' => $newTweetsCount,
                 'message' => 'OK',
             ];
         } catch (\Throwable $e) {
-            Log::error('TwitterCrawlerService::crawlSource failed', [
+            Log::channel('crawler-errors')->error('TwitterCrawlerService::crawlSource failed', [
                 'source_id' => $source->id,
                 'x_handle' => $source->x_handle,
                 'message' => $e->getMessage(),
@@ -46,6 +67,7 @@ class TwitterCrawlerService
             return [
                 'success' => false,
                 'tweets_count' => 0,
+                'new_tweets_count' => 0,
                 'message' => $e->getMessage(),
             ];
         }

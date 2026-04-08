@@ -1569,3 +1569,97 @@ _(Sẽ điền sau khi chạy generator)_
 ### Issues Encountered
 
 _(Sẽ điền nếu có lỗi)_
+
+---
+
+## Task 1.6.2 - Schedule Automated Tweet Crawling
+
+**Started:** 11:20  
+**Status:** 🚧 In Progress  
+**Type:** STANDARD  
+**Source:** IMPLEMENTATION-ROADMAP.md line 35
+
+### Requirements
+
+**Từ IMPLEMENTATION-ROADMAP.md Task 1.6.2:**
+
+- Schedule crawler chạy tự động 4 lần/ngày (6:00, 12:00, 18:00, 00:00 UTC)
+- Sử dụng Laravel Task Scheduler
+- Command: `tweets:crawl` (đã có từ Task 1.6.1)
+- Prevent overlapping executions (nếu job chưa xong)
+
+**Từ SPEC-core.md Section 3.1 - Task Scheduler:**
+
+- Crawl frequency: 4 times/day
+  - 06:00 UTC (morning batch)
+  - 12:00 UTC (midday batch)
+  - 18:00 UTC (evening batch)
+  - 00:00 UTC (midnight batch)
+
+**Goal:** Fresh tweets every 6 hours
+
+**Từ CLAUDE.md - Task Scheduler:**
+
+- Sử dụng Laravel 11 Scheduler
+- Configure trong `routes/console.php`
+- Use `withoutOverlapping()` để prevent concurrent runs
+- Log scheduler output
+
+### Files to Create
+
+- Không có (chỉ modify config)
+
+### Files to Modify
+
+- `routes/console.php` (hoặc `app/Console/Kernel.php` nếu Laravel < 11)
+- `.env.example` (document scheduler requirement)
+
+### Verification Method
+
+**Local testing:**
+
+```bash
+# Test scheduler định nghĩa
+php artisan schedule:list
+
+# Expected output:
+# 0 0,6,12,18 * * * php artisan tweets:crawl
+
+# Run scheduler once manually
+php artisan schedule:run
+
+# Expected: Crawler chạy nếu đúng giờ, hoặc skip nếu không
+
+# Test command vẫn chạy được manual
+php artisan tweets:crawl --limit=5
+```
+
+**Production setup:**
+
+```bash
+# Add to crontab
+* * * * * cd /path/to/project && php artisan schedule:run >> /dev/null 2>&1
+
+# Verify cron running
+crontab -l
+```
+
+### Claude Web Prompt Used
+
+_(Sẽ paste sau khi nhận response từ Claude Web)_
+
+### Cursor Prompt Used
+
+_(Sẽ paste sau khi Cursor implement)_
+
+### Implementation Notes
+
+_(Sẽ điền trong quá trình implementation)_
+
+### Test Results
+
+_(Sẽ điền sau khi test scheduler)_
+
+### Issues Encountered
+
+_(Sẽ điền nếu có lỗi)_

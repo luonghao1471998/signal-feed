@@ -127,6 +127,32 @@ return [
             'path' => storage_path('logs/laravel.log'),
         ],
 
+        'scheduler' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/scheduler.log'),
+            'level' => env('LOG_LEVEL', 'info'),
+            'days' => 14,
+            'permission' => 0664,
+            'replace_placeholders' => true,
+        ],
+
+        'crawler' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/crawler.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => 30,
+            'permission' => 0664,
+            'replace_placeholders' => true,
+        ],
+
+        'crawler-errors' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/crawler-errors.log'),
+            'level' => 'error',
+            'permission' => 0664,
+            'replace_placeholders' => true,
+        ],
+
     ],
 
 ];
