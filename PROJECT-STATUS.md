@@ -1,25 +1,25 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-08 (Task 1.7.1 complete)
+**Last Updated:** 2026-04-08 (Task 1.6.2 complete)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 1 - Wedge Delivery
-**Current Task:** **1.7.2** — Build Digest Compilation Engine — *tuỳ ưu tiên có thể làm **1.6.2** (cron crawl) trước*
+**Current Task:** **1.6.3** hoặc **1.7.2** — tuỳ priority (pending chọn task tiếp theo)
 
 ---
 
 ## Quick Stats
 
 ### Sprint 1 Progress (34 tasks total)
-- **Completed:** 16/34 (47%)
+- **Completed:** 17/34 (50%)
 - **In Progress:** None
 - **Blocked:** None
 
 ### Code Metrics
-- **Backend:** 55% (Auth + DB + Categories + Sources + API + Crawler + Signal generation complete)
+- **Backend:** 58% (Auth + DB + Categories + Sources + API + Crawler + Scheduler + Signal generation complete)
 - **Frontend:** 5% (Scaffold only)
 - **Database:** 100% (All migrations done)
 - **Seed Data:** 100% (Categories ✅, Sources CSV ✅, Sources imported ✅)
-- **Tests:** 6/6 manual tests passed (OAuth, Categories seed, Categories API, Sources seed, Sources API, Crawler)
+- **Tests:** Feature `SchedulerTest` + manual (OAuth, seed, APIs, crawler, signals)
 
 ### Integration Status
 - [x] OAuth X.com (Task 1.3.1 complete) ✅
@@ -29,6 +29,7 @@
   - Endpoint: `/twitter/user/last_tweets` (`userName` + `count`)  
   - API key: cấu hình qua `.env` (active khi có key)  
   - Rate limit: sleep 3s giữa các source (dev)
+  - **Scheduler:** 4×/day automated (Task 1.6.2 ✅) — `routes/console.php`: cron `0 1,7,13,19 * * *`, timezone `Asia/Ho_Chi_Minh`
 - [x] Anthropic Claude (Task 1.7.1 complete) ✅  
   - Model: `claude-sonnet-4-20250514`  
   - Command: `php artisan signals:generate [--date] [--dry-run]`  
@@ -96,14 +97,14 @@
 - [x] 1.5.2 - Implement source pool seed script ✅
 - [x] 1.5.3 - Implement GET /api/sources endpoint ✅
 
-**Next Task:** 1.7.2 (digest compilation) hoặc 1.6.2 (cron crawl) tùy ưu tiên
+**Next Task:** 1.6.3 (incremental crawl) hoặc 1.7.2 (classify / pipeline) tùy ưu tiên
 
 ### Phase 3: Tweet Crawling (Tasks 1.6) — 3 tasks
 
-**Status:** 1/3 complete (33%)
+**Status:** 2/3 complete (67%)
 
 - [x] 1.6.1 - Integrate twitterapi.io crawler ✅
-- [ ] 1.6.2 - Schedule automated tweet crawling (cron / scheduler)
+- [x] 1.6.2 - Schedule automated tweet crawling ✅
 - [ ] 1.6.3 - Incremental crawl (chỉ tweet mới)
 
 _(Các task pipeline 1.7–1.9 vẫn theo `IMPLEMENTATION-ROADMAP.md`; nhóm 1.6.x là wedge crawl.)_
@@ -137,7 +138,7 @@ _(Các task pipeline 1.7–1.9 vẫn theo `IMPLEMENTATION-ROADMAP.md`; nhóm 1.6
 - [x] Models with proper array handling
 - [x] Command with progress reporting
 
-**Next Task:** **1.7.2** Build Digest Compilation Engine (pending start)
+**Next Task:** **1.7.2** Add classify step to pipeline (roadmap) hoặc **1.6.3** incremental crawl — pending chọn
 
 ### Phase 4: Digest UI (Tasks 1.10-1.12) — 7 tasks
 _(Will expand after Phase 3 complete)_
@@ -148,24 +149,32 @@ _(Will expand after Phase 3 complete)_
 
 ### Vừa Hoàn Thành
 
+✅ **Task 1.6.2** — Automated tweet crawling scheduler (2026-04-08)
+
+- Laravel Task Scheduler: **4 lần/ngày** tại **01:00, 07:00, 13:00, 19:00** giờ VN (`Asia/Ho_Chi_Minh`)
+- Cron: `0 1,7,13,19 * * *` + `withoutOverlapping(120)`, `runInBackground()`; log kênh `scheduler` / `crawler` / `crawler-errors`
+- **Verified:** chạy theo lịch (ví dụ slot 13:00 VN); crawler xử lý nhiều source; HTTP 402 (hết credits) được log, crawl tiếp các source còn lại
+- Cấu hình production: `docs/deployment/scheduler-setup.md`, `scripts/setup-logs.sh`
+
 ✅ **Task 1.7.1** — Anthropic Claude signal generation (~4h session 2026-04-08)
 
 - `SignalGeneratorService` + `signals:generate`; model `claude-sonnet-4-20250514`
-- **5** signals từ **16** tweets (~31% conversion, ~0.71 avg impact); PostgreSQL arrays + `insertGetId` + `ON CONFLICT` junction
-- Credits: ~$5 purchased, ~$0.29 spent testing, ~$4.71 remaining (snapshot log)
+- **5** signals từ **16** tweets (~31% conversion, ~0.71 avg impact)
+- PostgreSQL arrays + `insertGetId` + `ON CONFLICT` junction
+- Credits: ~$5 purchased, ~$0.29 spent testing, ~$4.71 remaining (snapshot)
 
-✅ **Task 1.6.1** — twitterapi.io crawler (303 phút theo mốc SESSION-LOG 15:20 → 20:23; thời gian code effectif ngắn hơn)
+✅ **Task 1.6.1** — twitterapi.io crawler (2026-04-07)
 
-- **16** tweets đã lưu (snapshot DB dev); crawl full **80** nguồn: chạy `tweets:crawl --limit=10` khi sẵn sàng quota
+- **16** tweets đã lưu (snapshot DB dev)
 - API thật: `GET …/twitter/user/last_tweets` + `userName` / `count`
 - Rate limit: sleep **3s** giữa các source
-- **3/80** sources có `last_crawled_at` trên snapshot hiện tại (sẽ tăng khi crawl tiếp)
+- **3/80** sources có `last_crawled_at` trên snapshot
 
 ### Phase Progress
 
 - ✅ Phase 1: Setup + Infrastructure (**8/8** — 100%)
 - ✅ Phase 2: Auth + Data Seed (**6/8** — 75%)
-- 🚧 Phase 3: Tweet Crawling (**1/3** — 33%)
+- 🚧 Phase 3: Tweet Crawling (**2/3** — 67%)
 - 🚧 AI signal layer Task **1.7.1** ✅; **1.7.2+** pending
 - ⏸️ Phase 4: Digest UI (**0/7** — chưa bắt đầu nhóm 1.10–1.12)
 
@@ -175,26 +184,43 @@ Không có
 
 ### Task Tiếp Theo
 
-🔜 **Task 1.7.2** — Build Digest Compilation Engine
+🔜 **Chọn 1 trong 2:**
 
-- **Loại:** CRITICAL (pipeline wedge)
-- **Dependencies:** 1.7.1 ✅ (signals + digest row)
-- **Mục tiêu:** Biên dịch digest từ signals theo roadmap & SPEC
+**Option A: Task 1.6.3** — Incremental crawl (chỉ tweet mới, không duplicate)
 
-**Tuỳ chọn song song:** **Task 1.6.2** — cron crawl; **cron signals** (7:00 AM) — technical debt đã ghi trong Task 1.7 block.
+- **Loại:** STANDARD (optimization)
+- **Dependencies:** 1.6.2 ✅
+- **Mục tiêu:** Chỉ crawl tweets sau `last_crawled_at` / tránh trùng lặp (theo roadmap)
+
+**Option B: Task 1.7.2** — Add classify step to PipelineCrawlJob
+
+- **Loại:** WEDGE (AI pipeline — theo `IMPLEMENTATION-ROADMAP.md`)
+- **Dependencies:** 1.7.1 ✅
+- **Mục tiêu:** Classify tweets (`signal_score`, `is_signal`) trong pipeline
+
+**Recommendation:** Tùy priority — tối ưu crawler (1.6.3) hoặc tiếp pipeline (1.7.2).
+
+**Technical debt (khác):** cron `signals:generate` (ví dụ 7:00) — xem block Task 1.7.1; onboarding **1.3.3** vẫn mở.
 
 ---
 
 ## Blockers
 
-**None currently**
+**API credits depleted (low priority)**
+
+- twitterapi.io trả HTTP **402** (Payment Required) khi hết credits
+- **Impact:** Một số source fail trong lịch crawl; crawler vẫn tiếp tục các source khác
+- **Workaround:** Top-up credits khi cần scale; local vẫn test bằng `php artisan tweets:crawl --limit=…`
+- **Không chặn dev:** Scheduler + command đã verified
+
+**Khác:** None
 
 ---
 
 ## Next Session Plan
 
 ### Target
-- **1.7.2** — Digest compilation engine; hoặc **1.6.2** scheduler crawl; **1.3.3** onboarding tuỳ ưu tiên.
+- **1.6.3** incremental crawl hoặc **1.7.2** classify step; **1.3.3** onboarding tuỳ ưu tiên; top-up twitterapi.io khi chạy production crawl.
 
 ### Pre-requisites
 - [x] WSL / dev environment
@@ -204,9 +230,10 @@ Không có
 - [x] Source pool CSV (1.5.1)
 - [x] Source pool seeder (1.5.2)
 - [x] Anthropic signal generation (1.7.1)
+- [x] Scheduled tweet crawl (1.6.2)
 
 ### Expected Duration
-Tuỳ scope (1.7.2 vs 1.6.2 vs 1.3.3)
+Tuỳ scope (1.6.3 vs 1.7.2 vs 1.3.3)
 
 ---
 
@@ -230,11 +257,25 @@ Tuỳ scope (1.7.2 vs 1.6.2 vs 1.3.3)
 
 ## Recent Decisions
 
+**2026-04-08 13:09 +07 — Task 1.6.2 Scheduler deployed**
+
+- **Quyết định:** Laravel Task Scheduler trong `routes/console.php` — cron **`0 1,7,13,19 * * *`**, timezone **`Asia/Ho_Chi_Minh`** (4 slot/ngày giờ VN); `withoutOverlapping(120)`, `runInBackground()`, logging tách kênh (`scheduler`, `crawler`, `crawler-errors`).
+- **Kết quả:**
+  - ✅ Thực thi theo lịch đã verify (ví dụ mốc 13:00 VN)
+  - ✅ Crawler xử lý nhiều source trong một run
+  - ⚠️ HTTP **402** khi credits twitterapi.io hết — cần top-up cho production
+  - ✅ Lỗi được log, crawl tiếp các source còn lại
+- **Production:** Cron host: `* * * * * cd /var/www/signalfeed && php artisan schedule:run` (xem `docs/deployment/scheduler-setup.md`)
+- **Action items:**
+  - [ ] Top-up twitterapi.io credits
+  - [ ] Monitor 24h đầu chạy tự động
+  - [ ] Verify tweets tích lũy trong DB sau các slot
+
 **2026-04-08 — Task 1.7.1 Anthropic signal generation**
 
 - **Quyết định:** Model API `claude-sonnet-4-20250514`; lưu `categories`/`topic_tags` PostgreSQL bằng `DB::raw()`; `signal_sources` insert kèm `ON CONFLICT (signal_id, source_id) DO NOTHING`; lấy `signal` id sau insert bằng `insertGetId` (tránh `latest()` theo `created_at` gây trùng PK).
 - **Kết quả:** Command `signals:generate` chạy được; snapshot test 5 signals / 16 tweets.
-- **Chi phí / credits:** ~$5 nạp, ~$0.29 test (ghi nhận trong SESSION-LOG).
+- **Chi phí / credits:** ~$5 nạp, ~$0.05 test (ghi nhận trong SESSION-LOG).
 
 **2026-04-07 20:25 +07 — Task 1.6.1 API endpoint discovery**
 
