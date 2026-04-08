@@ -12,7 +12,14 @@ return [
             'max_tokens' => (int) env('ANTHROPIC_MAX_TOKENS_SIGNAL', 2048),
             'temperature' => (float) env('ANTHROPIC_TEMPERATURE_SIGNAL', 0.3),
         ],
+        'classify' => [
+            'name' => env('ANTHROPIC_MODEL_CLASSIFY', 'claude-sonnet-4-20250514'),
+            'max_tokens' => (int) env('ANTHROPIC_MAX_TOKENS_CLASSIFY', 256),
+            'temperature' => (float) env('ANTHROPIC_TEMPERATURE_CLASSIFY', 0.1),
+        ],
     ],
+
+    'classify_prompt_path' => env('ANTHROPIC_CLASSIFY_PROMPT_PATH', 'docs/prompts/v1/classify.md'),
 
     'batch_size' => (int) env('ANTHROPIC_BATCH_SIZE', 100),
     'max_retries' => (int) env('ANTHROPIC_MAX_RETRIES', 3),

@@ -1428,8 +1428,11 @@ git commit -m "feat(crawler): Task 1.6.1 - twitterapi.io integration"
 
 ## Task 1.7.1 - Integrate Anthropic Claude for Signal Generation
 
+_Roadmap `IMPLEMENTATION-ROADMAP.md` Task 1.7.1 — wedge: `SignalGeneratorService` + `signals:generate` (Anthropic batch → bảng `signals`)._
+
 **Started:** 20:48  
-**Status:** 🚧 In Progress  
+**Completed:** 2026-04-08 (session ~4h — xem block “Session: 2026-04-08” phía trên)  
+**Status:** ✅ Complete  
 **Type:** CRITICAL  
 **Source:** IMPLEMENTATION-ROADMAP.md line 37
 
@@ -1560,34 +1563,42 @@ _(Sẽ paste sau khi Cursor implement)_
 
 ### Implementation Notes
 
-_(Sẽ điền trong quá trình implementation)_
+- **Service / command:** `SignalGeneratorService`, `GenerateSignalsCommand` (`php artisan signals:generate [--date] [--dry-run]`)
+- **Model API:** `claude-sonnet-4-20250514` (config `config/anthropic.php`)
+- **DB:** `impact_score` trên `signals`; `title` trên `digests`; junction `signal_sources` + `ON CONFLICT DO NOTHING`; PostgreSQL arrays qua `DB::raw()`
+- **Chi tiết session + credits:** xem block **Session: 2026-04-08 - Task 1.7.1 Implementation Complete** (đầu file) — **không sửa số tiền tại đó**
 
 ### Test Results
 
-_(Sẽ điền sau khi chạy generator)_
+- `signals:generate` chạy thành công trên batch tweet; snapshot: 5 signals / 16 tweets (~31% conversion, ~0.71 avg impact) — theo session log 2026-04-08
 
 ### Issues Encountered
 
-_(Sẽ điền nếu có lỗi)_
+- Đã xử lý trong session: model name 404, PostgreSQL array format, duplicate junction keys — xem block Session 2026-04-08 phía trên
 
 ---
 
-## Task 1.6.2 - Schedule Automated Tweet Crawling
+## Task 1.6.2 - Schedule automated tweet crawling
+
+**Ghi chú đồng bộ artifact:** Crawl qua **`CrawlTweetsCommand`** (`tweets:crawl`) + **`TwitterCrawlerService`**; lịch tự động trong **`routes/console.php`** (cron 4×/ngày, timezone VN — chi tiết theo bản deploy trong repo). Roadmap: Task 1.6.2 crawl step, Task 1.6.3 scheduler.
 
 **Started:** 11:20  
 **Completed:** 2026-04-08 13:09 +07  
 **Status:** ✅ Complete  
 **Type:** STANDARD  
-**Source:** IMPLEMENTATION-ROADMAP.md line 35
+**Source:** IMPLEMENTATION-ROADMAP.md line 35 (Task 1.6.2 — crawl step; scheduler = line 36 Task 1.6.3)
 
 ### Requirements
 
-**Từ IMPLEMENTATION-ROADMAP.md Task 1.6.2:**
+**Từ IMPLEMENTATION-ROADMAP.md Task 1.6.2 (crawl step):**
 
-- Schedule crawler chạy tự động 4 lần/ngày (6:00, 12:00, 18:00, 00:00 UTC)
-- Sử dụng Laravel Task Scheduler
-- Command: `tweets:crawl` (đã có từ Task 1.6.1)
-- Prevent overlapping executions (nếu job chưa xong)
+- Job/command: lấy sources **active**, crawl loop, cập nhật **`last_crawled_at`**, lưu Tweet (`tweet_id`, text, `posted_at`, url, `source_id`); xử lý cursor/`since_id` theo contract API khi áp dụng
+
+**Đã gắn thêm (Task 1.6.3 — scheduler):**
+
+- Schedule crawler **4 lần/ngày** qua Laravel Scheduler (`routes/console.php`)
+- Command: `tweets:crawl` (từ Task 1.6.1)
+- `withoutOverlapping` / chạy nền / logging
 
 **Từ SPEC-core.md Section 3.1 - Task Scheduler:**
 
@@ -1785,3 +1796,121 @@ git push origin master --tags
 ```
 
 _(Đổi `master` → nhánh remote thực tế nếu khác; chỉ push khi đã review.)_
+
+---
+
+## Task 1.8.1 — LLMClient.cluster / cluster step (NEXT)
+
+**Status:** 🔜 Chưa bắt đầu (task tiếp theo đề xuất theo `IMPLEMENTATION-ROADMAP.md`)  
+**Type:** WEDGE  
+**Source:** Task 1.8.1; Flow 3 bước 3 (Cluster)
+
+**Gợi ý:** `LLMClient::cluster($tweets)` hoặc tương đương; sau đó Task 1.8.2 summarize, 1.8.3 ghi `signals` + `signal_sources` đúng SPEC.
+
+**Verify (khi implement):** gọi client → nhận mảng cluster `{cluster_id, tweet_ids}`; pipeline/jobs cập nhật DB theo SPEC.
+
+---
+
+## Task 1.6.3 - Incremental Crawl (Only New Tweets)
+
+**Started:** 13:46  
+**Status:** 🚧 In Progress  
+**Type:** STANDARD (Optimization)  
+**Source:** IMPLEMENTATION-ROADMAP.md line 36
+
+### Requirements
+
+**Từ IMPLEMENTATION-ROADMAP.md Task 1.6.3:**
+
+- Implement incremental crawl logic
+- Only fetch tweets posted after `source.last_crawled_at`
+- Update `last_crawled_at` timestamp after successful crawl
+- Prevent duplicate tweets in database
+
+**Từ SPEC-core.md Section 3.2 - Crawl Logic:**
+
+Incremental crawl strategy:
+
+- First crawl: Fetch all available tweets (up to API limit)
+- Subsequent crawls: Only tweets after `last_crawled_at`
+- Update `last_crawled_at` after each successful crawl
+- Handle edge cases: source never crawled, API errors
+
+**Từ SPEC-api.md Section 10 - twitterapi.io Integration:**
+
+- Endpoint supports filtering by date/time (if available)
+- Otherwise: Fetch recent tweets, filter client-side
+- Always update `last_crawled_at` to prevent re-processing
+
+### Files to Modify
+
+- `app/Services/TwitterCrawlerService.php`
+- `app/Console/Commands/CrawlTweetsCommand.php` (if needed)
+
+### Implementation Strategy
+
+**Approach 1: API-level filtering (if supported)**
+
+- Pass `since` parameter to twitterapi.io
+- API only returns tweets after timestamp
+
+**Approach 2: Client-side filtering**
+
+- Fetch recent tweets (as currently)
+- Filter out tweets with `posted_at <= last_crawled_at`
+- Only save new tweets
+
+**Recommended:** Start with Approach 2 (works regardless of API support)
+
+### Verification Method
+
+**Test scenario:**
+
+```bash
+# Initial crawl (no last_crawled_at)
+php artisan tweets:crawl --limit=5
+
+# Check DB: 5 sources have last_crawled_at populated
+psql -U ipro -d signalfeed -c "
+SELECT id, x_handle, last_crawled_at
+FROM sources
+WHERE last_crawled_at IS NOT NULL
+LIMIT 5;
+"
+
+# Wait 1 minute, run again
+sleep 60
+php artisan tweets:crawl --limit=5
+
+# Check: Should skip most tweets (already crawled)
+# Only new tweets (if any posted in last minute) should be saved
+
+# Verify no duplicates
+psql -U ipro -d signalfeed -c "
+SELECT tweet_id, COUNT(*) as count
+FROM tweets
+GROUP BY tweet_id
+HAVING COUNT(*) > 1;
+"
+# Expected: 0 rows (no duplicates)
+```
+
+### Claude Web Prompt Used
+
+_(Sẽ paste sau khi nhận response từ Claude Web)_
+
+### Cursor Prompt Used
+
+_(Sẽ paste sau khi Cursor implement)_
+
+### Implementation Notes
+
+_(Sẽ điền trong quá trình implementation)_
+
+### Test Results
+
+_(Sẽ điền sau khi test incremental logic)_
+
+### Issues Encountered
+
+_(Sẽ điền nếu có lỗi)_

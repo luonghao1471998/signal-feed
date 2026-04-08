@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Source;
 use App\Models\Tweet;
 use Carbon\Carbon;
+use DateTimeInterface;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\DB;
@@ -16,46 +17,80 @@ class TwitterCrawlerService
     /**
      * Crawl tweets for one source (by handle only; does not populate {@see Source::$x_user_id}).
      *
-     * @return array{success: bool, tweets_count: int, new_tweets_count: int, message: string}
+     * @return array{success: bool, tweets_count: int, new_tweets_count: int, message: string, affected_tweet_ids: list<int>}
      */
     public function crawlSource(Source $source, int $maxResults = 10): array
     {
         try {
             $maxResults = max(1, min(100, $maxResults));
             $userName = ltrim(trim($source->x_handle), '@');
+            $isIncremental = $source->last_crawled_at !== null;
 
-            $normalizedTweets = $this->fetchTweetsFromAPI($userName, $maxResults);
+            Log::channel('crawler')->info('TwitterCrawlerService: crawl started', [
+                'source_id' => $source->id,
+                'handle' => $source->x_handle,
+                'last_crawled_at' => $source->last_crawled_at?->toIso8601String(),
+                'mode' => $isIncremental ? 'incremental' : 'initial',
+            ]);
 
-            $tweetIds = array_values(array_filter(array_map(
-                static fn (array $t): string => $t['tweet_id'],
-                $normalizedTweets
-            )));
+            $allNormalized = $this->fetchTweetsFromAPI($userName, $maxResults);
 
-            $newTweetsCount = 0;
-            if ($tweetIds !== []) {
-                $existing = Tweet::query()
-                    ->whereIn('tweet_id', $tweetIds)
-                    ->pluck('tweet_id')
-                    ->all();
-                $existingSet = array_flip($existing);
-                foreach ($tweetIds as $id) {
-                    if (! isset($existingSet[$id])) {
-                        $newTweetsCount++;
-                    }
-                }
+            if ($allNormalized === []) {
+                Log::channel('crawler')->info('TwitterCrawlerService: no tweets from API', [
+                    'source_id' => $source->id,
+                ]);
+
+                DB::transaction(function () use ($source): void {
+                    $source->last_crawled_at = now('UTC');
+                    $source->save();
+                });
+
+                return [
+                    'success' => true,
+                    'tweets_count' => 0,
+                    'new_tweets_count' => 0,
+                    'message' => 'OK',
+                    'affected_tweet_ids' => [],
+                ];
             }
 
-            DB::transaction(function () use ($source, $normalizedTweets): void {
-                $this->storeTweets($source, $normalizedTweets);
+            $toStore = $isIncremental
+                ? $this->filterNewTweets($allNormalized, $source->last_crawled_at)
+                : $allNormalized;
+
+            Log::channel('crawler')->info('TwitterCrawlerService: tweets filtered', [
+                'source_id' => $source->id,
+                'total_fetched' => count($allNormalized),
+                'to_store' => count($toStore),
+                'skipped_old' => count($allNormalized) - count($toStore),
+            ]);
+
+            /** @var array{new_ids: list<int>, duplicates: int, errors: int} $storeResult */
+            $storeResult = [
+                'new_ids' => [],
+                'duplicates' => 0,
+                'errors' => 0,
+            ];
+
+            DB::transaction(function () use ($source, $toStore, &$storeResult): void {
+                $storeResult = $this->storeTweets($source, $toStore);
                 $source->last_crawled_at = now('UTC');
                 $source->save();
             });
 
+            Log::channel('crawler')->info('TwitterCrawlerService: crawl completed', [
+                'source_id' => $source->id,
+                'new_tweet_rows' => count($storeResult['new_ids']),
+                'duplicates' => $storeResult['duplicates'],
+                'errors' => $storeResult['errors'],
+            ]);
+
             return [
                 'success' => true,
-                'tweets_count' => count($normalizedTweets),
-                'new_tweets_count' => $newTweetsCount,
+                'tweets_count' => count($allNormalized),
+                'new_tweets_count' => count($storeResult['new_ids']),
                 'message' => 'OK',
+                'affected_tweet_ids' => $storeResult['new_ids'],
             ];
         } catch (\Throwable $e) {
             Log::channel('crawler-errors')->error('TwitterCrawlerService::crawlSource failed', [
@@ -69,6 +104,7 @@ class TwitterCrawlerService
                 'tweets_count' => 0,
                 'new_tweets_count' => 0,
                 'message' => $e->getMessage(),
+                'affected_tweet_ids' => [],
             ];
         }
     }
@@ -118,6 +154,39 @@ class TwitterCrawlerService
         }
 
         return $normalized;
+    }
+
+    /**
+     * Giữ tweets có posted_at sau lần crawl trước (UTC).
+     *
+     * @param  list<array{tweet_id: string, text: string, posted_at: string, url: string}>  $tweets
+     * @return list<array{tweet_id: string, text: string, posted_at: string, url: string}>
+     */
+    protected function filterNewTweets(array $tweets, ?DateTimeInterface $lastCrawledAt): array
+    {
+        if ($lastCrawledAt === null) {
+            return $tweets;
+        }
+
+        $cutoff = Carbon::parse($lastCrawledAt)->utc();
+
+        $filtered = array_filter($tweets, function (array $row) use ($cutoff): bool {
+            try {
+                $postedAt = Carbon::parse($row['posted_at'])->utc();
+
+                return $postedAt->greaterThan($cutoff);
+            } catch (\Throwable $e) {
+                Log::warning('TwitterCrawlerService: failed to parse posted_at for filter', [
+                    'tweet_id' => $row['tweet_id'] ?? 'unknown',
+                    'posted_at' => $row['posted_at'] ?? null,
+                    'error' => $e->getMessage(),
+                ]);
+
+                return true;
+            }
+        });
+
+        return array_values($filtered);
     }
 
     /**
@@ -219,41 +288,80 @@ class TwitterCrawlerService
     }
 
     /**
-     * Persist tweets; metrics từ API bị bỏ (không có cột trong schema migration hiện tại).
+     * Persist tweets; trả về ID các bản ghi vừa tạo mới (cho pipeline classify).
      *
      * @param  list<array{tweet_id: string, text: string, posted_at: string, url: string}>  $normalizedTweets
+     * @return array{new_ids: list<int>, duplicates: int, errors: int}
      */
-    private function storeTweets(Source $source, array $normalizedTweets): void
+    private function storeTweets(Source $source, array $normalizedTweets): array
     {
+        $newIds = [];
+        $duplicateCount = 0;
+        $errorCount = 0;
+
         if ($normalizedTweets === []) {
-            return;
+            return [
+                'new_ids' => [],
+                'duplicates' => 0,
+                'errors' => 0,
+            ];
         }
 
         $tenantId = (int) $source->tenant_id;
 
         foreach ($normalizedTweets as $row) {
-            DB::statement(
-                'INSERT INTO tweets (
-                    tenant_id, source_id, tweet_id, text, url, posted_at,
-                    is_signal, signal_score, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-                ON CONFLICT (tweet_id) DO UPDATE SET
-                    text = EXCLUDED.text,
-                    url = EXCLUDED.url,
-                    posted_at = EXCLUDED.posted_at,
-                    updated_at = NOW()',
-                [
-                    $tenantId,
-                    $source->id,
-                    $row['tweet_id'],
-                    $row['text'],
-                    $row['url'],
-                    $row['posted_at'],
-                    false,
-                    0,
-                ]
-            );
+            try {
+                $tweet = Tweet::withTrashed()->updateOrCreate(
+                    ['tweet_id' => $row['tweet_id']],
+                    [
+                        'tenant_id' => $tenantId,
+                        'source_id' => $source->id,
+                        'text' => $row['text'],
+                        'url' => $row['url'],
+                        'posted_at' => $row['posted_at'],
+                        'is_signal' => false,
+                        'signal_score' => 0,
+                    ]
+                );
+
+                if ($tweet->trashed()) {
+                    $tweet->restore();
+                }
+
+                if ($tweet->wasRecentlyCreated) {
+                    $newIds[] = (int) $tweet->id;
+                } else {
+                    $duplicateCount++;
+                    Log::channel('crawler')->debug('TwitterCrawlerService: duplicate tweet upsert', [
+                        'tweet_id' => $row['tweet_id'],
+                        'source_id' => $source->id,
+                    ]);
+                }
+            } catch (\Throwable $e) {
+                $errorCount++;
+                Log::channel('crawler-errors')->error('TwitterCrawlerService: failed to save tweet', [
+                    'tweet_id' => $row['tweet_id'] ?? 'unknown',
+                    'source_id' => $source->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
+
+        if ($duplicateCount > 0 || $errorCount > 0) {
+            Log::channel('crawler')->info('TwitterCrawlerService: save tweets summary', [
+                'source_id' => $source->id,
+                'total_processed' => count($normalizedTweets),
+                'newly_saved' => count($newIds),
+                'duplicates' => $duplicateCount,
+                'errors' => $errorCount,
+            ]);
+        }
+
+        return [
+            'new_ids' => $newIds,
+            'duplicates' => $duplicateCount,
+            'errors' => $errorCount,
+        ];
     }
 
     /**

@@ -11,16 +11,20 @@ class SchedulerTest extends TestCase
     {
         $schedules = $this->app->make(Schedule::class)->events();
 
-        $hasCrawler = collect($schedules)->contains(fn ($e) => str_contains($e->command ?? '', 'tweets:crawl'));
+        $hasPipeline = collect($schedules)->contains(
+            fn ($e) => ($e->description ?? '') === 'pipeline:crawl-classify'
+        );
 
-        $this->assertTrue($hasCrawler);
+        $this->assertTrue($hasPipeline);
     }
 
     public function test_schedule_timing(): void
     {
         $schedules = $this->app->make(Schedule::class)->events();
 
-        $event = collect($schedules)->first(fn ($e) => str_contains($e->command ?? '', 'tweets:crawl'));
+        $event = collect($schedules)->first(
+            fn ($e) => ($e->description ?? '') === 'pipeline:crawl-classify'
+        );
 
         $this->assertNotNull($event);
         $this->assertEquals('0 1,7,13,19 * * *', $event->expression);

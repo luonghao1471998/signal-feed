@@ -7,6 +7,13 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## SignalFeed — LLM / pipeline testing (credits)
+
+- **`MOCK_LLM`** (`config('app.mock_llm')`): khi `true`, `PipelineCrawlJob` dùng **`FakeLLMClient`** (không gọi Anthropic). PHPUnit mặc định bật qua `phpunit.xml`.
+- **Production / classify thật:** đặt `MOCK_LLM=false` và `ANTHROPIC_API_KEY`.
+- **Chạy pipeline tay:** `php artisan pipeline:run --limit=10` (tôn trọng `MOCK_LLM`).
+- **Một tweet + API thật (tốn credits):** `php artisan test:classify {id}` — xác nhận trong CLI; không chạy khi `MOCK_LLM=true`.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

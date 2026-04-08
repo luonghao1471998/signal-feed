@@ -29,5 +29,7 @@
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
+        <!-- Pipeline classify: fake LLM mặc định; test cần Http::fake + LLMClient ghi đè config app.mock_llm=false -->
+        <env name="MOCK_LLM" value="true"/>
     </php>
 </phpunit>

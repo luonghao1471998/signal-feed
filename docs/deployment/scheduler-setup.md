@@ -19,7 +19,7 @@ Add to server crontab (`crontab -e`):
 
 **Important:**
 
-- Runs every minute; Laravel runs `tweets:crawl` only at the four scheduled VN times.
+- Runs every minute; Laravel runs scheduled closure **`pipeline:crawl-classify`** (crawl + classify) only at the four scheduled VN times.
 - Ensure cron daemon is running: `systemctl status cron`
 - Command output is logged via channels in `config/logging.php`, not cron stdout.
 
@@ -29,7 +29,7 @@ Add to server crontab (`crontab -e`):
 # List scheduled tasks
 php artisan schedule:list
 
-# Expected: 0 1,7,13,19 * * *  php artisan tweets:crawl
+# Expected: 0 1,7,13,19 * * *  pipeline:crawl-classify
 
 # Run scheduler manually (executes if time matches)
 php artisan schedule:run

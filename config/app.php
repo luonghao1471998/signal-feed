@@ -123,4 +123,16 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Mock LLM (classify) — không gọi Anthropic
+    |--------------------------------------------------------------------------
+    |
+    | MOCK_LLM=true → PipelineCrawlJob dùng FakeLLMClient (0 credits).
+    | Production: false + ANTHROPIC_API_KEY.
+    |
+    */
+
+    'mock_llm' => filter_var(env('MOCK_LLM', false), FILTER_VALIDATE_BOOLEAN),
+
 ];
