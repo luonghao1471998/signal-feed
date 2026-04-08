@@ -311,24 +311,31 @@ class TwitterCrawlerService
 
         foreach ($normalizedTweets as $row) {
             try {
-                $tweet = Tweet::withTrashed()->updateOrCreate(
-                    ['tweet_id' => $row['tweet_id']],
-                    [
-                        'tenant_id' => $tenantId,
-                        'source_id' => $source->id,
-                        'text' => $row['text'],
-                        'url' => $row['url'],
-                        'posted_at' => $row['posted_at'],
-                        'is_signal' => false,
-                        'signal_score' => 0,
-                    ]
+                $tweet = Tweet::withTrashed()->firstOrNew(
+                    ['tweet_id' => $row['tweet_id']]
                 );
+                $wasExisting = $tweet->exists;
+
+                $tweet->fill([
+                    'tenant_id' => $tenantId,
+                    'source_id' => $source->id,
+                    'text' => $row['text'],
+                    'url' => $row['url'],
+                    'posted_at' => $row['posted_at'],
+                ]);
+
+                if (! $wasExisting) {
+                    $tweet->signal_score = null;
+                    $tweet->is_signal = false;
+                }
+
+                $tweet->save();
 
                 if ($tweet->trashed()) {
                     $tweet->restore();
                 }
 
-                if ($tweet->wasRecentlyCreated) {
+                if (! $wasExisting) {
                     $newIds[] = (int) $tweet->id;
                 } else {
                     $duplicateCount++;

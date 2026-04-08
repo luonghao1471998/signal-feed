@@ -2,30 +2,32 @@
 
 namespace App\Jobs;
 
-use App\Integrations\LLMClient;
-use App\Models\Signal;
 use App\Models\Source;
-use App\Models\Tweet;
-use App\Services\FakeLLMClient;
+use App\Services\TweetClassifierService;
 use App\Services\TwitterCrawlerService;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Task 1.7.2 — Crawl active sources, then classify tweets touched in this run.
+ * Task 1.6.x crawl + Task 1.7.2 classify (Flow 3 step 2).
  *
  * MOCK_LLM=true hoặc tests bind mock → không tốn Anthropic credits.
- * Không tạo {@see Signal} ở bước này (SPEC: digest_id, title, summary — Task 1.8.x).
+ * Không tạo {@see \App\Models\Signal} ở bước này (Task 1.8.x).
  */
-class PipelineCrawlJob
+class PipelineCrawlJob implements ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
     use Queueable;
     use SerializesModels;
+
+    public int $tries = 3;
+
+    public int $timeout = 600;
 
     public function __construct(
         public int $tweetsPerSource = 10
@@ -33,17 +35,14 @@ class PipelineCrawlJob
         $this->tweetsPerSource = max(1, min(100, $this->tweetsPerSource));
     }
 
-    public function handle(TwitterCrawlerService $crawler): void
-    {
-        $llm = $this->resolveClassifier();
-
+    public function handle(
+        TwitterCrawlerService $crawler,
+        TweetClassifierService $classifier
+    ): void {
         Log::channel('crawler')->info('PipelineCrawlJob started', [
             'tweets_per_source' => $this->tweetsPerSource,
-            'classifier' => get_class($llm),
+            'classifier' => $classifier::class,
         ]);
-
-        /** @var list<int> $allAffectedIds */
-        $allAffectedIds = [];
 
         $sources = Source::query()
             ->where('status', 'active')
@@ -53,10 +52,12 @@ class PipelineCrawlJob
         foreach ($sources as $index => $source) {
             $result = $crawler->crawlSource($source, $this->tweetsPerSource);
 
-            if ($result['success'] && ($result['affected_tweet_ids'] ?? []) !== []) {
-                /** @var list<int> $ids */
-                $ids = $result['affected_tweet_ids'];
-                $allAffectedIds = array_merge($allAffectedIds, $ids);
+            if (! ($result['success'] ?? false)) {
+                Log::channel('crawler')->warning('PipelineCrawlJob crawl source failed', [
+                    'source_id' => $source->id,
+                    'x_handle' => $source->x_handle,
+                    'message' => $result['message'] ?? 'unknown',
+                ]);
             }
 
             $isLast = $index === $sources->count() - 1;
@@ -65,57 +66,21 @@ class PipelineCrawlJob
             }
         }
 
-        $allAffectedIds = array_values(array_unique($allAffectedIds));
-        $total = count($allAffectedIds);
-
-        $ok = 0;
-        $failed = 0;
-
-        foreach ($allAffectedIds as $position => $tweetPk) {
-            $tweet = Tweet::query()->find($tweetPk);
-            if ($tweet === null) {
-                continue;
-            }
-
-            try {
-                $classify = $llm->classify($tweet->text);
-                $tweet->update([
-                    'signal_score' => $classify['signal_score'],
-                    'is_signal' => $classify['is_signal'],
-                ]);
-                $ok++;
-            } catch (\Throwable $e) {
-                $failed++;
-                Log::channel('crawler-errors')->error('PipelineCrawlJob classify failed', [
-                    'tweet_id' => $tweet->id,
-                    'vendor_tweet_id' => $tweet->tweet_id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-
-            $n = $position + 1;
-            if ($total > 0 && $n % 50 === 0) {
-                Log::channel('crawler')->info("Classified {$n}/{$total} tweets");
-            }
-        }
+        $stats = $classifier->classifyPendingTweets();
 
         Log::channel('crawler')->info('PipelineCrawlJob finished', [
             'sources' => $sources->count(),
-            'tweets_classified_ok' => $ok,
-            'tweets_classify_failed' => $failed,
-            'tweets_in_classify_batch' => $total,
+            'classify_scanned' => $stats['scanned'],
+            'classify_ok' => $stats['classified'],
+            'classify_failed' => $stats['failed'],
+            'signals' => $stats['signals'],
         ]);
     }
 
-    /**
-     * Ưu tiên LLMClient đã bind (mock trong test); sau đó MOCK_LLM → FakeLLMClient; cuối cùng Anthropic.
-     */
-    private function resolveClassifier(): FakeLLMClient|LLMClient
+    public function failed(?\Throwable $exception = null): void
     {
-        if (config('app.mock_llm') === true) {
-            return app(FakeLLMClient::class);
-        }
-
-        return app(LLMClient::class);
+        Log::channel('crawler-errors')->error('PipelineCrawlJob failed after max attempts', [
+            'error' => $exception?->getMessage(),
+        ]);
     }
 }

@@ -30,9 +30,11 @@ class FakeLLMClient
         $signalScore = min(1.0, max(0.0, $baseScore));
         $signalScore = round($signalScore, 2);
 
+        $threshold = (float) config('signalfeed.signal_threshold', 0.6);
+
         return [
             'signal_score' => $signalScore,
-            'is_signal' => $signalScore >= 0.7,
+            'is_signal' => $signalScore >= $threshold,
         ];
     }
 }

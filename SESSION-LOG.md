@@ -2125,3 +2125,171 @@ git push origin main --tags
 ```
 
 _(Đổi `main` → nhánh remote thực tế nếu khác; chỉ push khi đã review.)_
+
+---
+
+## Task 1.7.2 - Add Classify Step to PipelineCrawlJob
+
+**Started:** 14:42  
+**Status:** 🚧 In Progress  
+**Type:** WEDGE (Critical Path)  
+**Source:** IMPLEMENTATION-ROADMAP.md line 37
+
+### Requirements
+
+**Từ IMPLEMENTATION-ROADMAP.md Task 1.7.2:**
+
+- Job iterates tweets from crawl step
+- Calls `LLMClient.classify()` for each tweet
+- Updates `Tweet.signal_score` + `Tweet.is_signal` columns
+- Part of pipeline: Crawl → Classify → Cluster → Summarize → Rank → Draft
+
+**Từ SPEC-core.md Flow 3 - Step 2 (Classify):**
+
+LLM analyzes each tweet:
+
+- **Input:** tweet text
+- **Process:** Prompt-based classification
+- **Output:** `signal_score` (0–1), `is_signal` (boolean)
+- **Threshold:** `is_signal = true` if `signal_score ≥ 0.6` (configurable)
+
+**Từ SPEC-api.md Section 9 - tweets table:**
+
+```sql
+-- tweets table columns (rút gọn liên quan classify):
+--   signal_score DECIMAL(3,2) DEFAULT NULL
+--   is_signal BOOLEAN DEFAULT FALSE
+-- Populated by classify step; used to filter tweets for clustering
+```
+
+**Từ IMPLEMENTATION-ROADMAP.md Task 1.7.1 (đã hoàn thành):**
+
+LLMClient integration exists:
+
+- `app/Integrations/LLMClient.php` — wrapper Anthropic + `classify()`
+- Đọc prompt từ `docs/prompts/v1/classify.md` (theo roadmap)
+- Returns: `{signal_score, is_signal}`
+
+**Current Status (baseline session):**
+
+- ✅ Task 1.7.1: Signal generation (`SignalGeneratorService` + `signals:generate`) — tách luồng so với classify từng tweet
+- ✅ Task 1.6.2 / scheduler: pipeline crawl + classify theo lịch (xem `routes/console.php`, `PipelineCrawlJob`)
+- ✅ Task 1.6.3: Incremental crawl
+- 🚧 Task 1.7.2 (roadmap): đảm bảo mọi tweet từ bước crawl được classify, cột `signal_score` / `is_signal` đúng threshold & verify DB — cần đối chiếu code hiện tại với acceptance roadmap
+
+### Files to Create/Modify
+
+**Option A: Job-based pipeline (SPEC / roadmap)**
+
+- `app/Jobs/PipelineCrawlJob.php` _(đã có trong repo — mở rộng / củng cố bước classify)_
+- `app/Services/TweetClassifierService.php` _(tuỳ chọn — tách logic khỏi job)_
+- `routes/console.php` — đã `dispatch_sync(PipelineCrawlJob)` theo cron; có thể chuyển `Schedule::job` khi queue production
+
+**Option B: Extend crawl command**
+
+- `app/Console/Commands/CrawlTweetsCommand.php` — thêm classify sau crawl (ít khớp kiến trúc job pipeline)
+
+**Recommendation:** Option A (job pipeline, đồng bộ roadmap).
+
+### Implementation Strategy
+
+**Step 1: TweetClassifierService (tuỳ chọn)**
+
+```php
+class TweetClassifierService
+{
+    public function classifyTweet(Tweet $tweet): array
+    {
+        // Call LLMClient::classify($tweet->text)
+        // Parse response: {signal_score, is_signal}
+        // Return result
+    }
+
+    public function classifyBatch(Collection $tweets): void
+    {
+        // Iterate tweets → classify each → persist
+    }
+}
+```
+
+**Step 2: PipelineCrawlJob**
+
+```php
+class PipelineCrawlJob implements ShouldQueue
+{
+    public function handle(): void
+    {
+        // Step 1: Crawl (TwitterCrawlerService)
+        // Step 2: Classify affected tweets (LLMClient)
+        // Future: cluster, summarize, rank, draft
+    }
+}
+```
+
+**Step 3: Scheduler**
+
+```php
+// routes/console.php — ví dụ queue-based:
+// Schedule::job(new PipelineCrawlJob($limit))->cron('0 1,7,13,19 * * *')->withoutOverlapping(120);
+// Hiện tại repo: Schedule::call + dispatch_sync (xem file thực tế).
+```
+
+### Verification Method
+
+**Database check:**
+
+```bash
+# Before classify (baseline)
+psql -U ipro -d signalfeed -c "
+SELECT COUNT(*) AS total_tweets,
+       COUNT(signal_score) AS classified_tweets,
+       COUNT(*) FILTER (WHERE is_signal = true) AS signals
+FROM tweets;
+"
+
+# Run pipeline / queue
+php artisan pipeline:run --limit=10
+# HOẶC: php artisan queue:work --once (khi job chạy async)
+
+# After classify
+psql -U ipro -d signalfeed -c "
+SELECT COUNT(*) AS total_tweets,
+       COUNT(signal_score) AS classified_tweets,
+       COUNT(*) FILTER (WHERE is_signal = true) AS signals,
+       AVG(signal_score) AS avg_score
+FROM tweets
+WHERE signal_score IS NOT NULL;
+"
+```
+
+**Sample classified tweets:**
+
+```bash
+psql -U ipro -d signalfeed -c "
+SELECT id, text, signal_score, is_signal
+FROM tweets
+WHERE signal_score IS NOT NULL
+ORDER BY signal_score DESC
+LIMIT 5;
+"
+```
+
+### Claude Web Prompt Used
+
+_(Sẽ paste sau khi nhận response từ Claude Web)_
+
+### Cursor Prompt Used
+
+_(Sẽ paste sau khi Cursor implement)_
+
+### Implementation Notes
+
+_(Sẽ điền trong quá trình implementation)_
+
+### Test Results
+
+_(Sẽ điền sau khi test classify logic)_
+
+### Issues Encountered
+
+_(Sẽ điền nếu có lỗi)_

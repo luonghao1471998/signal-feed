@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Jobs\PipelineCrawlJob;
 use App\Models\Source;
 use App\Models\Tweet;
+use App\Services\TweetClassifierService;
 use App\Services\TwitterCrawlerService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -58,7 +59,7 @@ class PipelineClassifyIntegrationTest extends TestCase
             'text' => 'Series B closed at 40M for our AI infra startup.',
             'posted_at' => now(),
             'url' => 'https://twitter.com/inttest/status/1777777777777777777',
-            'signal_score' => 0,
+            'signal_score' => null,
             'is_signal' => false,
             'tenant_id' => 1,
         ]);
@@ -75,7 +76,7 @@ class PipelineClassifyIntegrationTest extends TestCase
             ]);
 
         $job = new PipelineCrawlJob(10);
-        $job->handle($crawler);
+        $job->handle($crawler, app(TweetClassifierService::class));
 
         $tweet->refresh();
         $this->assertEquals(0.91, (float) $tweet->signal_score);

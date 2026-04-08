@@ -18,7 +18,7 @@ Artisan::command('pipeline:run {--limit=10 : Max tweets per source}', function (
     $this->info('Done.');
 })->purpose('Run crawl + classify once (honours MOCK_LLM / .env)');
 
-// Pipeline: crawl + classify (Task 1.6.x crawl + Task 1.7.2 classify) — 4×/ngày VN
+// Pipeline: crawl + classify — 4×/ngày VN (dispatch_sync: không phụ thuộc queue worker khi QUEUE_CONNECTION=redis)
 Schedule::call(function () {
     $limit = (int) config('pipeline.tweets_per_source', 10);
     dispatch_sync(new PipelineCrawlJob($limit));

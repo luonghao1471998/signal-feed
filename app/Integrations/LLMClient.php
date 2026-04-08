@@ -121,9 +121,10 @@ class LLMClient
         $score = max(0.0, min(1.0, $score));
         $score = round($score, 2);
 
+        $threshold = (float) config('signalfeed.signal_threshold', 0.6);
         $isSignal = array_key_exists('is_signal', $decoded)
             ? (bool) $decoded['is_signal']
-            : $score >= 0.7;
+            : $score >= $threshold;
 
         return [
             'signal_score' => $score,
