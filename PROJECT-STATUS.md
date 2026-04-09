@@ -1,9 +1,9 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-09 09:00 +07 (Task 1.8.1 complete)
+**Last Updated:** 2026-04-09 10:45 +07 (Task 1.8.2 complete)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 1 - Wedge Delivery
-**Current Task:** **1.8.3** — Implement cluster summarization & signal creation
+**Current Task:** **1.8.3** — Wire summarize + `Signal` / `signal_sources` in `PipelineCrawlJob`
 
 ---
 
@@ -17,12 +17,12 @@
 - [x] 1.7.1 - LLM Integration (Anthropic Claude API) ✅
 - [x] 1.7.2 - Classify Pipeline (signal detection) ✅ ← **COMPLETED**
 - [x] 1.8.1 - Cluster Step (group similar tweets) ✅ ← **COMPLETED**
-- [ ] 1.8.2 - Summarize Step (generate signal summaries)
+- [x] 1.8.2 - Summarize Step (`SignalSummarizerService` + `summarize.md`) ✅ ← **COMPLETED** (April 9, 2026)
 - [ ] 1.8.3 - Add summarize + Signal records to pipeline ← **NEXT**
 - [ ] 1.9.1 - Rank signals (importance scoring)
 - [ ] 1.9.2 - Generate drafts (tweet composer)
 
-**Progress:** 6/10 wedge tasks complete (60%) 🎯  
+**Progress:** 7/10 wedge tasks complete (70%) 🎯  
 **Critical path:** On track  
 **Blockers:** None
 
@@ -50,16 +50,19 @@
 - **Created:** `TweetClassifierService`, `config/signalfeed.php`, migration `signal_score` unclassified; tests unit/feature bổ sung
 - **Modified:** `PipelineCrawlJob` (refactor orchestration), `docs/prompts/v1/classify.md`, `routes/console.php` (scheduler 4×/day), `.env.example`, `TwitterCrawlerService`, `LLMClient`, `FakeLLMClient`
 
-**Next:** Task 1.8.2 / **1.8.3** — summarize + persist signals trong pipeline
+**Next:** Task **1.8.3** — persist `Signal` + `signal_sources` trong pipeline _(Task **1.8.2** summarize service ✅)._
 
 ## Current Sprint Status
 
-**Active Task:** Task 1.8.3 — Summarize clusters & create Signal records  
+**Active Task:** Task 1.8.3 — Add cluster + summarize to pipeline (persist `Signal` in job)  
+**Status:** ⏳ Ready to Start  
+**Previous Task:** Task 1.8.2 — Signal Summarization Service ✅ COMPLETED (April 9, 2026)  
 **Started:** TBD  
 **Target:** TBD
 
 **Recent Completions:**
 
+- ✅ 2026-04-09: Task 1.8.2 — `SignalSummarizerService`, `docs/prompts/v1/summarize.md`, `LLMClient::summarize()` + tests
 - ✅ 2026-04-09: Task 1.8.1 — Tweet clustering (prompt-based, `TweetClusterService` + pipeline)
 - ✅ 2026-04-08: Task 1.7.2 — Classify pipeline complete
 - ✅ 2026-04-08: Task 1.6.3 — Incremental crawl
@@ -74,16 +77,16 @@
 ## Quick Stats
 
 ### Sprint 1 Progress (34 tasks total)
-- **Completed:** 20/34 (59%)
+- **Completed:** 21/34 (62%)
 - **In Progress:** None
 - **Blocked:** None
 
 ### Code Metrics
-- **Backend:** 68% (Auth + DB + Categories + Sources + API + Crawler + Scheduler + Incremental + Signal generation + **Classify** + **Cluster** pipeline complete)
+- **Backend:** 71% (Auth + DB + Categories + Sources + API + Crawler + Scheduler + Incremental + Signal generation + **Classify** + **Cluster** + **Summarize** service complete; persist signals pending **1.8.3**)
 - **Frontend:** 5% (Scaffold only)
 - **Database:** 100% (All migrations done)
 - **Seed Data:** 100% (Categories ✅, Sources CSV ✅, Sources imported ✅)
-- **Tests:** Feature `SchedulerTest` + manual (OAuth, seed, APIs, crawler, incremental, signals, **classify**, **cluster**)
+- **Tests:** Feature `SchedulerTest` + manual (OAuth, seed, APIs, crawler, incremental, signals, **classify**, **cluster**, **summarize**)
 
 ### Integration Status
 - [x] OAuth X.com (Task 1.3.1 complete) ✅
@@ -96,7 +99,7 @@
   - **Scheduler:** 4×/day automated (Task 1.6.2 ✅)
   - **Incremental:** Client-side filtering by `last_crawled_at` (Task 1.6.3 ✅)
   - **Duplicate prevention:** UNIQUE constraint + logging
-- [x] Anthropic Claude (Tasks 1.7.1–1.8.1 pipeline steps complete) ✅  
+- [x] Anthropic Claude (Tasks 1.7.1–1.8.2 pipeline steps complete) ✅  
   - Model: `claude-sonnet-4-20250514`  
   - **Signal generation:** `php artisan signals:generate` (Task 1.7.1)  
   - **Tweet classification:** `TweetClassifierService` (Task 1.7.2 ✅)  
@@ -108,8 +111,10 @@
   - **Tweet clustering:** `TweetClusterService` + `LLMClient::cluster()` (Task **1.8.1** ✅)  
     - Prompt: `docs/prompts/v1/cluster.md`; lookback **24h** (`CLUSTER_LOOKBACK_HOURS`); kết quả in-memory cho bước summarize  
     - Chi phí ước tính cluster: ~**$0.02**/day (4 runs × ~$0.005)  
-  - **Pipeline:** `PipelineCrawlJob` orchestrates **Crawl → Classify → Cluster**; scheduler: `dispatch_sync` trong `Schedule::call` (chạy ngay khi `schedule:run`, không phụ thuộc worker queue)  
-  - Credits: ~**$4.71** remaining (snapshot); **ước tính scale:** ~**$9.60**/day nếu ~3.200 classify calls/day (giả định ~$0.003/call — chỉnh theo usage thực tế)  
+  - **Signal summarization (Task 1.8.2 ✅):** `SignalSummarizerService` + `LLMClient::summarize()` + `docs/prompts/v1/summarize.md`  
+    - Retry **3** lần + JSON/regex fallback; output sẵn cho `Signal::create()`; chi phí ước tính summarize: ~**$0.40**/day (50 clusters × 4 runs × ~$0.002)  
+  - **Pipeline:** `PipelineCrawlJob` orchestrates **Crawl → Classify → Cluster**; summarize service sẵn sàng — persist `signals` pending **1.8.3**; scheduler: `dispatch_sync` trong `Schedule::call` (chạy ngay khi `schedule:run`, không phụ thuộc worker queue)  
+  - Credits: ~**$4.71** remaining (snapshot); **ước tính scale pipeline (sau 1.8.2):** classify ~**$9.60**/day + cluster ~**$0.08**/day + summarize ~**$0.40**/day + crawl (twitterapi.io) — xem *Metrics Update*  
 - [ ] Stripe (Sprint 3)
 - [ ] Resend (Sprint 2+)
 
@@ -129,8 +134,8 @@
 
 - `last_crawled_at`: cập nhật **4×/ngày** qua scheduler (khi cron + credits ổn)
 - Tweet classification: tự classify trong `PipelineCrawlJob` (Task **1.7.2** ✅)
-- Tweet clustering: in-memory trong `PipelineCrawlJob` (Task **1.8.1** ✅); persist `signals` pending **1.8.2–1.8.3**
-- Signal generation: manual `signals:generate` cho wedge; auto full pipeline pending Tasks **1.8.2–1.8.3** + **1.9.x**
+- Tweet clustering: in-memory trong `PipelineCrawlJob` (Task **1.8.1** ✅); **summarize service** (Task **1.8.2** ✅); persist `signals` từ pipeline pending **1.8.3**
+- Signal generation: manual `signals:generate` cho wedge; auto full pipeline pending Task **1.8.3** (wire summarize + DB) + **1.9.x**
 
 ### API Endpoints Available
 
@@ -153,7 +158,8 @@
 - ✅ Tweet crawling: 4×/day via scheduler (`pipeline:crawl-classify`)
 - ✅ Tweet classification: trong `PipelineCrawlJob` (Task **1.7.2**)
 - ✅ Tweet clustering: trong `PipelineCrawlJob` (Task **1.8.1**)
-- ⏸️ Signal generation end-to-end: pending Tasks **1.8.2–1.8.3** (summarize + `Signal` trong DB) + **1.9.x** (rank, draft)
+- ✅ Summarize clusters: `SignalSummarizerService` (Task **1.8.2**) — gọi thủ công / test; chưa gắn persist trong job
+- ⏸️ Signal generation end-to-end: pending Task **1.8.3** (wire summarize + `Signal` / `signal_sources` trong DB) + **1.9.x** (rank, draft)
 
 ---
 
@@ -182,7 +188,7 @@
 - [x] 1.5.2 - Implement source pool seed script ✅
 - [x] 1.5.3 - Implement GET /api/sources endpoint ✅
 
-**Next Task:** 1.8.2 / 1.8.3 (summarize + signals trong pipeline) hoặc 1.3.3 (onboarding) tùy ưu tiên
+**Next Task:** **1.8.3** (summarize + signals trong pipeline) hoặc 1.3.3 (onboarding) tùy ưu tiên _(1.8.2 ✅)._
 
 ### Phase 3: Tweet Crawling (Tasks 1.6) — 3 tasks
 
@@ -232,7 +238,7 @@ _(Tiến độ pipeline AI tổng thể: **Phase 4** ở trên — **3/6**.)_
 - [x] Models with proper array handling
 - [x] Command with progress reporting
 
-**Next Task:** **1.8.2** / **1.8.3** — `LLMClient::summarize()` + persist `Signal` trong `PipelineCrawlJob` (roadmap)
+**Next Task:** **1.8.3** — wire `SignalSummarizerService` + persist `Signal` / `signal_sources` trong `PipelineCrawlJob` _(1.8.2 ✅ `LLMClient::summarize()` + service)._
 
 **1.7.2 Add classify step to PipelineCrawlJob** ✅ DONE (2026-04-08)
 
@@ -246,12 +252,13 @@ _(Tiến độ pipeline AI tổng thể: **Phase 4** ở trên — **3/6**.)_
 
 ### Phase 4: AI Pipeline (Tasks 1.7–1.9) — wedge steps
 
-**Status:** 3/6 complete (50%)
+**Status:** 4/7 complete (57%) _(thêm task **1.8.2** tách khỏi **1.8.3** trong checklist)_
 
 - [x] 1.7.1 — Signal generation (`signals:generate`) ✅
 - [x] 1.7.2 — Classify step (`TweetClassifierService` + pipeline) ✅
 - [x] 1.8.1 — `LLMClient` cluster method + `TweetClusterService` + pipeline ✅
-- [ ] 1.8.3 — Summarize + `Signal` records trong job _(roadmap: **1.8.2** summarize method thường làm trước hoặc gộp cùng bước này)_
+- [x] 1.8.2 — Summarize clusters (`SignalSummarizerService` + `LLMClient::summarize()` + `summarize.md`) ✅ (April 9, 2026)
+- [ ] 1.8.3 — Wire summarize + `Signal` / `signal_sources` trong `PipelineCrawlJob` ⏳ **NEXT**
 - [ ] 1.9.1 — Signal ranking formula
 - [ ] 1.9.2 / 1.9.3 — Draft generation + rank/draft trong job
 
@@ -260,7 +267,11 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
 
 ---
 
-## Current Focus
+## 🎯 Current Focus
+
+**Active Task:** Task 1.8.3 — Add cluster + summarize to pipeline  
+**Status:** ⏳ Ready to Start  
+**Previous Task:** Task 1.8.2 — Implement Signal Summarization ✅ COMPLETED (April 9, 2026)
 
 ### Vừa Hoàn Thành
 
@@ -281,7 +292,7 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
 - **PipelineCrawlJob:** Crawl → Classify → Cluster (1.8.1 ✅)  
   - Scheduler **4×/ngày** (01:00, 07:00, 13:00, 19:00 VN)  
   - Job implements `ShouldQueue`; lịch dùng `Schedule::call` + **`dispatch_sync`** (xem `routes/console.php`)  
-  - Mở rộng sau: summarize + `Signal` (1.8.2–1.8.3), rank, draft (1.9.x)
+  - Mở rộng sau: persist `Signal` trong job (**1.8.3**), rank, draft (1.9.x) _(summarize service **1.8.2** ✅)._
 
 - **Configuration:** `config/signalfeed.php`  
   - `signal_threshold: 0.6` (`SIGNAL_THRESHOLD`)  
@@ -313,7 +324,42 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
 
 **Cost:** ~$0.02/day (4 runs × ~$0.005) — rẻ so với classify
 
-**Status:** Production-ready cho bước clustering; Flow 3 **Crawl ✅ → Classify ✅ → Cluster ✅**; sẵn sàng **Task 1.8.2 / 1.8.3** (summarize + `Signal` trong DB)
+**Status:** Production-ready cho bước clustering; Flow 3 **Crawl ✅ → Classify ✅ → Cluster ✅**; sẵn sàng **Task 1.8.3** (wire summarize + `Signal` trong DB)
+
+✅ **Task 1.8.2** — Signal Summarization Service (April 9, 2026, ~10:45 AM)
+
+**Completed:** April 9, 2026 10:45 AM  
+**Duration:** ~2 hours (implementation + testing)
+
+**Files Created:**
+
+- `app/Services/SignalSummarizerService.php` (10.4 KB)
+- `docs/prompts/v1/summarize.md` (2.2 KB)
+- `tests/Feature/SignalSummarizerServiceTest.php` (2.5 KB)
+
+**Files Modified:** `app/Integrations/LLMClient.php` (`summarize()`), `app/Services/FakeLLMClient.php`, `config/anthropic.php`
+
+**Key Deliverables:**
+
+- Summarization service với Claude API integration
+- Prompt template cho signal synthesis
+- 3-attempt retry logic + JSON/regex fallback
+- Output structure ready for `Signal::create()`
+
+**Test Results:**
+
+- ✅ All constraint validations passed
+- ✅ Quality checks passed (title 7 words, summary 74 words — manual cluster test)
+- ✅ API cost: ~$0.002 per cluster (acceptable)
+- ✅ Data structure validated for Task 1.8.3
+- ✅ PHPUnit: `SignalSummarizerServiceTest` PASS (`MOCK_LLM`)
+
+**Blockers Resolved:**
+
+- Signal summarization logic complete
+- No dependencies blocking Task 1.8.3
+
+**Status:** Flow 3 step 4 (summarize) **service layer** hoàn thành; persist trong job = **1.8.3**.
 
 ✅ **Task 1.6.3** — Incremental crawl logic (2026-04-08)
 
@@ -336,11 +382,12 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
 - ✅ Phase 1: Setup + Infrastructure (**8/8** — 100%)
 - ✅ Phase 2: Auth + Data Seed (**6/8** — 75%)
 - ✅ Phase 3: Tweet Crawling (**3/3** — 100%)
-- 🚧 **Phase 4: AI Pipeline** (**3/6** — **50%**)
+- 🚧 **Phase 4: AI Pipeline** (**4/7** — **57%**)
   - ✅ Task 1.7.1: Signal Generator Service
   - ✅ Task 1.7.2: Classify Step
   - ✅ Task 1.8.1: Cluster Method
-  - ⏸️ Task 1.8.3: Summarize & Create Signals (next)
+  - ✅ Task 1.8.2: Summarize Service (`SignalSummarizerService`)
+  - ⏸️ Task 1.8.3: Wire summarize + Create Signals in job (next)
   - ⏸️ Task 1.9.1: Ranking Formula
   - ⏸️ Task 1.9.3: Rank + Draft Steps
 - ⏸️ Phase 5: Digest UI (**0/7** — nhóm 1.10–1.12)
@@ -351,13 +398,13 @@ Không có
 
 ### Task Tiếp Theo
 
-🔜 **Task 1.8.3** — Implement cluster summarization & signal creation
+🔜 **Task 1.8.3** — Wire cluster + summarize into `PipelineCrawlJob` + persist `Signal` / `signal_sources`
 
 - **Loại:** WEDGE (AI pipeline critical path)
-- **Dependencies:** 1.8.1 ✅ (clusters in-memory trong job); roadmap: **1.8.2** summarize method trước hoặc gộp với 1.8.3
-- **Mục tiêu:** Tóm tắt từng cluster + tạo bản ghi `signals` (+ `signal_sources`) đúng SPEC  
-  - Input: mảng clusters từ `TweetClusterService`  
-  - Process: `LLMClient::summarize()` (Task 1.8.2) + persist  
+- **Dependencies:** 1.8.1 ✅ (clusters in-memory); **1.8.2** ✅ (`SignalSummarizerService` + `LLMClient::summarize()`)
+- **Mục tiêu:** Gọi `SignalSummarizerService` cho mỗi cluster + tạo bản ghi `signals` (+ `signal_sources`) đúng SPEC  
+  - Input: mảng clusters từ `TweetClusterService` + collection tweet signal  
+  - Process: `summarizeCluster()` + `Signal::create()` / junction  
   - Output: DB `signals` populated từ pipeline
 
 **Pipeline Progress:**
@@ -366,7 +413,8 @@ Không có
 ✅ Step 1: Crawl tweets (Task 1.6.x)
 ✅ Step 2: Classify tweets (Task 1.7.2)
 ✅ Step 3: Cluster signals (Task 1.8.1)
-→ Step 4: Summarize clusters (Task 1.8.3) ← NEXT
+✅ Step 4: Summarize clusters — service (Task 1.8.2)
+→ Step 4b: Persist signals in job (Task 1.8.3) ← NEXT
   Step 5: Rank signals (Task 1.9.1)
   Step 6: Generate drafts (Task 1.9.2)
 ```
@@ -383,6 +431,12 @@ Không có
    - **Impact:** Warning logs only
    - **Fix:** Cast floats to string in model mutations / decimal handling
    - **Timeline:** Phase 2 optimization
+
+### Minor Observations (Task 1.8.2)
+
+- ⚠️ Title word count có thể >10 words (logged as warning, not blocking)
+- ⚠️ Summary word count có thể outside 50-100 range (quality guideline, not strict)
+- ℹ️ These are acceptable trade-offs for natural language quality
 
 **Resolved:**
 
@@ -402,7 +456,7 @@ _(Removed: API credits depleted — resolved via top-up hoặc không chặn dev
 ## Next Session Plan
 
 ### Target
-- **1.8.2 / 1.8.3** summarize + persist `Signal` trong pipeline; **1.3.3** onboarding hoặc **1.10.1** API signals tuỳ ưu tiên; top-up twitterapi.io khi crawl quy mô lớn.
+- **1.8.3** wire summarize + persist `Signal` trong pipeline; **1.3.3** onboarding hoặc **1.10.1** API signals tuỳ ưu tiên; top-up twitterapi.io khi crawl quy mô lớn _(1.8.2 ✅)._
 
 ### Pre-requisites
 - [x] WSL / dev environment
@@ -416,13 +470,65 @@ _(Removed: API credits depleted — resolved via top-up hoặc không chặn dev
 - [x] Incremental crawl (1.6.3)
 - [x] Classify step (1.7.2)
 - [x] Cluster step (1.8.1)
+- [x] Summarize service (1.8.2)
 
 ### Expected Duration
-Tuỳ scope (1.8.2–1.8.3 vs 1.3.3 vs 1.10.1)
+Tuỳ scope (1.8.3 vs 1.3.3 vs 1.10.1)
 
 ---
 
-## Metrics Update (2026-04-08 / cluster 2026-04-09)
+## 🎯 Next Milestones
+
+### Immediate (This Week)
+
+- [ ] **Task 1.8.3:** Integrate cluster + summarize into `PipelineCrawlJob`
+  - Add `TweetClusterService` call after classification _(đã có — bổ sung persist)_
+  - Add `SignalSummarizerService` call for each cluster
+  - Create `Signal` records in database
+  - Create `signal_sources` junction records
+  - Expected completion: April 10, 2026
+
+### Short-term (Next 2 Weeks)
+
+- [ ] **Task 1.9.1:** Implement signal ranking algorithm
+- [ ] **Task 1.9.2:** Add ranking step to pipeline
+- [ ] **Task 1.10.1:** Implement draft tweet generation _(roadmap có thể ghi 1.9.x draft — đối chiếu `IMPLEMENTATION-ROADMAP.md`)_
+
+---
+
+## 📊 Project Statistics (Updated: April 9, 2026)
+
+**Pipeline Completion (Flow 3 steps):**
+
+- Crawl: ✅ 100%
+- Classify: ✅ 100%
+- Cluster: ✅ 100%
+- Summarize: ✅ 100% _(service; persist trong job = 1.8.3)_
+- Rank: ⏳ 0%
+- Draft: ⏳ 0%
+
+**Overall Pipeline Progress:** ~67% (4/6 bước Flow 3 có service/logic; persist signal end-to-end pending **1.8.3**)
+
+**Services Implemented:**
+
+- TweetCrawlerService ✅
+- TweetClassifierService ✅
+- TweetClusterService ✅
+- SignalSummarizerService ✅
+- SignalRankerService ⏳
+- DraftGeneratorService ⏳
+
+**Test Data (snapshot manual Task 1.8.2 session — môi trường có thể khác):**
+
+- Sources: 5
+- Tweets crawled: 50
+- Signal tweets: 33 (66% rate)
+- Clusters generated: ~8–12 (ước lượng)
+- Signals summarized: 1 (test)
+
+---
+
+## Metrics Update (2026-04-08 / cluster 2026-04-09 / summarize 2026-04-09)
 
 ### API Integration
 
@@ -432,6 +538,19 @@ Tuỳ scope (1.8.2–1.8.3 vs 1.3.3 vs 1.10.1)
 - **Signal generation (1.7.1):** 5 signals, ~0.71 avg impact, ~31% conversion (16 tweets)
 - **Classify pipeline (1.7.2):** `TweetClassifierService` + `PipelineCrawlJob`; threshold **0.6**; PHPUnit suite PASS; ước tính chi phí scale classify ~**$9.60**/day (giả định volume — đối chiếu dashboard Anthropic)
 - **Cluster pipeline (1.8.1):** `TweetClusterService` + `LLMClient::cluster()`; ước tính ~**$0.02**/day (4 runs × ~$0.005)
+- **Summarize service (1.8.2):** `SignalSummarizerService` + `LLMClient::summarize()`; ~**$0.002**/cluster; ước tính ~**$0.40**/day (50 clusters × 4 runs)
+
+**Updated Daily Pipeline Costs (after Task 1.8.2 — ước tính, chỉnh theo volume thực tế):**
+
+| Thành phần | ~$/run × 4 runs | ~$/day |
+|------------|-----------------|--------|
+| Crawl (twitterapi.io) | ~$0.50 × 4 | ~$2.00 |
+| Classify | ~$2.40 × 4 | ~$9.60 |
+| Cluster | ~$0.02 × 4 | ~$0.08 |
+| **Summarize** | ~$0.10 × 4 | **~$0.40** |
+| **Tổng pipeline (AI + crawl gộp)** | — | **~$12.08** (~$362/month) |
+
+**Status:** ✅ Within acceptable budget _(đối chiếu dashboard twitterapi.io + Anthropic)_
 
 ### Code Quality (1.7.1)
 
@@ -450,9 +569,21 @@ Tuỳ scope (1.8.2–1.8.3 vs 1.3.3 vs 1.10.1)
 - **TweetClusterService:** ✅ Parse JSON + fallback toàn `unclustered` khi LLM lỗi; `cluster_<uuid>` gán server-side
 - **Tests:** `TweetClusterServiceTest` + cập nhật job tests
 
+### Code Quality (1.8.2)
+
+- **SignalSummarizerService:** ✅ Retry + JSON/regex fallback + validation (title/tags); log `crawler` / `crawler-errors`
+- **Tests:** `SignalSummarizerServiceTest` (PHPUnit + `FakeLLMClient::summarize()`)
+
 ---
 
 ## Recent Decisions
+
+**2026-04-09 — Task 1.8.2 Signal summarization service**
+
+- **Quyết định:** `SignalSummarizerService` tách biệt generator; prompt `docs/prompts/v1/summarize.md`; `LLMClient::summarize()` + `FakeLLMClient::summarize()`; config `anthropic.models.summarize`.
+- **Output:** `{cluster_id, title, summary, topic_tags, source_count, tweet_ids}` — sẵn cho `Signal::create()` ở **1.8.3**.
+- **Test:** Manual cluster @karpathy + PHPUnit PASS; chi phí ~**$0.002**/cluster.
+- **Next:** **1.8.3** wire vào `PipelineCrawlJob`.
 
 **2026-04-09 — Task 1.8.1 Tweet clustering deployed**
 
@@ -460,7 +591,7 @@ Tuỳ scope (1.8.2–1.8.3 vs 1.3.3 vs 1.10.1)
 - **Implementation:** `TweetClusterService`, `docs/prompts/v1/cluster.md`, `LLMClient::cluster()` / `FakeLLMClient::cluster()`.
 - **Test / kết quả:** Manual 5 tweets → 2 clusters + 1 unclustered; PHPUnit suite PASS.
 - **Cost:** ~**$0.02**/day cluster (ước tính) vs classify scale ~**$9.60**/day.
-- **Impact:** Flow 3 **Crawl ✅ → Classify ✅ → Cluster ✅**; **Next:** **1.8.2 / 1.8.3**.
+- **Impact:** Flow 3 **Crawl ✅ → Classify ✅ → Cluster ✅**; **Next:** **1.8.3** (persist signals — summarize **1.8.2** ✅).
 
 **2026-04-08 — Task 1.7.2 Classify pipeline deployed**
 
@@ -474,7 +605,7 @@ Tuỳ scope (1.8.2–1.8.3 vs 1.3.3 vs 1.10.1)
 - **Test / kết quả:** PHPUnit **11** PASS; kịch bản mẫu ~**60%** signal rate; threshold `≥0.6` → `is_signal`
 - **Cost estimate (scale):** ~**$9.60**/day nếu ~3.200 calls × ~$0.003 (chỉnh theo usage thực tế)
 - **Impact (2026-04-08):** Flow 3 **Crawl ✅ → Classify ✅**. **Cập nhật 2026-04-09:** **Cluster ✅** (Task 1.8.1 — xem *Current Focus*).
-- **Next:** Task **1.8.2 / 1.8.3** (summarize + `Signal` trong pipeline)
+- **Next:** Task **1.8.3** (wire summarize + `Signal` trong pipeline) — **1.8.2** ✅
 
 **2026-04-08 — Task 1.6.3 Incremental crawl deployed**
 
@@ -494,7 +625,7 @@ Tuỳ scope (1.8.2–1.8.3 vs 1.3.3 vs 1.10.1)
   - Reduced API calls via incremental filtering
   - No duplicate storage waste
   - Production-ready crawler system
-- **Next:** Task 1.8.2 / 1.8.3 (summarize + signals trong pipeline)
+- **Next:** Task 1.8.3 (summarize + signals trong pipeline) — 1.8.2 ✅
 
 **2026-04-08 13:09 +07 — Task 1.6.2 Scheduler deployed**
 

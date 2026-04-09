@@ -73,4 +73,31 @@ class FakeLLMClient
             'unclustered' => $remaining,
         ], JSON_THROW_ON_ERROR);
     }
+
+    /**
+     * JSON assistant text cho summarize — deterministic, không gọi API.
+     *
+     * @throws \JsonException
+     */
+    public function summarize(string $prompt): string
+    {
+        $topic = 'Signal';
+        if (preg_match('/\*\*Cluster Topic:\*\*\s*(.+)/u', $prompt, $m)) {
+            $topic = trim($m[1]);
+        }
+
+        $words = [];
+        for ($i = 0; $i < 60; $i++) {
+            $words[] = 'word'.$i;
+        }
+        $summary = ucfirst($topic).'. '.implode(' ', $words).'.';
+
+        $payload = [
+            'title' => 'Mock Title About '.$topic,
+            'summary' => $summary,
+            'topic_tags' => ['Tech', 'Mock'],
+        ];
+
+        return json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+    }
 }

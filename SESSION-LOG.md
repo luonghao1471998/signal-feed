@@ -1805,7 +1805,7 @@ _(Đổi `master` → nhánh remote thực tế nếu khác; chỉ push khi đã
 **Type:** WEDGE  
 **Source:** Task 1.8.1; Flow 3 bước 3 (Cluster)
 
-**Next (roadmap):** Task **1.8.2** summarize method → **1.8.3** ghi `signals` + `signal_sources` trong job; xem section chi tiết.
+**Next (roadmap):** Task **1.8.3** ghi `signals` + `signal_sources` trong job _(Task **1.8.2** summarize — ✅ completed; xem section chi tiết bên dưới)._
 
 ---
 
@@ -2588,5 +2588,228 @@ Không có issues. Implementation hoàn thành smooth theo architectural decisio
 
 ### Next (roadmap)
 
-- Task **1.8.2:** `LLMClient::summarize()` / prompt summarize per cluster  
 - Task **1.8.3:** wire summarize + persist `Signal` + `signal_sources` trong `PipelineCrawlJob`
+
+---
+
+## Task 1.8.2 - Implement LLMClient Summarize Method
+
+**Status:** ✅ Completed  
+**Completed:** 10:45 AM (April 9, 2026)  
+**Type:** WEDGE (Critical Path — AI Pipeline Step 4 — Summarize)  
+**Source:** IMPLEMENTATION-ROADMAP.md Task 1.8.2
+
+### Claude Web Prompt Used
+
+Đã sử dụng Claude Web để soạn comprehensive prompt cho Cursor implementation.  
+Prompt bao gồm:
+
+- Service design (SignalSummarizerService class)
+- Prompt template (docs/prompts/v1/summarize.md)
+- Validation logic (title/summary/tags constraints)
+- Error handling with 3-attempt retry
+- Integration structure for Task 1.8.3
+
+### Cursor Prompt Used
+
+Đã paste comprehensive prompt từ Claude Web vào Cursor.  
+Files created:
+
+- app/Services/SignalSummarizerService.php (10,396 bytes)
+- docs/prompts/v1/summarize.md (2,247 bytes)
+- tests/Feature/SignalSummarizerServiceTest.php (2,510 bytes)
+
+Implementation time: ~5 minutes
+
+### Implementation Notes
+
+**Service Architecture:**
+
+- Created `SignalSummarizerService` (new service, không extend existing)
+- Method: `summarizeCluster(array $cluster, Collection $tweets): ?array`
+- Dependencies: `LLMClient` + `FakeLLMClient` (mock khi `MOCK_LLM=true`); model `claude-sonnet-4-20250514` qua `config/anthropic.php` → `models.summarize`
+- Prompt template: file-based từ `docs/prompts/v1/summarize.md`
+- `LLMClient::summarize()` — HTTP summarize (caller service chịu trách nhiệm retry + backoff)
+
+**Key Features:**
+
+- 3-attempt retry logic with exponential backoff
+- JSON parsing + regex fallback for robustness
+- Validation: strict DB constraints, flexible quality guidelines
+- Error handling: returns null on failure, logs warnings
+
+**Prompt Design:**
+
+- Input: Cluster topic + formatted tweets (with metadata)
+- Output: JSON {title, summary, topic_tags}
+- Constraints: title ≤10 words, summary 50-100 words, tags 1-3
+
+**Data Flow:**
+
+```text
+Input: {cluster_id, tweet_ids, topic} + Collection<Tweet>
+  ↓
+buildPrompt() → format tweets with source/timestamp
+  ↓
+callWithRetry() → Claude API (3 attempts max)
+  ↓
+parseAndValidate() → JSON parse → regex fallback → validate
+  ↓
+Output: {cluster_id, title, summary, topic_tags, source_count, tweet_ids}
+```
+
+**Output structure:** Ready for `Signal::create()` — no transformation needed in Task 1.8.3.
+
+**Modified (ngoài files created):**
+
+- `app/Integrations/LLMClient.php` — `summarize()`
+- `app/Services/FakeLLMClient.php` — `summarize()` mock
+- `config/anthropic.php` — `models.summarize`, `summarize_prompt_path`
+
+### Test Results
+
+**Test Environment:**
+
+- Database: PostgreSQL (WSL localhost)
+- Test data: 50 crawled tweets, 33 signal tweets (66% signal rate)
+- Sources: 5 Twitter accounts (OpenAI, Anthropic, sama, ylecun, karpathy)
+
+**Level 1: Prompt Template Validation** ✅
+
+- Prompt file loads successfully: ✅
+- Placeholders present: {cluster_topic}, {tweets_list} ✅
+- File size: 2,247 bytes
+
+**Level 2: Service Instantiation** ✅
+
+- Service class exists: ✅
+- Method `summarizeCluster` exists: ✅
+- No instantiation errors: ✅
+
+**Level 3: Single Cluster Test** ✅  
+Test cluster: 4 tweets from @karpathy về AI tools & security
+
+**API Call Result:**
+
+```json
+{
+  "cluster_id": "test_cluster_1",
+  "title": "Karpathy Proposes LLM-Powered Personal Knowledge Base System",
+  "summary": "AI researcher Andrej Karpathy detailed a workflow using LLMs to build personal knowledge bases from raw documents, creating markdown wikis viewable in Obsidian. The system processes ~400K words across 100 articles, enabling complex Q&A without traditional RAG systems. Karpathy advocates for explicit, user-controlled AI personalization using universal file formats rather than proprietary systems. He also highlighted supply chain security risks after litellm's PyPI attack affected 97 million monthly downloads, suggesting LLMs as alternatives to dependencies.",
+  "topic_tags": ["AI", "Security"],
+  "source_count": 4,
+  "tweet_ids": [46, 49, 43, 51]
+}
+```
+
+**Constraint Validation:**
+
+| Test | Expected | Actual | Status |
+|------|----------|--------|--------|
+| Title length (chars) | ≤200 (strict) | 60 | ✅ PASS |
+| Title word count | ≤10 (ideal) | 7 | ✅ PASS |
+| Summary word count | 50-100 (ideal) | 74 | ✅ PASS |
+| Topic tags count | 1-3 (strict) | 2 | ✅ PASS |
+| Required fields | All 6 fields | All present | ✅ PASS |
+
+**Quality Check (Manual Review):**
+
+- ✅ Title: Newsworthy, action-oriented, specific
+- ✅ Summary: Factual, third-person, synthesizes multiple tweets
+- ✅ Summary: Includes key details (400K words, 100 articles, 97M downloads)
+- ✅ Summary: No opinion or editorializing
+- ✅ Tags: Broad categories (AI, Security), not overly specific
+
+**API Performance:**
+
+- Response time: ~3-5 seconds
+- Token usage estimate: ~450 input + ~200 output = 650 tokens
+- Cost per cluster: ~$0.002
+
+**Error Handling Test:**
+
+- Retry logic: Not triggered (success on first attempt)
+- JSON parsing: Success (no fallback needed)
+- Validation warnings: None logged
+
+**Data Structure Verification:**
+
+- Output matches Signal model schema: ✅
+- Ready for `Signal::create()` without transformation: ✅
+- Junction table data (tweet_ids) included: ✅
+
+**Overall Result:** ✅ **ALL TESTS PASSED**
+
+**Automated:** `php artisan test --filter SignalSummarizerServiceTest` — PASS (MOCK_LLM).
+
+### Issues Encountered
+
+**Issue 1: Database Empty on First Test**
+
+- Problem: `\App\Models\Tweet::count()` returned 0
+- Root cause: Chưa chạy crawl + classify pipeline
+- Solution: Chạy `php artisan pipeline:run` để tạo test data
+- Result: 50 tweets crawled, 33 classified as signals (66% rate)
+
+**Issue 2: Tinker Multi-line Query Parse Error**
+
+- Problem: Xuống dòng giữa query chain gây parse error
+- Example: `Tweet::where(...)\n->with(...)\n->get()`
+- Solution: Viết query trên 1 dòng duy nhất
+- Lesson learned: Tinker không support multi-line method chaining
+
+**Issue 3: Sources Table Schema Mismatch**
+
+- Problem: Tạo sources với field `handle` thay vì `x_handle`
+- Error: `SQLSTATE[23502]: Not null violation: null value in column "x_handle"`
+- Solution: Đọc db_schema.sql để xác định đúng fields
+- Correct fields: `x_handle` (NOT NULL), `account_url` (NOT NULL)
+
+**Issue 4: Terminal Hang with Long Commands**
+
+- Problem: Commands quá dài trên 1 dòng khiến terminal hang (hiện dấu chấm liên tục)
+- Solution: Chia nhỏ commands hoặc restart tinker session
+- Prevention: Giữ commands dưới ~200 chars
+
+**No Critical Issues:** Service hoạt động đúng như expected sau khi setup test data.
+
+---
+
+## Task 1.8.2 Summary
+
+**Status:** ✅ **COMPLETED & TESTED**
+
+**Deliverables:**
+
+1. ✅ `SignalSummarizerService.php` — Core summarization service
+2. ✅ `docs/prompts/v1/summarize.md` — Claude prompt template
+3. ✅ `SignalSummarizerServiceTest.php` — PHPUnit test (optional)
+
+**Test Results:**
+
+- All constraint validations: ✅ PASS
+- Quality checks: ✅ PASS
+- Data structure: ✅ Ready for Task 1.8.3
+
+**API Costs:**
+
+- Per cluster: ~$0.002
+- Estimated daily: ~$0.40 (50 clusters × 4 runs)
+- Acceptable within budget
+
+**Key Achievements:**
+
+- Robust error handling (3 retries + JSON/regex fallback)
+- High-quality summaries (factual, concise, well-structured)
+- Production-ready output structure
+- No manual intervention needed
+
+**Blockers Removed for Task 1.8.3:**
+
+- Signal summarization logic complete
+- Output format validated
+- Ready for pipeline integration
+
+**Next Task:** Task 1.8.3 — Add cluster + summarize steps to pipeline
+
+---

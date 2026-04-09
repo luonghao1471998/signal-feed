@@ -125,6 +125,50 @@ class LLMClient
         return $this->extractAssistantText((string) $response->body());
     }
 
+    /**
+     * Gửi prompt tóm tắt cluster → JSON signal (title, summary, topic_tags).
+     * Không dùng Http::retry — caller (SignalSummarizerService) tự retry + backoff.
+     *
+     * @throws \RuntimeException
+     */
+    public function summarize(string $userPrompt): string
+    {
+        if ($this->apiKey === '') {
+            throw new \RuntimeException('ANTHROPIC_API_KEY is not configured.');
+        }
+
+        /** @var array{name?: string, max_tokens?: int, temperature?: float} $cfg */
+        $cfg = config('anthropic.models.summarize', []);
+        $summarizeModel = [
+            'name' => (string) ($cfg['name'] ?? 'claude-sonnet-4-20250514'),
+            'max_tokens' => (int) ($cfg['max_tokens'] ?? 500),
+            'temperature' => (float) ($cfg['temperature'] ?? 0.3),
+        ];
+
+        $response = Http::withHeaders([
+            'x-api-key' => $this->apiKey,
+            'anthropic-version' => $this->apiVersion,
+            'content-type' => 'application/json',
+        ])
+            ->timeout($this->timeout)
+            ->post("{$this->baseUrl}/v1/messages", [
+                'model' => $summarizeModel['name'],
+                'max_tokens' => $summarizeModel['max_tokens'],
+                'temperature' => $summarizeModel['temperature'],
+                'messages' => [['role' => 'user', 'content' => $userPrompt]],
+            ]);
+
+        if ($response->failed()) {
+            Log::error('LLMClient::summarize API failed', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+            throw new \RuntimeException('Claude summarize failed: '.$response->body());
+        }
+
+        return $this->extractAssistantText((string) $response->body());
+    }
+
     private function buildClassifyPrompt(string $tweetText): string
     {
         $path = base_path($this->promptPath);
