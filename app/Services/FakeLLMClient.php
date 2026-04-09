@@ -100,4 +100,25 @@ class FakeLLMClient
 
         return json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
     }
+
+    /**
+     * JSON assistant text cho draft tweet — deterministic, không gọi API.
+     *
+     * @throws \JsonException
+     */
+    public function generateDraft(string $prompt): string
+    {
+        $title = 'Signal';
+        if (preg_match('/\*\*Title:\*\*\s*(.+)/u', $prompt, $m)) {
+            $title = trim($m[1]);
+        }
+
+        $body = $title;
+        if (mb_strlen($body) < 80) {
+            $body .= ' Teams watch this for product, GTM, and competitive context.';
+        }
+        $body = mb_substr($body, 0, 200, 'UTF-8');
+
+        return json_encode(['draft' => $body], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+    }
 }

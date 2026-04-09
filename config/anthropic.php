@@ -27,6 +27,11 @@ return [
             'max_tokens' => (int) env('ANTHROPIC_MAX_TOKENS_SUMMARIZE', 500),
             'temperature' => (float) env('ANTHROPIC_TEMPERATURE_SUMMARIZE', 0.3),
         ],
+        'draft' => [
+            'name' => env('ANTHROPIC_MODEL_DRAFT', 'claude-sonnet-4-20250514'),
+            'max_tokens' => (int) env('ANTHROPIC_MAX_TOKENS_DRAFT', 1024),
+            'temperature' => (float) env('ANTHROPIC_TEMPERATURE_DRAFT', 0.35),
+        ],
     ],
 
     'classify_prompt_path' => env('ANTHROPIC_CLASSIFY_PROMPT_PATH', 'docs/prompts/v1/classify.md'),
@@ -34,6 +39,8 @@ return [
     'cluster_prompt_path' => env('ANTHROPIC_CLUSTER_PROMPT_PATH', 'docs/prompts/v1/cluster.md'),
 
     'summarize_prompt_path' => env('ANTHROPIC_SUMMARIZE_PROMPT_PATH', 'docs/prompts/v1/summarize.md'),
+
+    'draft_prompt_path' => env('ANTHROPIC_DRAFT_PROMPT_PATH', 'docs/prompts/v1/generate-draft.md'),
 
     'batch_size' => (int) env('ANTHROPIC_BATCH_SIZE', 100),
     'max_retries' => (int) env('ANTHROPIC_MAX_RETRIES', 3),

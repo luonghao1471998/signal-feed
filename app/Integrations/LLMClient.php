@@ -169,6 +169,52 @@ class LLMClient
         return $this->extractAssistantText((string) $response->body());
     }
 
+    /**
+     * Gửi prompt tạo draft tweet → JSON có key "draft".
+     *
+     * @throws \RuntimeException
+     */
+    public function generateDraft(string $userPrompt): string
+    {
+        if ($this->apiKey === '') {
+            throw new \RuntimeException('ANTHROPIC_API_KEY is not configured.');
+        }
+
+        /** @var array{name?: string, max_tokens?: int, temperature?: float} $cfg */
+        $cfg = config('anthropic.models.draft', []);
+        $draftModel = [
+            'name' => (string) ($cfg['name'] ?? 'claude-sonnet-4-20250514'),
+            'max_tokens' => (int) ($cfg['max_tokens'] ?? 1024),
+            'temperature' => (float) ($cfg['temperature'] ?? 0.35),
+        ];
+
+        $response = Http::withHeaders([
+            'x-api-key' => $this->apiKey,
+            'anthropic-version' => $this->apiVersion,
+            'content-type' => 'application/json',
+        ])
+            ->timeout($this->timeout)
+            ->retry($this->maxRetries, 1000, function ($exception) {
+                return $exception instanceof ConnectionException;
+            })
+            ->post("{$this->baseUrl}/v1/messages", [
+                'model' => $draftModel['name'],
+                'max_tokens' => $draftModel['max_tokens'],
+                'temperature' => $draftModel['temperature'],
+                'messages' => [['role' => 'user', 'content' => $userPrompt]],
+            ]);
+
+        if ($response->failed()) {
+            Log::error('LLMClient::generateDraft API failed', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+            throw new \RuntimeException('Claude draft generation failed: '.$response->body());
+        }
+
+        return $this->extractAssistantText((string) $response->body());
+    }
+
     private function buildClassifyPrompt(string $tweetText): string
     {
         $path = base_path($this->promptPath);

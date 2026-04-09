@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Signal extends Model
 {
@@ -66,4 +67,10 @@ class Signal extends Model
         return $this->belongsToMany(Source::class, 'signal_sources')
             ->withPivot('tweet_id');
     }
+
+    public function draft(): HasOne
+    {
+        return $this->hasOne(DraftTweet::class);
+    }
 }
+
