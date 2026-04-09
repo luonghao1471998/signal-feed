@@ -11,6 +11,80 @@
 
 ---
 
+### Session: 2026-04-09 - Task 1.8.3 Implementation Complete
+
+**Duration:** ~3 hours  
+**Objective:** Integrate clustering and summarization into pipeline, create Signal records in database
+
+**Key Accomplishments:**
+
+1. ✅ Integrated Steps 3-4-5 into PipelineCrawlJob (cluster → summarize → create signals)
+2. ✅ Digest model và daily digest management (1 digest/day, shared across 4 runs)
+3. ✅ Signal creation logic từ summarized clusters
+4. ✅ SignalSource M:N junction links (signal ← tweets)
+5. ✅ Categories extraction từ source tweets
+6. ✅ Idempotency với UNIQUE constraint (cluster_id, digest_id)
+7. ✅ Successfully created 7 signals từ 62 signal tweets (6 clusters + manual testing)
+
+**Technical Decisions:**
+
+- Digest strategy: `firstOrCreate()` với `date = CURRENT_DATE` - 1 digest/day shared
+- PostgreSQL arrays: Sử dụng `DB::raw()` cho topic_tags và categories (tránh Laravel cast issues)
+- Junction creation: Mass insert với `DB::table('signal_sources')->insert()` - performance-first
+- Categories extraction: `Tweet::with('source')->pluck('source.id')` - eager loading
+- Idempotency: UNIQUE constraint `idx_signals_cluster_digest` đã tồn tại trong DB schema
+- Transaction scope: Per-signal transaction (partial success OK, failures logged)
+- Unclustered tweets: Ignored (min_cluster_size = 2 per SPEC)
+
+**Test Results:**
+
+- Input: 62 signal tweets (crawled 320 tweets, classified 188 → 62 signals)
+- Clustering: 6 clusters + 48 unclustered tweets
+- Signals created: 7 (6 from clusters + 1 manual test)
+- Junction links: 16 signal_sources records
+- Data integrity: 100% (source_count matches junction count)
+- Idempotency verified: Re-run blocked duplicates với QueryException 23505
+
+**Challenges Resolved:**
+
+1. PostgreSQL array format errors → Fixed với `DB::raw("'{" . implode(...) . "}'")` 
+2. Idempotency testing → Constraint đã có sẵn từ migration trước
+3. Manual testing để tránh tốn API credits (crawl + classify skip)
+4. Cost optimization: Chỉ test summarization (~$0.15), KHÔNG re-crawl/re-classify
+
+**Files Modified:**
+
+- `app/Jobs/PipelineCrawlJob.php` - Added Steps 3-4-5 (cluster, summarize, create signals)
+- `app/Models/Digest.php` - Verified (already exists)
+- `app/Models/Signal.php` - Verified relationships và casts
+- Database: UNIQUE constraint `idx_signals_cluster_digest` confirmed
+
+**API Credits:**
+
+- Before session: ~$4.50 (Anthropic)
+- Classify 62 tweets: ~$0.30
+- Summarize 7 clusters: ~$0.15
+- Total spent: ~$0.45
+- Remaining: ~$3.60
+
+**Pipeline Status:**
+
+Flow 3 (End-to-End) now **COMPLETE** for core logic:
+1. ✅ Crawl tweets (TwitterCrawlerService)
+2. ✅ Classify tweets (TweetClassifierService)  
+3. ✅ Cluster signals (TweetClusterService)
+4. ✅ Summarize clusters (SignalSummarizerService)
+5. ✅ Create Signal records (PipelineCrawlJob Steps 3-4-5)
+6. ✅ Create SignalSource junction links
+
+**Next Session Goals:**
+
+- Task 1.9.1: Implement signal ranking formula (rank_score calculation)
+- Task 1.9.2: Draft generation (tweet composer)
+- Integration testing: Full pipeline run on fresh data
+
+---
+
 ### Session: 2026-04-08 - Task 1.7.1 Implementation Complete
 
 **Duration:** ~4 hours  
@@ -1805,7 +1879,7 @@ _(Đổi `master` → nhánh remote thực tế nếu khác; chỉ push khi đã
 **Type:** WEDGE  
 **Source:** Task 1.8.1; Flow 3 bước 3 (Cluster)
 
-**Next (roadmap):** Task **1.8.3** ghi `signals` + `signal_sources` trong job _(Task **1.8.2** summarize — ✅ completed; xem section chi tiết bên dưới)._
+**Next (roadmap):** Task **1.9.1** signal ranking _(Task **1.8.3** pipeline persist — ✅ completed; xem section chi tiết bên dưới)._
 
 ---
 
@@ -2810,6 +2884,6 @@ Test cluster: 4 tweets from @karpathy về AI tools & security
 - Output format validated
 - Ready for pipeline integration
 
-**Next Task:** Task 1.8.3 — Add cluster + summarize steps to pipeline
+**Next Task:** Task 1.9.1 — Signal ranking _(Task 1.8.3 pipeline persist — ✅ completed separately)._
 
 ---

@@ -67,6 +67,6 @@ class SignalSummarizerServiceTest extends TestCase
         $this->assertIsArray($result['topic_tags']);
         $this->assertGreaterThanOrEqual(1, count($result['topic_tags']));
         $this->assertLessThanOrEqual(3, count($result['topic_tags']));
-        $this->assertSame(2, $result['source_count']);
+        $this->assertSame(1, $result['source_count']);
     }
 }

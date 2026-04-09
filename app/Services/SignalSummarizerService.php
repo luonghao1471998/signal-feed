@@ -93,7 +93,7 @@ TXT;
                 'title' => $parsed['title'],
                 'summary' => $parsed['summary'],
                 'topic_tags' => $parsed['topic_tags'],
-                'source_count' => $clusterTweets->count(),
+                'source_count' => $clusterTweets->pluck('source_id')->unique()->count(),
                 'tweet_ids' => $tweetIds,
             ];
         } catch (\Throwable $e) {

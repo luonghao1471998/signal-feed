@@ -329,20 +329,20 @@ PROMPT;
                     }
                 }
 
-                if (!empty($junctionData)) {
-                    $values = array_map(function($row) {
-                        return sprintf("(%d, %d, %d, %d, '%s')", 
-                            $row['signal_id'], 
-                            $row['source_id'], 
-                            $row['tweet_id'], 
-                            $row['tenant_id'], 
+                if (! empty($junctionData)) {
+                    $values = array_map(function ($row) {
+                        return sprintf("(%d, %d, %d, %d, '%s')",
+                            $row['signal_id'],
+                            $row['source_id'],
+                            $row['tweet_id'],
+                            $row['tenant_id'],
                             $row['created_at']
                         );
                     }, array_values($junctionData));
-                    
-                    DB::statement('INSERT INTO signal_sources (signal_id, source_id, tweet_id, tenant_id, created_at) VALUES ' .
-                        implode(', ', $values) .
-                        ' ON CONFLICT (signal_id, source_id) DO NOTHING'
+
+                    DB::statement('INSERT INTO signal_sources (signal_id, source_id, tweet_id, tenant_id, created_at) VALUES '.
+                        implode(', ', $values).
+                        ' ON CONFLICT (signal_id, source_id, tweet_id) DO NOTHING'
                     );
                 }
 
