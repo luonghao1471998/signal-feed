@@ -2,8 +2,10 @@
 
 namespace App\Jobs;
 
+use App\Models\Signal;
 use App\Models\Source;
 use App\Services\TweetClassifierService;
+use App\Services\TweetClusterService;
 use App\Services\TwitterCrawlerService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -13,10 +15,10 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Task 1.6.x crawl + Task 1.7.2 classify (Flow 3 step 2).
+ * Task 1.6.x crawl + 1.7.2 classify + 1.8.1 cluster (Flow 3 steps 1–3, in-memory clusters).
  *
  * MOCK_LLM=true hoặc tests bind mock → không tốn Anthropic credits.
- * Không tạo {@see \App\Models\Signal} ở bước này (Task 1.8.x).
+ * Không tạo {@see Signal} ở bước này (Task 1.8.x).
  */
 class PipelineCrawlJob implements ShouldQueue
 {
@@ -37,11 +39,13 @@ class PipelineCrawlJob implements ShouldQueue
 
     public function handle(
         TwitterCrawlerService $crawler,
-        TweetClassifierService $classifier
+        TweetClassifierService $classifier,
+        TweetClusterService $clusterService
     ): void {
         Log::channel('crawler')->info('PipelineCrawlJob started', [
             'tweets_per_source' => $this->tweetsPerSource,
             'classifier' => $classifier::class,
+            'cluster' => $clusterService::class,
         ]);
 
         $sources = Source::query()
@@ -68,12 +72,16 @@ class PipelineCrawlJob implements ShouldQueue
 
         $stats = $classifier->classifyPendingTweets();
 
+        $clusterResult = $clusterService->clusterRecentSignals();
+
         Log::channel('crawler')->info('PipelineCrawlJob finished', [
             'sources' => $sources->count(),
             'classify_scanned' => $stats['scanned'],
             'classify_ok' => $stats['classified'],
             'classify_failed' => $stats['failed'],
             'signals' => $stats['signals'],
+            'cluster_count' => count($clusterResult['clusters']),
+            'unclustered_count' => count($clusterResult['unclustered']),
         ]);
     }
 

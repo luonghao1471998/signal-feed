@@ -1799,15 +1799,13 @@ _(Đổi `master` → nhánh remote thực tế nếu khác; chỉ push khi đã
 
 ---
 
-## Task 1.8.1 — LLMClient.cluster / cluster step (NEXT)
+## Task 1.8.1 — LLMClient.cluster / cluster step ✅
 
-**Status:** 🔜 Chưa bắt đầu (task tiếp theo đề xuất theo `IMPLEMENTATION-ROADMAP.md`)  
+**Status:** ✅ Complete (2026-04-09) — chi tiết đầy đủ ở section *Task 1.8.1 - Implement LLMClient Cluster Method* bên dưới.  
 **Type:** WEDGE  
 **Source:** Task 1.8.1; Flow 3 bước 3 (Cluster)
 
-**Gợi ý:** `LLMClient::cluster($tweets)` hoặc tương đương; sau đó Task 1.8.2 summarize, 1.8.3 ghi `signals` + `signal_sources` đúng SPEC.
-
-**Verify (khi implement):** gọi client → nhận mảng cluster `{cluster_id, tweet_ids}`; pipeline/jobs cập nhật DB theo SPEC.
+**Next (roadmap):** Task **1.8.2** summarize method → **1.8.3** ghi `signals` + `signal_sources` trong job; xem section chi tiết.
 
 ---
 
@@ -2427,3 +2425,168 @@ and arithmetic methods is deprecated
 - **Resolution:** Đổi expectation `->times(3)` trong `PipelineCrawlJobTest`
 
 **Overall:** No blocking issues, implementation smooth ✅
+
+---
+
+## Task 1.8.1 - Implement LLMClient Cluster Method
+
+**Started:** 16:29  
+**Status:** ✅ Complete  
+**Completed:** 2026-04-09 09:00 +07  
+**Type:** WEDGE (Critical Path - AI Pipeline Step 3)  
+**Source:** IMPLEMENTATION-ROADMAP.md line 38 _(đối chiếu bảng task: hàng **1.8.1** thường ngay sau 1.7.2 — số dòng file có thể lệch 1)_
+
+### Requirements
+
+**Từ IMPLEMENTATION-ROADMAP.md Task 1.8.1:**
+
+- `LLMClient.cluster($tweets)` groups similar tweets
+- **Input:** Array / collection of tweets (`is_signal = true`)
+- **Output:** Clusters array `[{cluster_id, tweet_ids}]`
+- Part of pipeline: Crawl ✅ → Classify ✅ → **Cluster** → Summarize → Rank → Draft
+
+**Từ SPEC-core.md Flow 3 - Step 3 (Cluster):**
+
+```text
+Clustering Logic:
+- Input: Tweets where is_signal = true
+- Process: Group tweets about same event/topic
+- Method: Prompt-based clustering (per SPEC-api.md changelog 2026-04-06)
+- Output: Clusters with IDs and tweet assignments
+```
+
+**Example:**
+
+- **Input:** 5 signal tweets  
+  - Tweet 1: "OpenAI launches GPT-5"  
+  - Tweet 2: "GPT-5 now available via API"  
+  - Tweet 3: "Anthropic raises $500M Series C"  
+  - Tweet 4: "Claude 4 announced"  
+  - Tweet 5: "New GPT-5 benchmarks released"
+
+- **Output:** 2 clusters (minh hoạ)  
+  - Cluster A (GPT-5 launch): [tweet1, tweet2, tweet5]  
+  - Cluster B (Anthropic funding): [tweet3]  
+  - Unclustered: [tweet4] (single tweet, no similar content)
+
+**Từ SPEC-api.md Section 10 — Clustering approach (Phase 1):**
+
+- Prompt-based clustering (**NOT** embeddings)
+- Gửi batch signal tweets tới Claude; nhóm theo topic/sự kiện
+- Trả về cluster assignments
+
+**Rationale:**
+
+- Triển khai đơn giản hơn embedding pipeline
+- Không cần hạ tầng vector store (Phase 2 nếu cần)
+- Claude bắt semantic similarity qua prompt
+
+**Từ IMPLEMENTATION-ROADMAP.md — Dependencies:**
+
+- Depends on: Task **1.7.2** ✅ (`signal_score`, `is_signal`); filter `WHERE is_signal = true`
+- Enables: Task **1.8.2** (summarize), **1.8.3** (gắn vào job pipeline)
+
+### Implementation Summary
+
+**Architecture:** Prompt-based clustering (theo SPEC amendment 2026-04-06)
+
+- NO embeddings, NO vector DB
+- Claude API semantic understanding
+- In-memory clusters (không persist vào DB)
+
+**Core Method:**
+
+- `TweetClusterService::clusterTweets(Collection $tweets): array`
+- `TweetClusterService::clusterRecentSignals(): array` — lọc signal tweets theo lookback `created_at`
+- Input: Signal tweets (`is_signal = true`)
+- Output: `['clusters' => [...], 'unclustered' => [...]]`
+
+**Cluster Structure:**
+
+```php
+[
+    'clusters' => [
+        [
+            'cluster_id' => 'cluster_<uuid>',
+            'tweet_ids' => [1, 2, 5],
+            'topic' => 'GPT-5 Launch',
+        ],
+    ],
+    'unclustered' => [3, 4],
+]
+```
+
+**Configuration:**
+
+- `CLUSTER_LOOKBACK_HOURS=24` — time window (`config/signalfeed.php`)
+- `MIN_CLUSTER_SIZE=2` — minimum tweets per cluster (prompt + parse)
+
+**Cost:** ~$0.02/day (4 runs × ~$0.005)
+
+### Test Results
+
+**Manual Testing (2026-04-09):**
+
+**Test Case 1: Real Data Clustering**
+
+- Input: 5 signal tweets từ @karpathy
+- Clusters formed: 2
+  - Cluster 1: "LLM personal knowledge bases" (2 tweets)
+  - Cluster 2: "npm supply chain attacks" (2 tweets)
+- Unclustered: 1 tweet (DevOps/menugen topic)
+- Result: ✅ PASS — semantic grouping correct
+
+**Cluster Quality Verification:**
+
+```json
+{
+  "clusters": [
+    {
+      "cluster_id": "cluster_132478db-a71f-4acf-9853-14eba96628a5",
+      "tweet_ids": [4, 1],
+      "topic": "LLM personal knowledge bases"
+    },
+    {
+      "cluster_id": "cluster_19a3c2aa-4bbb-4a9b-bd98-5a15c8cfdf79",
+      "tweet_ids": [5, 9],
+      "topic": "npm supply chain attacks"
+    }
+  ],
+  "unclustered": [7]
+}
+```
+
+**Verified:**
+
+- ✅ UUID format cluster IDs
+- ✅ Minimum cluster size (2 tweets) respected
+- ✅ Semantic grouping accurate
+- ✅ Error handling graceful
+- ✅ Pipeline integration works
+
+**Automated:** PHPUnit (`TweetClusterServiceTest`, `PipelineCrawlJobTest`, v.v.) — suite PASS sau khi wiring cluster.
+
+### Files Created/Modified
+
+**Created:**
+
+1. ✅ `app/Services/TweetClusterService.php` — core clustering service
+2. ✅ `docs/prompts/v1/cluster.md` — clustering prompt template
+3. ✅ `tests/Feature/TweetClusterServiceTest.php` — feature tests
+
+**Modified:**
+
+4. ✅ `app/Integrations/LLMClient.php` — added `cluster()` method
+5. ✅ `app/Services/FakeLLMClient.php` — added mock `cluster()`
+6. ✅ `app/Jobs/PipelineCrawlJob.php` — integrated clustering step
+7. ✅ `config/signalfeed.php` — added cluster config
+8. ✅ `.env.example` — added `CLUSTER_LOOKBACK_HOURS`, `MIN_CLUSTER_SIZE`
+
+### Issues Encountered
+
+Không có issues. Implementation hoàn thành smooth theo architectural decisions.
+
+### Next (roadmap)
+
+- Task **1.8.2:** `LLMClient::summarize()` / prompt summarize per cluster  
+- Task **1.8.3:** wire summarize + persist `Signal` + `signal_sources` trong `PipelineCrawlJob`

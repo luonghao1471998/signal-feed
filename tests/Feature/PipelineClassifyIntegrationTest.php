@@ -6,6 +6,7 @@ use App\Jobs\PipelineCrawlJob;
 use App\Models\Source;
 use App\Models\Tweet;
 use App\Services\TweetClassifierService;
+use App\Services\TweetClusterService;
 use App\Services\TwitterCrawlerService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -76,7 +77,7 @@ class PipelineClassifyIntegrationTest extends TestCase
             ]);
 
         $job = new PipelineCrawlJob(10);
-        $job->handle($crawler, app(TweetClassifierService::class));
+        $job->handle($crawler, app(TweetClassifierService::class), app(TweetClusterService::class));
 
         $tweet->refresh();
         $this->assertEquals(0.91, (float) $tweet->signal_score);

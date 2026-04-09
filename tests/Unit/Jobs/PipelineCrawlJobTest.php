@@ -8,6 +8,7 @@ use App\Models\Source;
 use App\Models\Tweet;
 use App\Services\FakeLLMClient;
 use App\Services\TweetClassifierService;
+use App\Services\TweetClusterService;
 use App\Services\TwitterCrawlerService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
@@ -69,7 +70,7 @@ class PipelineCrawlJobTest extends TestCase
         $this->instance(LLMClient::class, $llm);
 
         $job = new PipelineCrawlJob(10);
-        $job->handle($crawler, app(TweetClassifierService::class));
+        $job->handle($crawler, app(TweetClassifierService::class), app(TweetClusterService::class));
 
         $tweet->refresh();
         $this->assertEquals(0.82, (float) $tweet->signal_score);
@@ -119,7 +120,7 @@ class PipelineCrawlJobTest extends TestCase
         $this->instance(LLMClient::class, $llm);
 
         $job = new PipelineCrawlJob(10);
-        $job->handle($crawler, app(TweetClassifierService::class));
+        $job->handle($crawler, app(TweetClassifierService::class), app(TweetClusterService::class));
 
         $tweet->refresh();
         $this->assertNull($tweet->signal_score);
@@ -164,7 +165,7 @@ class PipelineCrawlJobTest extends TestCase
         $expected = app(FakeLLMClient::class)->classify($text);
 
         $job = new PipelineCrawlJob(10);
-        $job->handle($crawler, app(TweetClassifierService::class));
+        $job->handle($crawler, app(TweetClassifierService::class), app(TweetClusterService::class));
 
         $tweet->refresh();
         $this->assertEquals($expected['signal_score'], (float) $tweet->signal_score);
@@ -206,7 +207,7 @@ class PipelineCrawlJobTest extends TestCase
             ]);
 
         $job = new PipelineCrawlJob(10);
-        $job->handle($crawler, app(TweetClassifierService::class));
+        $job->handle($crawler, app(TweetClassifierService::class), app(TweetClusterService::class));
 
         $tweet->refresh();
         $this->assertNotNull($tweet->signal_score);

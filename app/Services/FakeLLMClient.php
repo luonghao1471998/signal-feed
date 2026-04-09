@@ -37,4 +37,40 @@ class FakeLLMClient
             'is_signal' => $signalScore >= $threshold,
         ];
     }
+
+    /**
+     * Trả về JSON string (giống assistant text từ Claude) — deterministic, không gọi API.
+     *
+     * @throws \JsonException
+     */
+    public function cluster(string $prompt): string
+    {
+        preg_match_all('/"id"\s*:\s*(\d+)/', $prompt, $matches);
+        /** @var list<int> $ids */
+        $ids = array_map('intval', $matches[1] ?? []);
+        $ids = array_values(array_unique($ids));
+
+        if (count($ids) < 2) {
+            return json_encode(['clusters' => [], 'unclustered' => $ids], JSON_THROW_ON_ERROR);
+        }
+
+        $clusters = [];
+        $remaining = $ids;
+        $topicN = 1;
+
+        while (count($remaining) >= 2) {
+            $pair = array_slice($remaining, 0, 2);
+            $remaining = array_slice($remaining, 2);
+            $clusters[] = [
+                'tweet_ids' => $pair,
+                'topic' => 'Mock topic '.$topicN,
+            ];
+            $topicN++;
+        }
+
+        return json_encode([
+            'clusters' => $clusters,
+            'unclustered' => $remaining,
+        ], JSON_THROW_ON_ERROR);
+    }
 }

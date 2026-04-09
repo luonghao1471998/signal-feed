@@ -79,6 +79,52 @@ class LLMClient
         return $this->parseClassifyResponse((string) $response->body());
     }
 
+    /**
+     * Gửi prompt clustering; trả về nội dung text (JSON thuần) từ assistant.
+     *
+     * @throws \RuntimeException
+     */
+    public function cluster(string $userPrompt): string
+    {
+        if ($this->apiKey === '') {
+            throw new \RuntimeException('ANTHROPIC_API_KEY is not configured.');
+        }
+
+        /** @var array{name?: string, max_tokens?: int, temperature?: float} $cfg */
+        $cfg = config('anthropic.models.cluster', []);
+        $clusterModel = [
+            'name' => (string) ($cfg['name'] ?? 'claude-sonnet-4-20250514'),
+            'max_tokens' => (int) ($cfg['max_tokens'] ?? 4096),
+            'temperature' => (float) ($cfg['temperature'] ?? 0.2),
+        ];
+
+        $response = Http::withHeaders([
+            'x-api-key' => $this->apiKey,
+            'anthropic-version' => $this->apiVersion,
+            'content-type' => 'application/json',
+        ])
+            ->timeout($this->timeout)
+            ->retry($this->maxRetries, 1000, function ($exception) {
+                return $exception instanceof ConnectionException;
+            })
+            ->post("{$this->baseUrl}/v1/messages", [
+                'model' => $clusterModel['name'],
+                'max_tokens' => $clusterModel['max_tokens'],
+                'temperature' => $clusterModel['temperature'],
+                'messages' => [['role' => 'user', 'content' => $userPrompt]],
+            ]);
+
+        if ($response->failed()) {
+            Log::error('LLMClient::cluster API failed', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+            throw new \RuntimeException('Claude cluster failed: '.$response->body());
+        }
+
+        return $this->extractAssistantText((string) $response->body());
+    }
+
     private function buildClassifyPrompt(string $tweetText): string
     {
         $path = base_path($this->promptPath);
@@ -96,16 +142,7 @@ class LLMClient
      */
     private function parseClassifyResponse(string $responseBody): array
     {
-        /** @var array<string, mixed>|null $data */
-        $data = json_decode($responseBody, true);
-        if (! is_array($data) || ! isset($data['content'][0]['text'])) {
-            throw new \RuntimeException('Invalid Claude response structure for classify');
-        }
-
-        $text = (string) $data['content'][0]['text'];
-        $text = preg_replace('/^```json\s*/m', '', $text) ?? $text;
-        $text = preg_replace('/\s*```$/m', '', $text) ?? $text;
-        $text = trim($text);
+        $text = $this->extractAssistantText($responseBody);
 
         /** @var mixed $decoded */
         $decoded = json_decode($text, true);
@@ -130,5 +167,25 @@ class LLMClient
             'signal_score' => $score,
             'is_signal' => $isSignal,
         ];
+    }
+
+    /**
+     * Lấy text thuần từ body Messages API (bỏ markdown fence nếu có).
+     *
+     * @throws \RuntimeException
+     */
+    private function extractAssistantText(string $responseBody): string
+    {
+        /** @var array<string, mixed>|null $data */
+        $data = json_decode($responseBody, true);
+        if (! is_array($data) || ! isset($data['content'][0]['text'])) {
+            throw new \RuntimeException('Invalid Claude response structure');
+        }
+
+        $text = (string) $data['content'][0]['text'];
+        $text = preg_replace('/^```json\s*/m', '', $text) ?? $text;
+        $text = preg_replace('/\s*```$/m', '', $text) ?? $text;
+
+        return trim($text);
     }
 }
