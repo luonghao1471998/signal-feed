@@ -3,7 +3,25 @@ import { Copy, Check } from "lucide-react";
 import CategoryBadge from "./CategoryBadge";
 import { Av, AvStack, avatarUrlForHandle } from "./Avatar";
 import { cn } from "@/lib/utils";
-import { type DigestSignal } from "../data/digestSignals";
+import type { CategoryKey } from "./CategoryBadge";
+import type { DigestSignal } from "@/types/digestUi";
+
+const CATEGORY_KEYS = new Set<string>([
+  "ai-ml",
+  "dev-tools",
+  "indie-saas",
+  "marketing",
+  "startup-vc",
+  "crypto",
+  "finance",
+  "design-product",
+  "creator",
+  "tech-policy",
+]);
+
+function isCategoryKey(c: CategoryKey | string): c is CategoryKey {
+  return CATEGORY_KEYS.has(c);
+}
 
 interface Props {
   signal: DigestSignal;
@@ -11,9 +29,12 @@ interface Props {
   sheetMode?: boolean;
   onSignalOpen?: (signal: DigestSignal) => void;
   myKolsOnly?: boolean;
-  followingHandles?: Set<string>;
-  /** When myKolsOnly, at least one source matches following — left border on card */
-  signalHasMyKolMatch?: boolean;
+  userPlan?: "free" | "pro" | "power";
+}
+
+function tweetUrlForHandle(handle: string): string {
+  const u = handle.replace(/^@/, "");
+  return `https://x.com/${u}`;
 }
 
 const DigestSignalCard: React.FC<Props> = ({
@@ -22,8 +43,7 @@ const DigestSignalCard: React.FC<Props> = ({
   sheetMode,
   onSignalOpen,
   myKolsOnly = false,
-  followingHandles,
-  signalHasMyKolMatch = false,
+  userPlan = "free",
 }) => {
   const [inlineExpanded, setInlineExpanded] = useState(sheetMode ? false : (signal.defaultExpanded ?? false));
   const [copied, setCopied] = useState(false);
@@ -41,6 +61,14 @@ const DigestSignalCard: React.FC<Props> = ({
   const rankIsTop = signal.rank <= 3;
   const tagsLine = signal.tags.join("  ");
   const sourceCount = signal.sourceCount ?? signal.kolCount;
+  const score = Number.isFinite(signal.rankScore) ? signal.rankScore : 0;
+  const rankBadgeClass =
+    score >= 0.8
+      ? "bg-emerald-100 text-emerald-800"
+      : score >= 0.6
+        ? "bg-amber-100 text-amber-800"
+        : "bg-slate-100 text-slate-600";
+  const signalHasMyKolMatch = signal.sources.some((s) => s.isMySource);
 
   const onCardClick = () => {
     if (sheetMode) {
@@ -49,6 +77,8 @@ const DigestSignalCard: React.FC<Props> = ({
     }
     setInlineExpanded(!inlineExpanded);
   };
+
+  const showDraft = userPlan !== "free" && Boolean(signal.draftTweet);
 
   return (
     <article
@@ -59,7 +89,6 @@ const DigestSignalCard: React.FC<Props> = ({
         ...(myKolsOnly && signalHasMyKolMatch ? { borderLeft: "3px solid #10b981" } : {}),
       }}
     >
-      {/* Collapsed row — toggles expand */}
       <div
         className="flex cursor-pointer gap-3.5 px-5 py-4"
         onClick={onCardClick}
@@ -87,10 +116,27 @@ const DigestSignalCard: React.FC<Props> = ({
             <span className="mt-0.5 shrink-0 text-[13px] text-[#536471]">{signal.timeAgo}</span>
           </div>
 
+          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[13px] text-[#536471]">
+            <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[12px] font-semibold", rankBadgeClass)}>
+              Rank: {score.toFixed(2)}
+            </span>
+            <span aria-hidden>•</span>
+            <span>{sourceCount} sources</span>
+          </div>
+
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            {signal.categories.map((cat) => (
-              <CategoryBadge key={cat} category={cat} className="text-[12px] font-bold" />
-            ))}
+            {signal.categories.map((cat, idx) =>
+              isCategoryKey(cat) ? (
+                <CategoryBadge key={`${cat}-${idx}`} category={cat} className="text-[12px] font-bold" />
+              ) : (
+                <span
+                  key={`${cat}-${idx}`}
+                  className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[12px] font-medium text-slate-700"
+                >
+                  {cat}
+                </span>
+              ),
+            )}
             {tagsLine ? <span className="text-[13px] text-[#536471]">{tagsLine}</span> : null}
           </div>
 
@@ -115,7 +161,7 @@ const DigestSignalCard: React.FC<Props> = ({
               <div className="min-w-0 flex-1">
                 <p className="text-[15px] leading-snug">
                   <span className="font-bold text-[#0f1419]">{source.name}</span>
-                  {myKolsOnly && followingHandles?.has(source.handle) ? (
+                  {myKolsOnly && source.isMySource ? (
                     <span
                       style={{
                         fontSize: 11,
@@ -137,9 +183,11 @@ const DigestSignalCard: React.FC<Props> = ({
                   <p className="mb-0 mt-1 text-[15px] leading-[1.5] text-[#0f1419]">{source.tweetPreview}</p>
                 ) : null}
                 <a
-                  href="#"
+                  href={source.tweetUrl || tweetUrlForHandle(source.handle)}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="mt-1 inline-block text-[13px] font-medium text-[#1d9bf0] no-underline"
-                  onClick={(e) => e.preventDefault()}
+                  onClick={(e) => e.stopPropagation()}
                 >
                   View original ↗
                 </a>
@@ -164,7 +212,7 @@ const DigestSignalCard: React.FC<Props> = ({
             View all {sourceCount} sources →
           </a>
 
-          {signal.draftTweet ? (
+          {showDraft && signal.draftTweet ? (
             <div className="border border-[#cde5f9] bg-[#eef6fd]" style={{ padding: 16, marginTop: 12, borderRadius: 16 }}>
               <div className="mb-2.5 flex items-center gap-2">
                 <svg width={16} height={16} viewBox="0 0 24 24" fill="#1d9bf0" aria-hidden>

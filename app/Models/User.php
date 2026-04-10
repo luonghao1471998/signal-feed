@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\PostgresIntegerArray;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -46,7 +47,7 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'my_categories' => 'array',
+            'my_categories' => PostgresIntegerArray::class,
             'delivery_preferences' => 'array',
             'x_token_expires_at' => 'datetime',
             'subscription_ends_at' => 'datetime',

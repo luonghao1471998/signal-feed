@@ -4,10 +4,49 @@
 **Date:** 2026-04-06
 **Phase:** Giai đoạn 3 - Implementation
 **Sprint:** Sprint 1 - Wedge Delivery
-**Tasks Covered (đã làm):** 1.1.1 – 1.2.5, **1.3.1** (OAuth X.com), **1.4.1** (categories seed), **1.4.2** (`GET /api/categories`), **1.5.1** (source pool CSV 80 rows), **1.5.2** (source pool seeder)  
-**Next:** **1.3.2** / **1.3.3** — verify / onboarding UI (tuỳ ưu tiên)
+**Tasks Covered (đã làm):** 1.1.1 – 1.2.5, **1.3.1** (OAuth X.com), **1.4.1** (categories seed), **1.4.2** (`GET /api/categories`), **1.5.1** (source pool CSV 80 rows), **1.5.2** (source pool seeder), **1.10.1** (`GET /api/signals`), **1.10.2** (Digest View + real API)  
+**Next:** **1.11.1** — `GET /api/signals/{id}` (hoặc **1.11.2** modal UI)
 
 **Lưu ý cho agent / Claude:** Khi user chỉ nhắc `SESSION-LOG` + SPEC để **cập nhật log / context**, **không** tự implement code trừ khi user ghi rõ *Implement Feature* / *làm task X*. OAuth X.com (1.3.1) **đã có trong repo** (Socialite + `twitter-oauth-2`).
+
+---
+
+## Task 1.10.2 — Integrate DigestPage with Real API
+
+**Status:** ✅ Completed  
+**Completed:** 2026-04-10  
+**Type:** WEDGE (Critical Path — Frontend Integration)  
+**Source:** IMPLEMENTATION-ROADMAP.md Task 1.10.2 (`Build Digest View Screen #5`)
+
+### Implementation Notes
+
+Digest `/digest` + `/digest/:date` gọi `GET /api/signals` (Sanctum session/Bearer), map `Signal` → `DigestSignal`, hiển thị card (title, summary, rank_score, categories, topic tags, sources, draft theo plan). Sidebar stats + topic tags + top KOLs aggregate từ dữ liệu ngày; category pills **hybrid** (ưu tiên `my_categories` → dynamic theo signal → fallback 10 category disabled khi 0 signal). `categoryIds` trên `DigestSignal` để đồng bộ pill với API. Hỗ trợ filter `category_id[]`, `my_sources_only`, `topic_tag`, phân trang `per_page=100`, date navigation sync URL.
+
+**Files created (tiêu biểu):** `resources/js/services/signalService.ts`, `resources/js/types/signal.ts`, `resources/js/types/digestUi.ts`, `resources/js/lib/categorySlugMap.ts`, `resources/js/lib/mapApiSignalToDigest.ts`, `resources/js/contexts/AuthContext.tsx`, `resources/js/constants/categories.ts` (`ALL_CATEGORIES`), backend bổ sung `CategoryAssignerService`, `FixSignalCategories` command (gán category từ topic_tags / backfill).
+
+**Files modified (tiêu biểu):** `DigestPage.tsx`, `DigestSignalCard.tsx`, `RightPanel.tsx`, `FilterSheet.tsx`, `DigestFilterBar.tsx`, `App.tsx`, `SignalSummarizerService.php`, `PipelineCrawlJob.php`, `digestSignals.ts` (deprecated mock).
+
+### Test Results
+
+**Manual (browser):** `/digest` load signals; đổi ngày refetch; filter category → `category_id[]`; pill disabled + tooltip khi không có signal; stats/KOLs/topic tags khớp dữ liệu; rank badge màu theo ngưỡng; Free ẩn draft.
+
+**DB/API (local):** Signals/categories/user verify theo môi trường dev; response `{ data, meta }` khớp contract.
+
+### Issues Encountered & Resolved
+
+1. **Categories rỗng từ API** — `SignalSummarizerService` chưa gán category → thêm `CategoryAssignerService`, tích hợp summarizer + command backfill.
+2. **Category pills gây nhầm** — hardcode / không khớp data → hybrid 3 mức + disabled + tooltip.
+3. **Stats/topic/KOL mock** — chuyển aggregate từ API qua `DigestPage` + `DigestSidebarContext` + `RightPanel`.
+
+### Cost / Time (ước lượng)
+
+- API test local: ~0 USD external (chỉ Laravel + DB).
+- Dev time tích hợp + category fix + UI: ~5.5 h (tham chiếu team).
+
+### Next (roadmap)
+
+- **Task 1.11.1:** `GET /api/signals/{id}` (signal detail API)  
+- **Task 1.11.2:** Signal Detail Modal (Screen #7)
 
 ---
 
@@ -3746,8 +3785,114 @@ WHERE LENGTH(text) > 280;
 - 1 my_source_subscription (user_id: 1, source_id: 1 = @karpathy)
 
 **Next Steps:**
-- Task 1.10.2: GET /api/signals/:id (single signal detail)
+- Task 1.10.2: Build Digest View Screen #5 — integrate `DigestPage.tsx` với GET `/api/signals` (React)
 - Consider fixing source_count calculation nếu cần
 - Populate categories trong PipelineCrawlJob rank step
+
+---
+
+## Task 1.10.2: Build Digest View Screen #5 (React component)
+
+**Status:** Spec / scope — chờ implement  
+**Objective:** Tích hợp `DigestPage.tsx` với backend API `GET /api/signals`, hiển thị danh sách signals đã ranked.
+
+**Dependencies:**
+- Task 1.10.1: GET `/api/signals` endpoint hoàn chỉnh
+- Task 1.3.3: OAuth authentication + category selection
+- UI có sẵn: `DigestPage.tsx`, `DigestSignalCard.tsx`, `DigestFilterBar.tsx`
+
+### Scope — Core Integration
+
+1. **API Integration**
+   - Thay mock (`digestSignals.ts`) bằng gọi API thật
+   - Fetch `GET /api/signals` với Sanctum token
+   - Query params: `date`, `category_id[]`, `my_sources_only`, `topic_tag`
+
+2. **State Management**
+   - `signals` từ response API
+   - `loading`, `error`
+   - Filters: date, categories, `mySourcesOnly`
+   - User context: plan, auth token
+
+3. **Permission Guards**
+   - Ẩn toggle My Sources với user Free
+   - Xử lý 403 (Free vào Tue/Thu/Sat/Sun)
+   - Strip `draft_tweets` phía client cho Free
+   - Upgrade CTA khi phù hợp
+
+4. **Real Data Display**
+   - Map response → components hiện có
+   - Empty states
+   - Pagination khi `meta.total > 20`
+   - Thông báo lỗi thân thiện
+
+### Files to Modify
+
+- `resources/js/pages/DigestPage.tsx`
+- `resources/js/components/DigestSignalCard.tsx`
+- `resources/js/components/DigestFilterBar.tsx`
+- `resources/js/data/digestSignals.ts` — bỏ mock, thay bằng API
+
+### New Files (nếu cần)
+
+- `resources/js/services/signalService.ts` — API client
+- `resources/js/contexts/AuthContext.tsx` — nếu chưa có
+- `resources/js/types/signal.ts` — TypeScript types
+
+### API Response Types (tham chiếu)
+
+```typescript
+interface Signal {
+  id: number;
+  title: string;
+  summary: string;
+  source_count: number;
+  rank_score: number;
+  categories: Array<{ id: number; name: string; slug: string }>;
+  topic_tags: string[];
+  sources: Array<{
+    handle: string;
+    display_name: string;
+    tweet_url: string;
+    is_my_source?: boolean;
+  }>;
+  draft_tweets: Array<{ id: number; text: string }>;
+  date: string;
+  type: number;
+  is_personal: boolean;
+}
+
+interface SignalsResponse {
+  data: Signal[];
+  meta: { total: number; per_page: number; current_page: number };
+}
+```
+
+### Expected Output
+
+- `DigestPage` dùng dữ liệu API thật
+- Filter trigger refetch
+- Loading / error states
+- Mock data gỡ bỏ
+- UI components tương thích dữ liệu thật
+
+### Testing Strategy
+
+1. Navigate `/digest` → API gọi, signals hiển thị  
+2. Đổi date filter → refetch với `date` mới  
+3. Category filter → signals lọc đúng  
+4. Pro: toggle My Sources → signals cá nhân  
+5. Free thứ Ba → hiển thị 403  
+6. Lỗi mạng → message lỗi  
+7. Empty → empty state  
+8. Click card → expand sources (behavior cũ)  
+9. Draft chỉ Pro/Power  
+10. Sort theo `rank_score` khớp backend  
+
+### References
+
+- `IMPLEMENTATION-ROADMAP.md`: Task 1.10.2  
+- SESSION-LOG Task 1.10.1: contract GET `/api/signals`  
+- UI: `DigestPage.tsx`, `DigestSignalCard.tsx`, `DigestFilterBar.tsx`
 
 ---

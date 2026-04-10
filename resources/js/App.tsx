@@ -13,6 +13,7 @@ import OnboardingStep1 from "./pages/OnboardingStep1";
 import OnboardingStep2 from "./pages/OnboardingStep2";
 import NotFound from "./pages/NotFound";
 import { CategoryFilterProvider } from "./contexts/CategoryFilterContext";
+import { AuthProvider } from "./contexts/AuthContext";
 import { useIsPWA } from "./hooks/useIsPWA";
 import { useMediaQuery } from "./hooks/useMediaQuery";
 import PWALayout from "./layouts/PWALayout";
@@ -52,10 +53,12 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <CategoryFilterProvider>
-          <SyncDocumentTitle />
-          <AppRoutes />
-        </CategoryFilterProvider>
+        <AuthProvider>
+          <CategoryFilterProvider>
+            <SyncDocumentTitle />
+            <AppRoutes />
+          </CategoryFilterProvider>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

@@ -20,8 +20,9 @@ class TwitterAuthController extends Controller
     public function redirect(): RedirectResponse
     {
         try {
+            // Chỉ xin quyền đăng nhập + refresh token. `tweet.read` dễ fail nếu app chưa bật đủ product trên X Developer Portal.
             return Socialite::driver('twitter-oauth-2')
-                ->scopes(['users.read', 'tweet.read', 'offline.access'])
+                ->scopes(['users.read', 'offline.access'])
                 ->redirect();
         } catch (\Throwable $e) {
             Log::error('Twitter OAuth redirect failed', [
@@ -29,7 +30,7 @@ class TwitterAuthController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            return redirect('/')
+            return redirect('/login')
                 ->with('error', 'Unable to connect to Twitter. Please try again.');
         }
     }
@@ -44,7 +45,7 @@ class TwitterAuthController extends Controller
                 'description' => $errorDescription,
             ]);
 
-            return redirect('/')
+            return redirect('/login')
                 ->with('error', 'Twitter authentication was cancelled.');
         }
 
@@ -61,7 +62,10 @@ class TwitterAuthController extends Controller
                 'x_username' => $user->x_username,
             ]);
 
-            return redirect('/digest')
+            $cats = $user->my_categories ?? [];
+            $needsOnboarding = ! is_array($cats) || count($cats) === 0;
+
+            return redirect($needsOnboarding ? '/onboarding' : '/digest')
                 ->with('success', 'Successfully logged in!');
         } catch (InvalidStateException $e) {
             Log::warning('Twitter OAuth invalid state', [
@@ -69,7 +73,7 @@ class TwitterAuthController extends Controller
                 'ip' => $request->ip(),
             ]);
 
-            return redirect('/')
+            return redirect('/login')
                 ->with('error', 'Invalid authentication request. Please try again.');
         } catch (\Throwable $e) {
             Log::error('Twitter OAuth callback failed', [
@@ -77,7 +81,7 @@ class TwitterAuthController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            return redirect('/')
+            return redirect('/login')
                 ->with('error', 'Authentication failed. Please try again.');
         }
     }

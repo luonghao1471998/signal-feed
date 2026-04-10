@@ -144,7 +144,10 @@ class PipelineCrawlJob implements ShouldQueue
                     continue;
                 }
 
-                $categories = $this->extractCategories($summary['tweet_ids']);
+                $fromTopicTags = $summary['categories'] ?? [];
+                $fromSources = $this->extractCategories($summary['tweet_ids']);
+                $categories = array_values(array_unique(array_merge($fromTopicTags, $fromSources)));
+                sort($categories);
 
                 $persistClusterId = $this->persistableClusterId((int) $digest->id, $summary['tweet_ids']);
 
@@ -397,7 +400,7 @@ class PipelineCrawlJob implements ShouldQueue
     }
 
     /**
-     * @param  array{cluster_id: string, title: string, summary: string, topic_tags: list<string>, source_count: int}  $summary
+     * @param  array{cluster_id: string, title: string, summary: string, topic_tags: list<string>, categories?: list<int>, source_count: int}  $summary
      */
     private function insertSignalRow(int $digestId, string $persistClusterId, array $summary, array $categories): int
     {

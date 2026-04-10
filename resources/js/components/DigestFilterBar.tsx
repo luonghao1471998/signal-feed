@@ -1,74 +1,71 @@
 import React from "react";
-import { cn } from "@/lib/utils";
-import { DIGEST_FILTER_CATEGORIES, useCategoryFilter } from "@/contexts/CategoryFilterContext";
-import { xFilterPillActive, xFilterPillInactive } from "@/lib/xStyles";
 
-const topicTags = ["#model-release", "#tool-launch", "#market-data"];
-
-interface DigestFilterBarProps {
-  mySourcesOnly?: boolean;
-  onMySourcesToggle?: (val: boolean) => void;
+export interface DigestFilterBarProps {
+  onDateChange: (date: string) => void;
+  onCategoryChange: (categoryIds: number[]) => void;
+  onMySourcesToggle: (enabled: boolean) => void;
+  currentDate: string;
+  selectedCategories: number[];
+  mySourcesOnly: boolean;
+  userPlan: "free" | "pro" | "power";
+  /** Options cho multi-select (id + label), ví dụ từ GET /api/categories + user.my_categories */
+  categoryOptions?: Array<{ id: number; label: string }>;
 }
 
-const DigestFilterBar: React.FC<DigestFilterBarProps> = ({ mySourcesOnly = false, onMySourcesToggle }) => {
-  const { activeCategory, setCategory } = useCategoryFilter();
-
+const DigestFilterBar: React.FC<DigestFilterBarProps> = ({
+  onDateChange,
+  onCategoryChange,
+  onMySourcesToggle,
+  currentDate,
+  selectedCategories,
+  mySourcesOnly,
+  userPlan,
+  categoryOptions = [],
+}) => {
   return (
-    <div className="border-b border-slate-100 py-2 mb-0">
-      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-        {DIGEST_FILTER_CATEGORIES.map((cat) => (
-          <button
-            key={cat.key}
-            type="button"
-            onClick={() => setCategory(cat.key)}
-            className={cn(
-              "flex items-center gap-1.5 whitespace-nowrap",
-              activeCategory === cat.key ? xFilterPillActive : xFilterPillInactive,
-            )}
-          >
-            {cat.key !== "all" && (
-              <span
-                className={cn(
-                  "w-1.5 h-1.5 rounded-full shrink-0",
-                  activeCategory === cat.key ? "bg-white" : cat.dotColor,
-                )}
-              />
-            )}
-            {cat.label}
-          </button>
-        ))}
-      </div>
+    <div className="filters-bar flex flex-wrap gap-4 items-center border-b border-slate-100 py-2">
+      <label className="flex flex-col gap-1 text-xs font-medium text-slate-500">
+        Date
+        <input
+          type="date"
+          value={currentDate}
+          onChange={(e) => onDateChange(e.target.value)}
+          className="rounded-md border border-gray-300 px-3 py-2 text-sm text-slate-900"
+        />
+      </label>
 
-      <div className="flex items-center justify-between pt-2">
-        <div className="flex gap-2">
-          {topicTags.map((tag) => (
-            <span
-              key={tag}
-              className="px-2 py-0.5 text-xs font-medium text-slate-500 border border-slate-200 rounded-full bg-transparent"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="text-[13px] text-slate-400">My Sources only</span>
-          <button
-            type="button"
-            onClick={() => onMySourcesToggle?.(!mySourcesOnly)}
-            className={cn(
-              "relative w-9 h-5 rounded-full transition-default",
-              mySourcesOnly ? "bg-slate-900" : "bg-slate-200",
-            )}
+      {categoryOptions.length > 0 && (
+        <label className="flex flex-col gap-1 text-xs font-medium text-slate-500">
+          Categories
+          <select
+            multiple
+            value={selectedCategories.map(String)}
+            onChange={(e) => {
+              const selected = Array.from(e.target.selectedOptions).map((opt) => parseInt(opt.value, 10));
+              onCategoryChange(selected);
+            }}
+            className="min-h-[120px] rounded-md border border-gray-300 px-2 py-1 text-sm"
           >
-            <span
-              className={cn(
-                "absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-default",
-                mySourcesOnly ? "translate-x-4" : "",
-              )}
-            />
-          </button>
-        </div>
-      </div>
+            {categoryOptions.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
+      {userPlan !== "free" && (
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            checked={mySourcesOnly}
+            onChange={(e) => onMySourcesToggle(e.target.checked)}
+            className="rounded border-gray-300"
+          />
+          <span>My Sources Only</span>
+        </label>
+      )}
     </div>
   );
 };

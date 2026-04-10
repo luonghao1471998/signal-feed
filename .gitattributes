@@ -32,3 +32,13 @@ CHANGELOG.md export-ignore
 *.gif  binary
 *.svg  binary
 *.ico  binary
+
+* text=auto
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.php text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.sh text eol=lf

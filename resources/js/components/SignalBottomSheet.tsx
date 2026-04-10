@@ -1,26 +1,47 @@
 import React, { useState } from "react";
 import { Check, Copy } from "lucide-react";
 import CategoryBadge from "@/components/CategoryBadge";
+import type { CategoryKey } from "@/components/CategoryBadge";
 import RankBadge from "@/components/RankBadge";
 import { Av, avatarUrlForHandle } from "@/components/Avatar";
-import { type DigestSignal } from "@/data/digestSignals";
+import { type DigestSignal } from "@/types/digestUi";
+
+const CATEGORY_KEYS = new Set<string>([
+  "ai-ml",
+  "dev-tools",
+  "indie-saas",
+  "marketing",
+  "startup-vc",
+  "crypto",
+  "finance",
+  "design-product",
+  "creator",
+  "tech-policy",
+]);
+
+function isCategoryKey(c: CategoryKey | string): c is CategoryKey {
+  return CATEGORY_KEYS.has(c);
+}
 
 function tweetUrlForHandle(handle: string): string {
   const u = handle.replace(/^@/, "");
-  return `https://twitter.com/${u}`;
+  return `https://x.com/${u}`;
 }
 
 interface SignalBottomSheetProps {
   signal: DigestSignal | null;
   onDismiss: () => void;
+  userPlan?: "free" | "pro" | "power";
 }
 
-const SignalBottomSheet: React.FC<SignalBottomSheetProps> = ({ signal, onDismiss }) => {
+const SignalBottomSheet: React.FC<SignalBottomSheetProps> = ({ signal, onDismiss, userPlan = "free" }) => {
   const [copied, setCopied] = useState(false);
 
   if (!signal) return null;
 
   const draft = signal.draftTweet ?? "";
+  const showDraft = userPlan !== "free" && Boolean(draft);
+
   const handleCopy = () => {
     if (!draft) return;
     void navigator.clipboard.writeText(draft);
@@ -51,9 +72,18 @@ const SignalBottomSheet: React.FC<SignalBottomSheetProps> = ({ signal, onDismiss
           </div>
 
           <div className="mb-3 flex flex-wrap gap-1">
-            {signal.categories.map((cat) => (
-              <CategoryBadge key={cat} category={cat} />
-            ))}
+            {signal.categories.map((cat, idx) =>
+              isCategoryKey(cat) ? (
+                <CategoryBadge key={`${cat}-${idx}`} category={cat} />
+              ) : (
+                <span
+                  key={`${cat}-${idx}`}
+                  className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700"
+                >
+                  {cat}
+                </span>
+              ),
+            )}
             {signal.tags.map((tag) => (
               <span key={tag} className="text-xs text-[#536471]">
                 {tag.startsWith("#") ? tag : `#${tag}`}
@@ -81,7 +111,7 @@ const SignalBottomSheet: React.FC<SignalBottomSheetProps> = ({ signal, onDismiss
                   <p className="truncate text-sm text-[#536471]">{source.tweetPreview ?? ""}</p>
                 </div>
                 <a
-                  href={tweetUrlForHandle(source.handle)}
+                  href={source.tweetUrl || tweetUrlForHandle(source.handle)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-1 shrink-0 text-xs text-[#1d9bf0]"
@@ -95,36 +125,38 @@ const SignalBottomSheet: React.FC<SignalBottomSheetProps> = ({ signal, onDismiss
             </button>
           </div>
 
-          <div className="mb-4 rounded-xl border border-[#cde5f9] bg-[#eef6fd] p-3">
-            <p className="mb-2 text-xs font-medium text-[#536471]">✏️ Draft tweet</p>
-            <p className="text-[14px] leading-relaxed text-[#0f1419]">{draft}</p>
-            <p className="mt-2 text-right text-xs text-[#536471]">{draft.length}/280</p>
-            <button
-              type="button"
-              onClick={handleCopy}
-              className="mt-3 w-full rounded-full border border-[#cfd9de] bg-white py-2.5 text-sm font-medium text-[#0f1419]"
-            >
-              {copied ? (
-                <span className="inline-flex items-center justify-center gap-1">
-                  <Check className="h-4 w-4 text-emerald-600" />
-                  Copied
-                </span>
-              ) : (
-                <span className="inline-flex items-center justify-center gap-1">
-                  <Copy className="h-4 w-4" />
-                  📋 Copy draft
-                </span>
-              )}
-            </button>
-            <a
-              href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(draft)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-2 block w-full rounded-full bg-[#0f1419] py-2.5 text-center text-sm font-medium text-white"
-            >
-              Open in Twitter ↗
-            </a>
-          </div>
+          {showDraft ? (
+            <div className="mb-4 rounded-xl border border-[#cde5f9] bg-[#eef6fd] p-3">
+              <p className="mb-2 text-xs font-medium text-[#536471]">✏️ Draft tweet</p>
+              <p className="text-[14px] leading-relaxed text-[#0f1419]">{draft}</p>
+              <p className="mt-2 text-right text-xs text-[#536471]">{draft.length}/280</p>
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="mt-3 w-full rounded-full border border-[#cfd9de] bg-white py-2.5 text-sm font-medium text-[#0f1419]"
+              >
+                {copied ? (
+                  <span className="inline-flex items-center justify-center gap-1">
+                    <Check className="h-4 w-4 text-emerald-600" />
+                    Copied
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center justify-center gap-1">
+                    <Copy className="h-4 w-4" />
+                    📋 Copy draft
+                  </span>
+                )}
+              </button>
+              <a
+                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(draft)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 block w-full rounded-full bg-[#0f1419] py-2.5 text-center text-sm font-medium text-white"
+              >
+                Open in Twitter ↗
+              </a>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

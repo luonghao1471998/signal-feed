@@ -3,6 +3,7 @@ import { Outlet, NavLink, useLocation } from "react-router-dom";
 import { Newspaper, Settings, Users, Zap, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
+import OnboardingGate from "@/components/OnboardingGate";
 
 const tabs = [
   { to: "/digest", label: "Digest", icon: Newspaper },
@@ -22,7 +23,9 @@ const PWALayout: React.FC = () => {
   return (
     <div className="min-h-screen bg-white flex flex-col pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))]">
       <div className="flex-1 min-h-0">
-        <Outlet />
+        <OnboardingGate>
+          <Outlet />
+        </OnboardingGate>
       </div>
 
       {shouldShow && (

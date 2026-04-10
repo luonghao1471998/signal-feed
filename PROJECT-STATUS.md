@@ -1,11 +1,27 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-10 (Task 1.10.1 complete)
+**Last Updated:** 2026-04-10 (Task 1.10.2 complete)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 1 - Wedge Delivery
-**Completed Task:** **1.10.1** — `GET /api/signals` (list digest) ✅
-**Next Task:** **1.10.2** — `GET /api/signals/{id}` (hoặc **1.3.3** onboarding — tùy ưu tiên)
-**Status:** Digest list API live (`auth:sanctum`); sẵn sàng detail endpoint / UI digest
+**Completed Task:** **1.10.2** — Digest View Screen #5 — `DigestPage` + real `GET /api/signals` integration ✅
+**Next Task:** **1.11.1** — `GET /api/signals/{id}` (signal detail API) → **1.11.2** (detail modal UI)
+**Status:** Digest list API + SPA digest UI wired (`auth:sanctum`); sẵn sàng signal detail endpoint + modal
+
+---
+
+## Phase 1 Progress
+
+### Completed Tasks
+- ✅ **Task 1.10.1:** `GET /api/signals` endpoint (Backend API)
+- ✅ **Task 1.10.2:** Integrate DigestPage with Real API — Screen #5 (`DigestPage`, filters, stats, hybrid category pills)
+
+### In Progress
+- [ ] **Task 1.11.1:** `GET /api/signals/{id}` (signal detail API)
+
+### Statistics
+- **Total tasks completed (Sprint 1 roadmap table):** 26 / 34
+- **Estimated remaining:** 8 tasks (1.11.x–1.12.x wedge + any carry-over)
+- **Current phase:** MVP Core Features — digest list UI done; next = signal detail + draft copy flow
 
 ---
 
@@ -76,17 +92,18 @@
 - **Created:** `TweetClassifierService`, `config/signalfeed.php`, migration `signal_score` unclassified; tests unit/feature bổ sung
 - **Modified:** `PipelineCrawlJob` (refactor orchestration), `docs/prompts/v1/classify.md`, `routes/console.php` (scheduler 4×/day), `.env.example`, `TwitterCrawlerService`, `LLMClient`, `FakeLLMClient`
 
-**Next:** Task **1.10.2** — `GET /api/signals/{id}` _( **1.10.1** list digest ✅ )._
+**Next:** Task **1.11.1** — `GET /api/signals/{id}` _( **1.10.1** list API ✅, **1.10.2** digest UI ✅ )._
 
 ## Current Sprint Status
 
-**Completed Task:** Task 1.10.1 — `GET /api/signals` (list digest) ✅ (2026-04-10)  
-**Next Task:** Task 1.10.2 — `GET /api/signals/{id}` (hoặc 1.3.3 onboarding)  
-**Status:** List signals API + guards + filtering; manual cURL/Tinker verify  
-**Previous Task:** Task 1.9.3 — Add rank + draft steps to `PipelineCrawlJob` ✅ (2026-04-10)
+**Completed Task:** Task 1.10.2 — Digest View integrated with real API ✅ (2026-04-10)  
+**Next Task:** Task 1.11.1 — `GET /api/signals/{id}`  
+**Status:** Digest SPA + hybrid category pills + stats/sidebar aggregates; manual browser verify  
+**Previous Task:** Task 1.10.1 — `GET /api/signals` (list digest) ✅ (2026-04-10)
 
 **Recent Completions:**
 
+- ✅ 2026-04-10: Task 1.10.2 — `DigestPage` + `signalService` + map API → UI; `AuthContext`; hybrid category pills; `RightPanel`/stats aggregates; rank badges; `constants/categories.ts`; category assigner + backfill command (SESSION-LOG)
 - ✅ 2026-04-10: Task 1.10.1 — `SignalController` + `SignalResource`; `GET /api/signals` (`auth:sanctum`); filters + Free/Pro guards; manual tests 8/10 PASS (SESSION-LOG)
 - ✅ 2026-04-10: Task 1.9.3 — `PipelineCrawlJob` Step 5 (rank) + Step 6 (draft); `handle()` inject `SignalRankingService` + `DraftTweetService`; manual verify 7 ranked, 3 drafts ≤280 chars
 - ✅ 2026-04-09: Task 1.9.2 — `DraftTweetService`; `generate-draft.md` prompt; ≤280 char enforcement; verified 2 drafts
@@ -107,13 +124,13 @@
 ## Quick Stats
 
 ### Sprint 1 Progress (34 tasks total)
-- **Completed:** 25/34 (74%)
+- **Completed:** 26/34 (76%)
 - **In Progress:** None
 - **Blocked:** None
 
 ### Code Metrics
-- **Backend:** 88% (Auth + DB + Categories + Sources + API + Crawler + Scheduler + Incremental + Signal generation + **Classify** + **Cluster** + **Summarize** + **Persist signals** + **Ranking** + **Draft generation** + **Rank/draft trong `PipelineCrawlJob` (1.9.3)** + **`GET /api/signals` (1.10.1)** ✅)
-- **Frontend:** 5% (Scaffold only)
+- **Backend:** 88% (Auth + DB + Categories + Sources + API + Crawler + Scheduler + Incremental + Signal generation + **Classify** + **Cluster** + **Summarize** + **Persist signals** + **Ranking** + **Draft generation** + **Rank/draft trong `PipelineCrawlJob` (1.9.3)** + **`GET /api/signals` (1.10.1)** + **category assigner / backfill (hỗ trợ 1.10.2)** ✅)
+- **Frontend:** ~25% (Digest view + API integration + onboarding category step; scaffold còn lại)
 - **Database:** 100% (All migrations done)
 - **Seed Data:** 100% (Categories ✅, Sources CSV ✅, Sources imported ✅)
 - **Tests:** Feature `SchedulerTest` + manual (OAuth, seed, APIs, crawler, incremental, signals, **classify**, **cluster**, **summarize**)
@@ -121,6 +138,7 @@
 ### Integration Status
 - [x] OAuth X.com (Task 1.3.1 complete) ✅
 - [x] Categories API (Task 1.4.2 complete) ✅
+- [x] Digest list API + SPA (`GET /api/signals` **1.10.1** + `DigestPage` **1.10.2**) ✅
 - [x] Sources API (Task 1.5.3 complete) ✅
 - [x] twitterapi.io (Tasks 1.6.1-1.6.3 complete) ✅  
   - Endpoint: `/twitter/user/last_tweets` (`userName` + `count`)  
@@ -187,8 +205,8 @@
 
 **Next APIs to build:**
 
-- `GET /api/signals/{id}` (Task **1.10.2** — signal detail)
-- `POST /api/user/categories` (Task **1.3.3** — onboarding)
+- `GET /api/signals/{id}` (Task **1.11.1** — signal detail)
+- `POST /api/user/categories` (Task **1.3.3** — onboarding; đã có `PATCH /api/me` cho `my_categories`)
 
 **Backend Processing (automated):**
 
@@ -225,7 +243,7 @@
 - [x] 1.5.2 - Implement source pool seed script ✅
 - [x] 1.5.3 - Implement GET /api/sources endpoint ✅
 
-**Next Task:** **1.10.2** (`GET /api/signals/{id}`) hoặc **1.3.3** (onboarding) tùy ưu tiên _( **1.10.1** ✅ )._
+**Next Task:** **1.3.3** (onboarding polish) hoặc **1.11.1** (`GET /api/signals/{id}`) _( **1.10.1** ✅, **1.10.2** digest UI ✅ )._
 
 ### Phase 3: Tweet Crawling (Tasks 1.6) — 3 tasks
 
@@ -275,7 +293,7 @@ _(Tiến độ pipeline AI tổng thể: **Phase 4** ở trên — **3/6**.)_
 - [x] Models with proper array handling
 - [x] Command with progress reporting
 
-**Next Task:** **1.10.2** — `GET /api/signals/{id}` _(1.10.1 ✅)._
+**Next Task:** **1.11.1** — `GET /api/signals/{id}` _(1.10.1 ✅, 1.10.2 digest UI ✅)._
 
 **1.7.2 Add classify step to PipelineCrawlJob** ✅ DONE (2026-04-08)
 
@@ -303,28 +321,29 @@ _(Tiến độ pipeline AI tổng thể: **Phase 4** ở trên — **3/6**.)_
 ### Phase 5: Digest UI (Tasks 1.10-1.12) — 7 tasks
 _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
 
-### Milestone 1.10: API Endpoints (Week 3-4) 🔄 IN PROGRESS
+### Milestone 1.10: List API + Digest UI (Week 3-4) 🔄 IN PROGRESS
 
-**Tasks:**
-- ✅ **1.10.1**: GET /api/signals (list digest) - **COMPLETED** ✨
+**Tasks (theo IMPLEMENTATION-ROADMAP.md):**
+- ✅ **1.10.1**: `GET /api/signals` (list digest) - **COMPLETED** ✨
   - Controller: SignalController với filtering logic
   - Resource: SignalResource cho JSON transformation
   - Permission guards: Free tier restrictions
   - my_sources_only filter với EXISTS subquery
   - Manual testing: 8/10 test cases PASS
-  - Ready for frontend integration
   
-- 🔲 **1.10.2**: GET /api/signals/:id (single signal detail)
-- 🔲 **1.10.3**: GET /api/digest/:date (daily digest metadata)
-- 🔲 **1.10.4**: POST /api/signals/:id/interactions (like/bookmark/share)
+- ✅ **1.10.2**: Digest View Screen #5 — `DigestPage` + real API — **COMPLETED** ✨ (2026-04-10)
+  - SPA: `signalService`, map API → UI, hybrid category pills, stats/sidebar aggregates
+  
+- 🔲 **1.11.1**: `GET /api/signals/{id}` (signal detail API) — roadmap tiếp theo
+- 🔲 **1.11.2**: Signal Detail Modal (Screen #7)
 
 ---
 
 ## 🎯 Current Focus
 
-**Completed Task:** Task 1.10.1 — `GET /api/signals` (list digest) ✅ (April 10, 2026)  
-**Next Task:** Task 1.10.2 — `GET /api/signals/{id}` (hoặc 1.3.3 onboarding)  
-**Previous Task:** Task 1.9.3 — Add rank + draft steps to `PipelineCrawlJob` ✅ (April 10, 2026)
+**Completed Task:** Task 1.10.2 — Digest View + real `GET /api/signals` integration ✅ (April 10, 2026)  
+**Next Task:** Task 1.11.1 — `GET /api/signals/{id}`  
+**Previous Task:** Task 1.10.1 — `GET /api/signals` (list digest) ✅ (April 10, 2026)
 
 ### Vừa Hoàn Thành
 
@@ -467,7 +486,7 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
   - ✅ Task 1.9.1: Ranking Formula (`SignalRankingService`)
   - ✅ Task 1.9.2: Draft tweet generation (`DraftTweetService`)
   - ✅ Task 1.9.3: Rank + draft trong job (`PipelineCrawlJob` Step 5–6)
-- 🔄 Phase 5: Digest UI (**1/7** — nhóm 1.10–1.12; **1.10.1** ✅)
+- 🔄 Phase 5: Digest UI (**2/7** — nhóm 1.10–1.12; **1.10.1** ✅ **1.10.2** ✅)
 
 ### Đang Làm
 
@@ -475,9 +494,9 @@ Không có
 
 ### Task Tiếp Theo
 
-🔜 **Task 1.10.2** — `GET /api/signals/{id}` (hoặc **1.3.3** onboarding)
+🔜 **Task 1.11.1** — `GET /api/signals/{id}` (signal detail API)
 
-- **Digest API:** Task **1.10.1** ✅ — `GET /api/signals` list + guards; **1.10.2** detail endpoint next.
+- **Digest:** Task **1.10.1** ✅ list API; **1.10.2** ✅ digest SPA; detail API = **1.11.1**.
 - **Pipeline wedge:** Task **1.9.3** ✅ — `PipelineCrawlJob` Step 5 (`calculateRankScore`) + Step 6 (`generateDraft`); per-signal try/catch; return metrics.
 
 **Pipeline Progress:**
@@ -529,7 +548,7 @@ _(Removed: API credits depleted — resolved via top-up hoặc không chặn dev
 ## Next Session Plan
 
 ### Target
-- **1.10.2** `GET /api/signals/{id}` hoặc **1.3.3** onboarding tuỳ ưu tiên; top-up twitterapi.io khi crawl quy mô lớn _(1.10.1 list digest ✅; 1.9.3 ✅)._
+- **1.11.1** `GET /api/signals/{id}` hoặc **1.11.2** modal; onboarding **1.3.3** nếu cần polish; top-up twitterapi.io khi crawl quy mô lớn _(1.10.1 ✅; 1.10.2 digest UI ✅; 1.9.3 ✅)._
 
 ### Pre-requisites
 - [x] WSL / dev environment
@@ -550,7 +569,7 @@ _(Removed: API credits depleted — resolved via top-up hoặc không chặn dev
 - [x] Rank + draft trong pipeline job (1.9.3)
 
 ### Expected Duration
-Tuỳ scope (1.10.2 vs 1.3.3)
+Tuỳ scope (1.11.1 vs 1.3.3 polish)
 
 ---
 
@@ -566,7 +585,8 @@ Tuỳ scope (1.10.2 vs 1.3.3)
 ### Short-term (Next 2 Weeks)
 
 - [x] **Task 1.10.1:** `GET /api/signals` ✅ (2026-04-10)
-- [ ] **Task 1.10.2:** `GET /api/signals/{id}`
+- [x] **Task 1.10.2:** Digest View Screen #5 (real API) ✅ (2026-04-10)
+- [ ] **Task 1.11.1:** `GET /api/signals/{id}`
 
 ---
 
@@ -673,7 +693,7 @@ Tuỳ scope (1.10.2 vs 1.3.3)
   - Testing: 16-step Tinker validation; only 1 API call used (~$0.001)
 - **Test / kết quả:** 2 drafts verified (161-191 chars); quality OK (specific facts, active voice, no hype); character limits enforced ✅.
 - **Cost:** ~$0.03/day draft (ước tính 7 signals × 4 runs); total pipeline ~$10.05/day.
-- **Impact:** **1.9.3** ✅ — ranking + draft wired trong `PipelineCrawlJob`; **1.10.1** list API signals ✅; next: **1.10.2** detail.
+- **Impact:** **1.9.3** ✅ — ranking + draft wired trong `PipelineCrawlJob`; **1.10.1** list API signals ✅; **1.10.2** digest UI ✅; next: **1.11.1** detail API.
 
 **2026-04-09 — Task 1.8.2 Signal summarization service**
 
@@ -701,7 +721,7 @@ Tuỳ scope (1.10.2 vs 1.3.3)
 - **Test / kết quả:** PHPUnit **11** PASS; kịch bản mẫu ~**60%** signal rate; threshold `≥0.6` → `is_signal`
 - **Cost estimate (scale):** ~**$9.60**/day nếu ~3.200 calls × ~$0.003 (chỉnh theo usage thực tế)
 - **Impact (2026-04-08):** Flow 3 **Crawl ✅ → Classify ✅**. **Cập nhật 2026-04-09:** **Cluster ✅** (Task 1.8.1 — xem *Current Focus*).
-- **Roadmap sau đó:** **1.8.3** ✅ → **1.9.1** ✅ → **1.9.3** ✅ (rank + draft trong job, 2026-04-10) → **1.10.1** ✅ → **1.10.2**.
+- **Roadmap sau đó:** **1.8.3** ✅ → **1.9.1** ✅ → **1.9.3** ✅ (rank + draft trong job, 2026-04-10) → **1.10.1** ✅ → **1.10.2** digest UI ✅ → **1.11.1** detail API.
 
 **2026-04-08 — Task 1.6.3 Incremental crawl deployed**
 

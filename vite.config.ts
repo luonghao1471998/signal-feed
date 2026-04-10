@@ -58,7 +58,8 @@ export default defineConfig({
             workbox: {
                 globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webmanifest}'],
                 navigateFallback: '/',
-                navigateFallbackDenylist: [/^\/api\//],
+                // OAuth (Socialite) phải là full navigation tới Laravel — không được serve shell SPA.
+                navigateFallbackDenylist: [/^\/api\//, /^\/auth\//],
             },
         }),
     ],

@@ -22,7 +22,8 @@ TXT;
 
     public function __construct(
         private readonly LLMClient $llmClient,
-        private readonly FakeLLMClient $fakeLlmClient
+        private readonly FakeLLMClient $fakeLlmClient,
+        private readonly CategoryAssignerService $categoryAssigner
     ) {
         $path = base_path((string) config('anthropic.summarize_prompt_path', 'docs/prompts/v1/summarize.md'));
         if (! File::isFile($path)) {
@@ -34,7 +35,7 @@ TXT;
     /**
      * @param  array{cluster_id: string, tweet_ids: list<int>, topic: string}  $cluster
      * @param  Collection<int, Tweet>  $allTweets
-     * @return array{cluster_id: string, title: string, summary: string, topic_tags: list<string>, source_count: int, tweet_ids: list<int>}|null
+     * @return array{cluster_id: string, title: string, summary: string, topic_tags: list<string>, categories: list<int>, source_count: int, tweet_ids: list<int>}|null
      */
     public function summarizeCluster(array $cluster, Collection $allTweets): ?array
     {
@@ -88,11 +89,14 @@ TXT;
                 return null;
             }
 
+            $topicTags = $parsed['topic_tags'];
+
             return [
                 'cluster_id' => $clusterId,
                 'title' => $parsed['title'],
                 'summary' => $parsed['summary'],
-                'topic_tags' => $parsed['topic_tags'],
+                'topic_tags' => $topicTags,
+                'categories' => $this->categoryAssigner->assignCategories($topicTags),
                 'source_count' => $clusterTweets->pluck('source_id')->unique()->count(),
                 'tweet_ids' => $tweetIds,
             ];

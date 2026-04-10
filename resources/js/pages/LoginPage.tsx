@@ -13,11 +13,6 @@ const LoginPage: React.FC = () => {
     setIsStandalone(window.matchMedia("(display-mode: standalone)").matches);
   }, []);
 
-  const handleLogin = () => {
-    // Placeholder: real auth would go here
-    // After auth → check onboarding_completed → redirect to /onboarding or /digest
-  };
-
   return (
     <div className="min-h-screen flex flex-col bg-white">
       {/* Top wordmark — hidden in standalone */}
@@ -48,14 +43,15 @@ const LoginPage: React.FC = () => {
           Connect your X account to receive your daily signal digest.
         </p>
 
-        <button
-          type="button"
-          onClick={handleLogin}
-          className={`mt-8 w-full bg-slate-900 text-white rounded-full ${isStandalone ? "py-4" : "py-3.5"} font-bold text-base flex items-center justify-center gap-2 hover:bg-slate-800 transition-colors`}
+        <a
+          href="/auth/twitter"
+          target="_top"
+          rel="noopener noreferrer"
+          className={`mt-8 w-full bg-slate-900 text-white rounded-full ${isStandalone ? "py-4" : "py-3.5"} font-bold text-base flex items-center justify-center gap-2 hover:bg-slate-800 transition-colors no-underline`}
         >
           <XIcon className="w-[18px] h-[18px]" />
           Continue with X
-        </button>
+        </a>
 
         <div className="border-t border-border/50 mt-6" />
 

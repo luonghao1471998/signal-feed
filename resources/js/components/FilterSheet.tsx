@@ -13,6 +13,10 @@ interface FilterSheetProps {
   onTagChange: (tags: string[]) => void;
   mySourcesOnly: boolean;
   onMySourcesChange: (val: boolean) => void;
+  /** Ẩn My KOLs cho Free tier. */
+  userPlan?: "free" | "pro" | "power";
+  /** Tag hiển thị trong sheet (mặc định DIGEST_TOPIC_TAGS). */
+  topicTagOptions?: string[];
 }
 
 const FilterSheet: React.FC<FilterSheetProps> = ({
@@ -24,7 +28,10 @@ const FilterSheet: React.FC<FilterSheetProps> = ({
   onTagChange,
   mySourcesOnly,
   onMySourcesChange,
+  userPlan = "free",
+  topicTagOptions,
 }) => {
+  const tagOptions = topicTagOptions?.length ? topicTagOptions : DIGEST_TOPIC_TAGS;
   const [localCat, setLocalCat] = useState(activeCategory);
   const [localTags, setLocalTags] = useState<string[]>(activeTags);
   const [localMySources, setLocalMySources] = useState(mySourcesOnly);
@@ -97,7 +104,7 @@ const FilterSheet: React.FC<FilterSheetProps> = ({
 
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mt-4 mb-2">Topic Tags</p>
           <div className="flex flex-wrap gap-2">
-            {DIGEST_TOPIC_TAGS.map((tag) => {
+            {tagOptions.map((tag) => {
               const active = localTags.includes(tag);
               return (
                 <button
@@ -115,10 +122,12 @@ const FilterSheet: React.FC<FilterSheetProps> = ({
             })}
           </div>
 
-          <div className="flex items-center justify-between mt-4 py-2">
-            <span className="text-sm text-slate-700">My KOLs only</span>
-            <Switch checked={localMySources} onCheckedChange={setLocalMySources} />
-          </div>
+          {userPlan !== "free" && (
+            <div className="flex items-center justify-between mt-4 py-2">
+              <span className="text-sm text-slate-700">My KOLs only</span>
+              <Switch checked={localMySources} onCheckedChange={setLocalMySources} />
+            </div>
+          )}
         </div>
 
         <div className="shrink-0 border-t border-slate-100 p-4 bg-white flex gap-2 pb-[max(1rem,env(safe-area-inset-bottom,0px))]">
