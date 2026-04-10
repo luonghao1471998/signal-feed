@@ -232,8 +232,7 @@ const DigestPage: React.FC = () => {
         displayName: v.displayName,
         signalCount: v.signalIds.size,
       }))
-      .sort((a, b) => b.signalCount - a.signalCount)
-      .slice(0, 10);
+      .sort((a, b) => b.signalCount - a.signalCount);
 
     digestSidebar.setSnapshot({
       signalTotal: total,
@@ -271,6 +270,29 @@ const DigestPage: React.FC = () => {
   const clientTagFiltered =
     activeTags.length > 1 || (userPlan === "free" && activeTags.length > 0);
   const signalCount = clientTagFiltered ? visibleSignals.length : total;
+
+  const myKolsTopHandles = useMemo(() => {
+    if (!myKolsOnly) {
+      return [];
+    }
+    const basis = clientTagFiltered ? visibleSignals : rawSignals;
+    const byHandle = new Map<string, number>();
+    basis.forEach((sig) => {
+      const seen = new Set<string>();
+      sig.sources.forEach((src) => {
+        const h = src.handle;
+        if (seen.has(h)) {
+          return;
+        }
+        seen.add(h);
+        byHandle.set(h, (byHandle.get(h) ?? 0) + 1);
+      });
+    });
+    return Array.from(byHandle.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([h]) => h);
+  }, [myKolsOnly, clientTagFiltered, visibleSignals, rawSignals]);
 
   const categoryPills = useMemo((): CategoryPill[] => {
     const signals = rawSignals;
@@ -500,7 +522,9 @@ const DigestPage: React.FC = () => {
         )}
 
         <div className="px-0 pt-0 md:px-0">
-          {userPlan !== "free" && myKolsOnly && <MySourcesStatsBar />}
+          {userPlan !== "free" && myKolsOnly && (
+            <MySourcesStatsBar signalCount={signalCount} topHandles={myKolsTopHandles} loading={loading} />
+          )}
 
           {loading && (
             <div className="grid gap-3 px-4 py-6 md:px-5">

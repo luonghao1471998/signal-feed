@@ -4119,3 +4119,37 @@ Modal renders with all data
 - [x] Documentation updated
 
 ---
+
+## Digest sidebar + My KOLs filter fixes (2026-04-10)
+
+**Context:** Chỉnh UX/đúng SPEC cho digest desktop (RightPanel), filter **My KOLs only**, và stats bar (trước đó demo / lệch hành vi).
+
+### 1. `GET /api/signals` — `my_sources_only` (Pro/Power)
+
+**Vấn đề:** Khi có cột `signals.type`, code cũ lọc `my_sources_only=true` thành `type = 1` + `user_id` (signal cá nhân Sprint 2+) → gần như không có bản ghi → digest trống khi bật toggle.
+
+**Sửa:** Luôn lấy digest chung `type = 0`; với `my_sources_only` thêm `whereExists`: `signal_sources` JOIN `my_source_subscriptions` theo `user_id` hiện tại — chỉ signal có **ít nhất một source** user đã subscribe (F14).
+
+**File:** `app/Http/Controllers/Api/SignalController.php`
+
+### 2. `MySourcesStatsBar` — bỏ copy tĩnh
+
+- Trước: số “12 signals”, top KOL demo, “+3 vs yesterday” cố định.
+- Sau: nhận `signalCount`, `topHandles` (tối đa 3), `loading` từ `DigestPage`; dòng giải thích “Only signals that cite at least one source you follow.”
+
+**Files:** `resources/js/components/MySourcesStatsBar.tsx`, `resources/js/pages/DigestPage.tsx`
+
+### 3. RightPanel — “KOLs in today’s digest”
+
+- **Tiêu đề:** “Your KOLs today” → **“KOLs in today's digest”** (tránh nhầm với My KOLs subscription).
+- **Nguồn dữ liệu:** `DigestPage` gửi toàn bộ KOL aggregate từ **signal của ngày đang xem** (bỏ giới hạn 10 dòng cũ trong snapshot).
+- **Click từng dòng:** mở **profile X** `https://x.com/{handle}` (`target="_blank"`, `rel="noopener noreferrer"`), không còn `Link` tới `/my-kols`.
+- **Show more / Show less:** mặc định hiện 4 dòng; mở rộng **cùng danh sách ngày** (không điều hướng My KOLs). Reset expand khi đổi danh sách (signature handles).
+
+**File:** `resources/js/components/RightPanel.tsx` (+ `DigestPage` bỏ `.slice(0, 10)` trên `topKols`).
+
+### Ghi chú product
+
+- Subscribe UI (My KOLs page / onboarding) vẫn **local state**; subscription thật cần bản ghi `my_source_subscriptions` (API subscribe theo roadmap / tinker dev).
+
+---

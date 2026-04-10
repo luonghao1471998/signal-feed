@@ -76,11 +76,18 @@ class SignalController extends Controller
             if ($plan === 'free') {
                 $query->where('signals.type', 0);
             } elseif (in_array($plan, ['pro', 'power'], true)) {
+                // Shared digest only; My KOLs filter = signals that cite at least one subscribed source (F14)
+                $query->where('signals.type', 0);
                 if ($request->boolean('my_sources_only')) {
-                    $query->where('signals.type', 1)
-                        ->where('signals.user_id', $user->id);
-                } else {
-                    $query->where('signals.type', 0);
+                    $query->whereExists(static function ($sub) use ($user): void {
+                        $sub->select(DB::raw('1'))
+                            ->from('signal_sources as ss')
+                            ->whereColumn('ss.signal_id', 'signals.id')
+                            ->join('my_source_subscriptions as mss', static function ($join) use ($user): void {
+                                $join->on('mss.source_id', '=', 'ss.source_id')
+                                    ->where('mss.user_id', '=', $user->id);
+                            });
+                    });
                 }
             }
         } elseif (in_array($plan, ['pro', 'power'], true) && $request->boolean('my_sources_only')) {

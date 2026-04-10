@@ -1,8 +1,14 @@
-import React from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect, useState } from "react";
 import { Av, avatarUrlForHandle } from "@/components/Avatar";
 import { cn } from "@/lib/utils";
 import { useDigestSidebar } from "@/contexts/DigestSidebarContext";
+
+const KOL_PREVIEW_COUNT = 4;
+
+function xProfileUrlFromHandle(handle: string): string {
+  const u = handle.replace(/^@/, "").trim();
+  return `https://x.com/${encodeURIComponent(u)}`;
+}
 
 const RightPanel: React.FC = () => {
   const { snapshot } = useDigestSidebar();
@@ -10,6 +16,17 @@ const RightPanel: React.FC = () => {
   const signalTotal = snapshot?.signalTotal ?? 0;
   const kolsActive = snapshot?.kolsActive ?? 0;
   const kolRows = snapshot?.topKols ?? [];
+  const [kolListExpanded, setKolListExpanded] = useState(false);
+
+  const visibleKolRows =
+    kolListExpanded || kolRows.length <= KOL_PREVIEW_COUNT
+      ? kolRows
+      : kolRows.slice(0, KOL_PREVIEW_COUNT);
+
+  const kolRowsSignature = kolRows.map((r) => r.handle).join("\0");
+  useEffect(() => {
+    setKolListExpanded(false);
+  }, [kolRowsSignature]);
 
   return (
     <aside
@@ -35,19 +52,21 @@ const RightPanel: React.FC = () => {
       </div>
 
       <div className="mb-4 mt-4 max-h-none overflow-visible rounded-2xl bg-[#f7f9f9] p-4">
-        <h2 className="mb-3.5 text-[19px] font-extrabold text-[#0f1419]">Your KOLs today</h2>
+        <h2 className="mb-3.5 text-[19px] font-extrabold text-[#0f1419]">KOLs in today&apos;s digest</h2>
         <div className="max-h-none space-y-0 overflow-visible">
           {loading && kolRows.length === 0 ? (
             <p className="py-2 text-[14px] text-[#536471]">Loading…</p>
           ) : kolRows.length === 0 ? (
             <p className="py-2 text-[14px] text-[#536471]">No KOLs in today&apos;s digest yet.</p>
           ) : (
-            kolRows.map((row, i) => (
-              <Link
+            visibleKolRows.map((row, i) => (
+              <a
                 key={row.handle}
-                to="/my-kols"
+                href={xProfileUrlFromHandle(row.handle)}
+                target="_blank"
+                rel="noopener noreferrer"
                 className={cn(
-                  "flex items-center gap-2.5 no-underline transition-colors hover:bg-[#e8e8e8]",
+                  "flex items-center gap-2.5 text-inherit no-underline transition-colors hover:bg-[#e8e8e8]",
                   i > 0 && "border-t border-[#eff3f4]",
                 )}
                 style={{ padding: "10px 4px" }}
@@ -63,18 +82,18 @@ const RightPanel: React.FC = () => {
                 >
                   {row.signalCount} signals
                 </span>
-              </Link>
+              </a>
             ))
           )}
         </div>
-        {kolRows.length > 4 ? (
-          <Link
-            to="/my-kols"
-            className="mt-2 block py-1 text-[#1d9bf0] no-underline hover:underline"
-            style={{ fontSize: 15 }}
+        {kolRows.length > KOL_PREVIEW_COUNT ? (
+          <button
+            type="button"
+            className="mt-2 block w-full cursor-pointer border-none bg-transparent py-1 text-left text-[15px] text-[#1d9bf0] hover:underline"
+            onClick={() => setKolListExpanded((v) => !v)}
           >
-            Show more
-          </Link>
+            {kolListExpanded ? "Show less" : "Show more"}
+          </button>
         ) : null}
       </div>
 
