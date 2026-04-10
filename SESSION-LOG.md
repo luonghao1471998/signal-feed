@@ -4,8 +4,8 @@
 **Date:** 2026-04-06
 **Phase:** Giai đoạn 3 - Implementation
 **Sprint:** Sprint 1 - Wedge Delivery
-**Tasks Covered (đã làm):** 1.1.1 – 1.2.5, **1.3.1** (OAuth X.com), **1.4.1** (categories seed), **1.4.2** (`GET /api/categories`), **1.5.1** (source pool CSV 80 rows), **1.5.2** (source pool seeder), **1.10.1** (`GET /api/signals`), **1.10.2** (Digest View + real API)  
-**Next:** **1.11.1** — `GET /api/signals/{id}` (hoặc **1.11.2** modal UI)
+**Tasks Covered (đã làm):** 1.1.1 – 1.2.5, **1.3.1** (OAuth X.com), **1.4.1** (categories seed), **1.4.2** (`GET /api/categories`), **1.5.1** (source pool CSV 80 rows), **1.5.2** (source pool seeder), **1.10.1** (`GET /api/signals`), **1.10.2** (Digest View + real API), **1.11.1** (`GET /api/signals/{id}` detail)  
+**Next:** **1.11.2** — Signal Detail Modal UI (hoặc **1.12.x** draft copy API)
 
 **Lưu ý cho agent / Claude:** Khi user chỉ nhắc `SESSION-LOG` + SPEC để **cập nhật log / context**, **không** tự implement code trừ khi user ghi rõ *Implement Feature* / *làm task X*. OAuth X.com (1.3.1) **đã có trong repo** (Socialite + `twitter-oauth-2`).
 
@@ -3894,5 +3894,94 @@ interface SignalsResponse {
 - `IMPLEMENTATION-ROADMAP.md`: Task 1.10.2  
 - SESSION-LOG Task 1.10.1: contract GET `/api/signals`  
 - UI: `DigestPage.tsx`, `DigestSignalCard.tsx`, `DigestFilterBar.tsx`
+
+---
+
+## [2026-04-10 14:45] Task 1.11.1: GET /api/signals/{id} Detail Endpoint - COMPLETED ✅
+
+**Objective:** Implement API endpoint GET /api/signals/{id} trả về full signal detail với complete source attribution (tweet_text, posted_at từ tweets table).
+
+**Implementation Summary:**
+
+1. **SignalController@show() Method:**
+   - File: `app/Http/Controllers/Api/SignalController.php`
+   - findOrFail($id) → auto 404 nếu signal không tồn tại
+   - Eager load: digest, draft, sources + withPivot('tweet_id')
+   - Query Tweet::whereIn('id', ...) để lấy tweet details
+   - Gắn attribution_tweet vào từng source
+   - Permission guard: Free users → draft = null (stripped)
+
+2. **SignalDetailResource:**
+   - File: `app/Http/Resources/SignalDetailResource.php`
+   - JSON response bao gồm:
+     - `summary`: Full text (không truncate như list endpoint)
+     - `sources[]`: handle, display_name, tweet_url, tweet_text, posted_at (ISO 8601 UTC)
+     - `draft_tweets`: [{id, text}] hoặc [] nếu Free user
+     - `categories`, `topic_tags`, `date`, `published_at`
+     - `type`, `is_personal` (compatibility với list endpoint)
+
+3. **Route:**
+   - File: `routes/api.php`
+   - `GET /api/signals/{id}` với whereNumber('id') constraint
+   - Middleware: auth:sanctum
+
+4. **Database Join Strategy:**
+   - signal_sources.tweet_id → tweets.id (FK đúng với schema hiện tại)
+   - Query tweets table để lấy text, posted_at
+   - Avoid N+1 queries bằng eager loading
+
+**Testing Results:**
+
+✅ **Test 1: Basic Detail Fetch (Free User)**
+- Request: `GET /api/signals/2` with Free user token
+- Response: 200 OK
+- Verified: `draft_tweets: []` (stripped correctly)
+- Verified: `sources` array có 3 items với đầy đủ tweet_url, tweet_text, posted_at
+- Verified: `summary` full text (567 chars, không truncate)
+
+✅ **Test 2: Pro User Gets Draft**
+- Request: `GET /api/signals/2` with Pro user token  
+- Response: 200 OK
+- Verified: `draft_tweets: [{id: 3, text: "..."}]` (included correctly)
+
+✅ **Test 3: Error Handling**
+- Request: `GET /api/signals/999999` → 404 Not Found
+- Request without token → 401 Unauthenticated
+
+✅ **Test 4: Source Attribution Complete**
+- Verified: tweet_text từ tweets table (RT @kevinghstz: ..., RT @alexandr_wang: ...)
+- Verified: posted_at format ISO 8601 UTC (2026-04-08T05:41:38+00:00)
+- Verified: tweet_url format đúng (https://x.com/{handle}/status/{tweet_id})
+
+**Key Features Delivered:**
+
+1. **Full Source Attribution:** Sources include complete tweet context:
+   - `tweet_url`: Link to original tweet
+   - `tweet_text`: Full tweet content
+   - `posted_at`: UTC timestamp (ISO 8601)
+
+2. **Permission Guards:** 
+   - Free users: draft_tweets stripped (empty array)
+   - Pro/Power users: draft_tweets included
+
+3. **Error Handling:**
+   - 404 NOT_FOUND: Signal doesn't exist
+   - 401 UNAUTHORIZED: No auth token
+
+4. **Data Completeness:**
+   - Summary: Full text (no truncation)
+   - Categories: Array với id, name, slug
+   - Topic tags: Array
+   - Published timestamp: ISO 8601 format
+
+**Files Modified:**
+- ✅ `app/Http/Controllers/Api/SignalController.php` - added show() method
+- ✅ `app/Http/Resources/SignalDetailResource.php` - created new resource
+- ✅ `routes/api.php` - added GET /api/signals/{id} route
+
+**Status:** COMPLETED ✅ - Endpoint tested and working in development environment.
+
+**Next Tasks:**
+- Frontend integration với /api/signals/{id} endpoint
 
 ---

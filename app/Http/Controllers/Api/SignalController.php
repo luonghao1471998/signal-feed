@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\SignalDetailResource;
 use App\Http\Resources\SignalResource;
 use App\Models\Category;
 use App\Models\Signal;
@@ -179,5 +180,84 @@ class SignalController extends Controller
         );
 
         return SignalResource::collection($signals);
+    }
+
+    /**
+     * GET /api/signals/{id} — chi tiết một signal (full summary + tweet attribution).
+     */
+    public function show(Request $request, int $id): SignalDetailResource|JsonResponse
+    {
+        $user = $request->user();
+        $plan = (string) $user->plan;
+
+        if ($plan === 'free') {
+            $today = Carbon::now()->dayOfWeek;
+            $allowedDays = [1, 3, 5];
+
+            if (! in_array($today, $allowedDays, true)) {
+                return response()->json([
+                    'message' => 'Free tier: digest available Mon/Wed/Fri only. Upgrade to Pro for daily access.',
+                ], 403);
+            }
+        }
+
+        $signal = Signal::query()
+            ->with([
+                'digest',
+                'draft',
+                'sources' => static function ($q): void {
+                    $q->withPivot('tweet_id');
+                },
+            ])
+            ->findOrFail($id);
+
+        $tweetIds = $signal->sources
+            ->pluck('pivot.tweet_id')
+            ->unique()
+            ->filter()
+            ->values();
+
+        $tweets = Tweet::query()
+            ->whereIn('id', $tweetIds)
+            ->get()
+            ->keyBy('id');
+
+        $subscribedSourceIds = collect();
+        if (in_array($plan, ['pro', 'power'], true)) {
+            $subscribedSourceIds = DB::table('my_source_subscriptions')
+                ->where('user_id', $user->id)
+                ->pluck('source_id');
+        }
+
+        foreach ($signal->sources as $source) {
+            $tid = $source->pivot->tweet_id ?? null;
+            $tweet = $tid !== null ? $tweets->get((int) $tid) : null;
+            $source->setRelation('attribution_tweet', $tweet);
+            if (in_array($plan, ['pro', 'power'], true)) {
+                $source->is_my_source = $subscribedSourceIds->contains($source->id);
+            } else {
+                $source->is_my_source = null;
+            }
+        }
+
+        $categoryIds = $signal->categories;
+        $categoryLookup = Category::query()
+            ->whereIn('id', $categoryIds)
+            ->get()
+            ->keyBy('id');
+
+        $signal->setRelation(
+            'categoryModels',
+            collect($categoryIds)
+                ->map(static fn ($cid) => $categoryLookup->get((int) $cid))
+                ->filter()
+                ->values()
+        );
+
+        if ($plan === 'free') {
+            $signal->setRelation('draft', null);
+        }
+
+        return new SignalDetailResource($signal);
     }
 }

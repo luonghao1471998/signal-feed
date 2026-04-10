@@ -21,4 +21,5 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', CurrentUserController::class);
     Route::patch('/me', UpdateCurrentUserController::class);
     Route::get('/signals', [SignalController::class, 'index']);
+    Route::get('/signals/{id}', [SignalController::class, 'show'])->whereNumber('id');
 });
