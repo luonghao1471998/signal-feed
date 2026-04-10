@@ -6,6 +6,8 @@ use App\Models\Digest;
 use App\Models\Signal;
 use App\Models\Source;
 use App\Models\Tweet;
+use App\Services\DraftTweetService;
+use App\Services\SignalRankingService;
 use App\Services\SignalSummarizerService;
 use App\Services\TweetClassifierService;
 use App\Services\TweetClusterService;
@@ -46,8 +48,10 @@ class PipelineCrawlJob implements ShouldQueue
         TwitterCrawlerService $crawler,
         TweetClassifierService $classifier,
         TweetClusterService $clusterService,
-        SignalSummarizerService $summarizerService
-    ): void {
+        SignalSummarizerService $summarizerService,
+        SignalRankingService $signalRankingService,
+        DraftTweetService $draftTweetService
+    ): ?array {
         $start = microtime(true);
 
         Log::channel('crawler')->info('=== PipelineCrawlJob started ===', [
@@ -109,7 +113,7 @@ class PipelineCrawlJob implements ShouldQueue
             ]);
             $this->logFinished($start, $classifyStats, $clusterResult, null, 0, 0);
 
-            return;
+            return null;
         }
 
         if (empty($clusterResult['clusters'])) {
@@ -117,7 +121,7 @@ class PipelineCrawlJob implements ShouldQueue
 
             $this->logFinished($start, $classifyStats, $clusterResult, null, 0, 0);
 
-            return;
+            return null;
         }
 
         $digest = $this->getOrCreateDigest();
@@ -190,7 +194,104 @@ class PipelineCrawlJob implements ShouldQueue
             'total_signals' => Signal::query()->where('digest_id', $digest->id)->count(),
         ]);
 
-        $this->logFinished($start, $classifyStats, $clusterResult, $digest, $signalsCreated, $signalsFailed);
+        $rankedCount = 0;
+        $rankErrors = 0;
+        $draftCount = 0;
+        $draftErrors = 0;
+
+        /** @var Collection<int, Signal> $digestSignals */
+        $digestSignals = Signal::query()
+            ->where('digest_id', $digest->id)
+            ->orderBy('id')
+            ->get();
+
+        Log::channel('crawler')->info('=== Step 5: Ranking signals ===', [
+            'digest_id' => $digest->id,
+            'signal_count' => $digestSignals->count(),
+        ]);
+
+        foreach ($digestSignals as $signal) {
+            try {
+                $signalRankingService->calculateRankScore($signal);
+                $signal->refresh();
+                $rankedCount++;
+                Log::channel('crawler')->info('Signal ranked', [
+                    'signal_id' => $signal->id,
+                    'rank_score' => $signal->rank_score,
+                ]);
+            } catch (\Throwable $e) {
+                $rankErrors++;
+                Log::channel('crawler-errors')->error('Ranking failed for signal', [
+                    'signal_id' => $signal->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        Log::channel('crawler')->info('Ranking complete', [
+            'succeeded' => $rankedCount,
+            'failed' => $rankErrors,
+        ]);
+
+        $digestSignals = Signal::query()
+            ->where('digest_id', $digest->id)
+            ->orderBy('id')
+            ->get();
+
+        Log::channel('crawler')->info('=== Step 6: Generating draft tweets ===', [
+            'digest_id' => $digest->id,
+            'signal_count' => $digestSignals->count(),
+        ]);
+
+        foreach ($digestSignals as $signal) {
+            try {
+                $draftText = $draftTweetService->generateDraft($signal);
+                $draftCount++;
+                $preview = mb_substr((string) $draftText, 0, 50);
+                Log::channel('crawler')->info('Draft step completed for signal', [
+                    'signal_id' => $signal->id,
+                    'text_preview' => $preview !== '' ? $preview.'…' : null,
+                ]);
+            } catch (\Throwable $e) {
+                $draftErrors++;
+                Log::channel('crawler-errors')->error('Draft generation failed for signal', [
+                    'signal_id' => $signal->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        Log::channel('crawler')->info('Draft generation complete', [
+            'succeeded' => $draftCount,
+            'failed' => $draftErrors,
+        ]);
+
+        Log::channel('crawler')->info('=== Pipeline complete ===', [
+            'signals_ranked' => $rankedCount,
+            'drafts_generated' => $draftCount,
+            'rank_errors' => $rankErrors,
+            'draft_errors' => $draftErrors,
+        ]);
+
+        $this->logFinished(
+            $start,
+            $classifyStats,
+            $clusterResult,
+            $digest,
+            $signalsCreated,
+            $signalsFailed,
+            $rankedCount,
+            $rankErrors,
+            $draftCount,
+            $draftErrors
+        );
+
+        return [
+            'signals_ranked' => $rankedCount,
+            'drafts_generated' => $draftCount,
+            'rank_errors' => $rankErrors,
+            'draft_errors' => $draftErrors,
+        ];
     }
 
     /**
@@ -203,7 +304,11 @@ class PipelineCrawlJob implements ShouldQueue
         array $clusterResult,
         ?Digest $digest,
         int $signalsCreated,
-        int $signalsFailed
+        int $signalsFailed,
+        int $signalsRanked = 0,
+        int $rankErrors = 0,
+        int $draftsGenerated = 0,
+        int $draftErrors = 0
     ): void {
         Log::channel('crawler')->info('=== PipelineCrawlJob finished ===', [
             'duration_seconds' => round(microtime(true) - $start, 2),
@@ -217,6 +322,10 @@ class PipelineCrawlJob implements ShouldQueue
             'unclustered_count' => count($clusterResult['unclustered']),
             'signals_persisted' => $signalsCreated,
             'signals_persist_failed' => $signalsFailed,
+            'signals_ranked' => $signalsRanked,
+            'rank_errors' => $rankErrors,
+            'drafts_generated' => $draftsGenerated,
+            'draft_errors' => $draftErrors,
         ]);
     }
 

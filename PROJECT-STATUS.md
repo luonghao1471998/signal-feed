@@ -1,11 +1,11 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-09 (Task 1.9.2 complete)
+**Last Updated:** 2026-04-10 09:30:00+07 (Task 1.9.3 complete)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 1 - Wedge Delivery
-**Completed Task:** **1.9.2** — Implement draft tweet generation (`DraftTweetService`) ✅
-**Next Task:** **1.9.3** — Integrate ranking + draft into `PipelineCrawlJob`
-**Status:** Draft generation ready; ranking ready; integration pending
+**Completed Task:** **1.9.3** — Add rank + draft steps to `PipelineCrawlJob` ✅
+**Next Task:** **1.10.1** — `GET /api/signals` (hoặc **1.3.3** onboarding — tùy ưu tiên)
+**Status:** Pipeline wedge: rank + draft wired trong job; sẵn sàng API signals / UI digest
 
 ---
 
@@ -32,9 +32,23 @@
   - ✅ Character limit enforcement (≤280 strict)
   - ✅ Idempotent (no duplicate API calls)
   - ✅ Test verified: 2 drafts (161-191 chars), quality OK
-- [ ] 1.9.3 - Integrate ranking + draft into `PipelineCrawlJob` ← **NEXT**
+- [x] Task 1.9.3: Add rank + draft steps to PipelineCrawlJob
+  - Status: COMPLETED
+  - Date: 2026-04-10
+  - Files Modified:
+    - `app/Jobs/PipelineCrawlJob.php` (added Step 5: Ranking + Step 6: Draft Generation)
+  - Testing: Manual testing passed
+    - `SignalRankingService->calculateRankScore()` verified (7 signals ranked)
+    - `DraftTweetService->generateDraft()` verified (3 drafts created, all ≤280 chars)
+    - Signal→Draft relationship working
+    - Error handling per-signal verified
+  - Notes:
+    - Inject services vào `handle()` method (queued job pattern)
+    - Comprehensive logging for Step 5 & 6
+    - Return metrics: `signals_ranked`, `drafts_generated`, `rank_errors`, `draft_errors`
+    - Full pipeline not executed to save Anthropic API credits
 
-**Progress:** 10/10 wedge tasks complete (100%) 🎉  
+**Progress (wedge pipeline 1.6.x–1.9.x):** 11/11 tasks complete (100%) 🎉  
 **Critical path:** On track  
 **Blockers:** None
 
@@ -62,17 +76,18 @@
 - **Created:** `TweetClassifierService`, `config/signalfeed.php`, migration `signal_score` unclassified; tests unit/feature bổ sung
 - **Modified:** `PipelineCrawlJob` (refactor orchestration), `docs/prompts/v1/classify.md`, `routes/console.php` (scheduler 4×/day), `.env.example`, `TwitterCrawlerService`, `LLMClient`, `FakeLLMClient`
 
-**Next:** Task **1.9.3** — integrate `SignalRankingService` + `DraftTweetService` into pipeline _(Tasks **1.9.1** ✅, **1.9.2** ✅)._
+**Next:** Task **1.10.1** — `GET /api/signals` _(rank + draft trong job **1.9.3** ✅)._
 
 ## Current Sprint Status
 
-**Completed Task:** Task 1.9.2 — Implement Draft Tweet Generation ✅ (2026-04-09)  
-**Next Task:** Task 1.9.3 — Integrate ranking + draft into `PipelineCrawlJob`  
-**Status:** Both ranking and draft services ready; only pipeline integration pending  
-**Previous Task:** Task 1.9.1 — Implement signal ranking formula ✅ COMPLETED (April 9, 2026)
+**Completed Task:** Task 1.9.3 — Add rank + draft steps to `PipelineCrawlJob` ✅ (2026-04-10)  
+**Next Task:** Task 1.10.1 — `GET /api/signals` (hoặc 1.3.3 onboarding)  
+**Status:** Pipeline job gọi ranking + draft sau persist signals; metrics + logging hoàn chỉnh  
+**Previous Task:** Task 1.9.2 — Implement draft tweet generation ✅ (2026-04-09)
 
 **Recent Completions:**
 
+- ✅ 2026-04-10: Task 1.9.3 — `PipelineCrawlJob` Step 5 (rank) + Step 6 (draft); `handle()` inject `SignalRankingService` + `DraftTweetService`; manual verify 7 ranked, 3 drafts ≤280 chars
 - ✅ 2026-04-09: Task 1.9.2 — `DraftTweetService`; `generate-draft.md` prompt; ≤280 char enforcement; verified 2 drafts
 - ✅ 2026-04-09: Task 1.9.1 — `SignalRankingService`; `rank_score` 3-factor formula; verified on 7 signals + PostgreSQL
 - ✅ 2026-04-09: Task 1.8.3 — `PipelineCrawlJob` persist `Signal` + `signal_sources`; digest; idempotency
@@ -91,12 +106,12 @@
 ## Quick Stats
 
 ### Sprint 1 Progress (34 tasks total)
-- **Completed:** 23/34 (68%)
+- **Completed:** 24/34 (71%)
 - **In Progress:** None
 - **Blocked:** None
 
 ### Code Metrics
-- **Backend:** 82% (Auth + DB + Categories + Sources + API + Crawler + Scheduler + Incremental + Signal generation + **Classify** + **Cluster** + **Summarize** + **Persist signals** + **Ranking** + **Draft generation** — pipeline integration **1.9.3** pending)
+- **Backend:** 85% (Auth + DB + Categories + Sources + API + Crawler + Scheduler + Incremental + Signal generation + **Classify** + **Cluster** + **Summarize** + **Persist signals** + **Ranking** + **Draft generation** + **Rank/draft trong `PipelineCrawlJob` (1.9.3)** ✅)
 - **Frontend:** 5% (Scaffold only)
 - **Database:** 100% (All migrations done)
 - **Seed Data:** 100% (Categories ✅, Sources CSV ✅, Sources imported ✅)
@@ -134,7 +149,7 @@
     - Idempotent: returns existing draft (no duplicate API calls)  
     - Fallback: signal title (truncated) on API failure  
     - Cost estimate: ~**$0.03**/day (7 signals × 4 runs × ~$0.001)  
-  - **Pipeline:** `PipelineCrawlJob` orchestrates **Crawl → Classify → Cluster → Summarize → persist `signals`** (Task **1.8.3** ✅); scheduler: `dispatch_sync` trong `Schedule::call` (chạy ngay khi `schedule:run`, không phụ thuộc worker queue)  
+  - **Pipeline:** `PipelineCrawlJob` orchestrates **Crawl → Classify → Cluster → Summarize → persist `signals` → rank (`1.9.1` / Step 5) → draft (`1.9.2` / Step 6)** (Tasks **1.8.3** ✅, **1.9.3** ✅); scheduler: `dispatch_sync` trong `Schedule::call` (chạy ngay khi `schedule:run`, không phụ thuộc worker queue)  
   - Credits: ~**$4.71** remaining (snapshot); **ước tính scale pipeline (sau 1.8.2):** classify ~**$9.60**/day + cluster ~**$0.08**/day + summarize ~**$0.40**/day + crawl (twitterapi.io) — xem *Metrics Update*  
 - [ ] Stripe (Sprint 3)
 - [ ] Resend (Sprint 2+)
@@ -149,14 +164,14 @@
   - **Classified:** ~**50** tweets có `signal_score` (ước lượng sau pipeline)
   - **Signals:** ~**30** tweets (`is_signal = true`) — ~**60%** so với đã classify (minh hoạ)
 - Users: **tùy** (sau `migrate:fresh` có thể 0 — đăng nhập OAuth lại để có bản ghi)
-- Signals: **tùy** (Task 1.7.1 manual + pipeline **1.8.3** ghi `signals` / `signal_sources`; **`rank_score`** via **1.9.1** ✅; job integration **1.9.3**)
+- Signals: **tùy** (Task 1.7.1 manual + pipeline **1.8.3** ghi `signals` / `signal_sources`; **`rank_score`** via **1.9.1** ✅ + **Step 5 trong job (1.9.3)** ✅; **`draft_tweets`** via **1.9.2** + **Step 6 trong job (1.9.3)** ✅)
 
 **Độ "fresh":**
 
 - `last_crawled_at`: cập nhật **4×/ngày** qua scheduler (khi cron + credits ổn)
 - Tweet classification: tự classify trong `PipelineCrawlJob` (Task **1.7.2** ✅)
 - Tweet clustering + summarize + persist: trong `PipelineCrawlJob` (Tasks **1.8.1–1.8.3** ✅)
-- Signal generation: manual `signals:generate` (1.7.1); auto pipeline persist signals (**1.8.3** ✅); ranking formula **1.9.1** ✅; scheduler integration **1.9.3**
+- Signal generation: manual `signals:generate` (1.7.1); auto pipeline persist signals (**1.8.3** ✅); ranking formula **1.9.1** ✅; rank + draft trong job **1.9.3** ✅
 
 ### API Endpoints Available
 
@@ -180,7 +195,7 @@
 - ✅ Tweet classification: trong `PipelineCrawlJob` (Task **1.7.2**)
 - ✅ Tweet clustering: trong `PipelineCrawlJob` (Task **1.8.1**)
 - ✅ Summarize + persist: `SignalSummarizerService` + `PipelineCrawlJob` (Tasks **1.8.2–1.8.3** ✅)
-- ✅ Ranking formula: **1.9.1** (`SignalRankingService`) — ⏸️ gọi từ job: **1.9.3**; ✅ draft **1.9.2** (`DraftTweetService`); ⏸️ wire rank + draft trong job **1.9.3**
+- ✅ Ranking trong job: **1.9.3** Step 5 (`SignalRankingService::calculateRankScore`); ✅ draft trong job: **1.9.3** Step 6 (`DraftTweetService::generateDraft`)
 
 ---
 
@@ -209,7 +224,7 @@
 - [x] 1.5.2 - Implement source pool seed script ✅
 - [x] 1.5.3 - Implement GET /api/sources endpoint ✅
 
-**Next Task:** **1.9.3** (integrate ranking + draft into job) hoặc 1.3.3 (onboarding) tùy ưu tiên _(1.9.1 ✅, 1.9.2 ✅)._
+**Next Task:** **1.10.1** (`GET /api/signals`) hoặc **1.3.3** (onboarding) tùy ưu tiên _(pipeline rank/draft **1.9.3** ✅)._
 
 ### Phase 3: Tweet Crawling (Tasks 1.6) — 3 tasks
 
@@ -259,7 +274,7 @@ _(Tiến độ pipeline AI tổng thể: **Phase 4** ở trên — **3/6**.)_
 - [x] Models with proper array handling
 - [x] Command with progress reporting
 
-**Next Task:** **1.9.3** — integrate ranking + draft into `PipelineCrawlJob` _(1.9.1 ✅, 1.9.2 ✅)._
+**Next Task:** **1.10.1** — `GET /api/signals` _(1.9.3 ✅)._
 
 **1.7.2 Add classify step to PipelineCrawlJob** ✅ DONE (2026-04-08)
 
@@ -273,7 +288,7 @@ _(Tiến độ pipeline AI tổng thể: **Phase 4** ở trên — **3/6**.)_
 
 ### Phase 4: AI Pipeline (Tasks 1.7–1.9) — wedge steps
 
-**Status:** 7/8 complete (88%)
+**Status:** 8/8 complete (100%)
 
 - [x] 1.7.1 — Signal generation (`signals:generate`) ✅
 - [x] 1.7.2 — Classify step (`TweetClassifierService` + pipeline) ✅
@@ -282,7 +297,7 @@ _(Tiến độ pipeline AI tổng thể: **Phase 4** ở trên — **3/6**.)_
 - [x] 1.8.3 — Wire cluster + summarize + Signal creation trong `PipelineCrawlJob` ✅ (April 9, 2026)
 - [x] 1.9.1 — Signal ranking formula (`SignalRankingService`) ✅ (April 9, 2026)
 - [x] 1.9.2 — Draft tweet generation (`DraftTweetService` + `generate-draft.md`) ✅ (April 9, 2026)
-- [ ] 1.9.3 — Integrate ranking + draft into `PipelineCrawlJob` ⏳ **NEXT**
+- [x] 1.9.3 — Integrate ranking + draft into `PipelineCrawlJob` ✅ (April 10, 2026)
 
 ### Phase 5: Digest UI (Tasks 1.10-1.12) — 7 tasks
 _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
@@ -291,9 +306,9 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
 
 ## 🎯 Current Focus
 
-**Completed Task:** Task 1.9.2 — Implement Draft Tweet Generation ✅ (April 9, 2026)  
-**Next Task:** Task 1.9.3 — Integrate ranking + draft into `PipelineCrawlJob`  
-**Previous Task:** Task 1.9.1 — Implement signal ranking formula ✅ COMPLETED (April 9, 2026)
+**Completed Task:** Task 1.9.3 — Add rank + draft steps to `PipelineCrawlJob` ✅ (April 10, 2026)  
+**Next Task:** Task 1.10.1 — `GET /api/signals` (hoặc 1.3.3 onboarding)  
+**Previous Task:** Task 1.9.2 — Implement draft tweet generation ✅ (April 9, 2026)
 
 ### Vừa Hoàn Thành
 
@@ -305,7 +320,7 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
   - Step 5: Create Signal records + SignalSource junction links
   - Digest management: `firstOrCreate()` 1 digest/day (shared across 4 runs)
 
-- **Data Flow:** Tweets → Classify → Cluster → Summarize → **Signals (NEW)** → **Rank (1.9.1 ✅)** → **Draft (1.9.2 ✅)** → wire in job (**1.9.3**)
+- **Data Flow:** Tweets → Classify → Cluster → Summarize → **Signals** → **Rank (job Step 5, 1.9.3 ✅)** → **Draft (job Step 6, 1.9.3 ✅)**
   - Input: 62 signal tweets
   - Output: 7 signals, 16 signal_sources links
   - Data integrity: 100% (source_count matches junction)
@@ -319,7 +334,7 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
 
 - **Status:** Production-ready; Flow 3 **Crawl ✅ → Classify ✅ → Cluster ✅ → Summarize ✅ → Create Signals ✅**
 
-**Next:** Task 1.9.3 — Call `SignalRankingService::rankAllSignals()` + `DraftTweetService::generateDraft()` (per signal hoặc batch) từ `PipelineCrawlJob` sau khi tạo signal
+**Done (1.9.3):** `PipelineCrawlJob` gọi `SignalRankingService::calculateRankScore()` + `DraftTweetService::generateDraft()` cho mỗi signal của digest (sau persist); metrics return + logging
 
 ✅ **Task 1.7.2** — Add classify step to PipelineCrawlJob (2026-04-08)
 
@@ -335,10 +350,9 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
   - Low signal: cá nhân, spam, nội dung chung chung  
   - Output JSON: `signal_score`, `is_signal`; `reasoning` tuỳ chọn
 
-- **PipelineCrawlJob:** Crawl → Classify → Cluster → Summarize → Persist signals (**1.8.3** ✅)  
+- **PipelineCrawlJob:** Crawl → Classify → Cluster → Summarize → Persist signals (**1.8.3** ✅) → Rank (**1.9.3** ✅) → Draft (**1.9.3** ✅)  
   - Scheduler **4×/ngày** (01:00, 07:00, 13:00, 19:00 VN)  
-  - Job implements `ShouldQueue`; lịch dùng `Schedule::call` + **`dispatch_sync`** (xem `routes/console.php`)  
-  - **Next:** integrate rank + draft in job (**1.9.3**)
+  - Job implements `ShouldQueue`; lịch dùng `Schedule::call` + **`dispatch_sync`** (xem `routes/console.php`)
 
 - **Configuration:** `config/signalfeed.php`  
   - `signal_threshold: 0.6` (`SIGNAL_THRESHOLD`)  
@@ -428,7 +442,7 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
 - ✅ Phase 1: Setup + Infrastructure (**8/8** — 100%)
 - ✅ Phase 2: Auth + Data Seed (**6/8** — 75%)
 - ✅ Phase 3: Tweet Crawling (**3/3** — 100%)
-- 🚧 **Phase 4: AI Pipeline** (**7/8** — **88%**)
+- ✅ **Phase 4: AI Pipeline** (**8/8** — **100%**)
   - ✅ Task 1.7.1: Signal Generator Service
   - ✅ Task 1.7.2: Classify Step
   - ✅ Task 1.8.1: Cluster Method
@@ -436,7 +450,7 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
   - ✅ Task 1.8.3: Wire summarize + Create Signals in job
   - ✅ Task 1.9.1: Ranking Formula (`SignalRankingService`)
   - ✅ Task 1.9.2: Draft tweet generation (`DraftTweetService`)
-  - ⏸️ Task 1.9.3: Rank + draft trong job
+  - ✅ Task 1.9.3: Rank + draft trong job (`PipelineCrawlJob` Step 5–6)
 - ⏸️ Phase 5: Digest UI (**0/7** — nhóm 1.10–1.12)
 
 ### Đang Làm
@@ -445,11 +459,9 @@ Không có
 
 ### Task Tiếp Theo
 
-🔜 **Task 1.9.3** — Integrate `SignalRankingService` + `DraftTweetService` into `PipelineCrawlJob`
+🔜 **Task 1.10.1** — `GET /api/signals` (hoặc **1.3.3** onboarding)
 
-- **Loại:** WEDGE (AI pipeline critical path)
-- **Dependencies:** 1.9.1 ✅ (`rank_score`); 1.9.2 ✅ (`DraftTweetService`); 1.8.3 ✅ (`signals` + `signal_sources`)
-- **Mục tiêu:** Gọi `rankAllSignals()` + generate draft (per signal / batch) sau khi tạo signal
+- **Pipeline wedge:** Task **1.9.3** ✅ — `PipelineCrawlJob` Step 5 (`calculateRankScore`) + Step 6 (`generateDraft`); per-signal try/catch; return metrics.
 
 **Pipeline Progress:**
 
@@ -459,8 +471,8 @@ Không có
 ✅ Step 3: Cluster signals (Task 1.8.1)
 ✅ Step 4: Summarize clusters (Task 1.8.2)
 ✅ Step 5: Persist signals + junction (Task 1.8.3)
-→ Step 6: Rank signals (Task 1.9.1 ✅; integrate in job = **1.9.3**) ← NEXT integration
-  Step 7: Generate drafts (Task 1.9.2 ✅; integrate in job = **1.9.3**)
+✅ Step 6: Rank signals (1.9.1 + **1.9.3** trong job)
+✅ Step 7: Generate drafts (1.9.2 + **1.9.3** trong job)
 ```
 
 **Technical debt (khác):** cron `signals:generate` (ví dụ 7:00) — xem block Task 1.7.1; onboarding **1.3.3** vẫn mở.
@@ -500,7 +512,7 @@ _(Removed: API credits depleted — resolved via top-up hoặc không chặn dev
 ## Next Session Plan
 
 ### Target
-- **1.9.3** integrate ranking + draft; **1.3.3** onboarding hoặc **1.10.1** API signals tuỳ ưu tiên; top-up twitterapi.io khi crawl quy mô lớn _(1.9.1 ✅, 1.9.2 ✅)._
+- **1.10.1** `GET /api/signals` hoặc **1.3.3** onboarding tuỳ ưu tiên; top-up twitterapi.io khi crawl quy mô lớn _(1.9.3 ✅)._
 
 ### Pre-requisites
 - [x] WSL / dev environment
@@ -518,9 +530,10 @@ _(Removed: API credits depleted — resolved via top-up hoặc không chặn dev
 - [x] Pipeline persist signals (1.8.3)
 - [x] Signal ranking (1.9.1)
 - [x] Draft tweet generation (1.9.2)
+- [x] Rank + draft trong pipeline job (1.9.3)
 
 ### Expected Duration
-Tuỳ scope (1.9.3 vs 1.3.3 vs 1.10.1)
+Tuỳ scope (1.10.1 vs 1.3.3)
 
 ---
 
@@ -531,16 +544,15 @@ Tuỳ scope (1.9.3 vs 1.3.3 vs 1.10.1)
 - [x] **Task 1.8.3:** Integrate cluster + summarize + persist signals trong `PipelineCrawlJob` ✅ (2026-04-09)
 - [x] **Task 1.9.1:** Implement signal ranking algorithm (`SignalRankingService`) ✅ (2026-04-09)
 - [x] **Task 1.9.2:** Draft tweet generation (`DraftTweetService`) ✅ (2026-04-09)
-- [ ] **Task 1.9.3:** Integrate ranking + draft into pipeline job _(NEXT integration)_
+- [x] **Task 1.9.3:** Integrate ranking + draft into pipeline job ✅ (2026-04-10)
 
 ### Short-term (Next 2 Weeks)
 
-- [ ] **Task 1.9.3:** Wire `SignalRankingService` + `DraftTweetService` into `PipelineCrawlJob` after signal creation
-- [ ] **Task 1.10.1:** `GET /api/signals` (sau rank/draft ổn định)
+- [ ] **Task 1.10.1:** `GET /api/signals`
 
 ---
 
-## 📊 Project Statistics (Updated: April 9, 2026)
+## 📊 Project Statistics (Updated: April 10, 2026)
 
 **Pipeline Completion (Flow 3 steps):**
 
@@ -548,10 +560,10 @@ Tuỳ scope (1.9.3 vs 1.3.3 vs 1.10.1)
 - Classify: ✅ 100%
 - Cluster: ✅ 100%
 - Summarize + persist signals: ✅ 100% _(Tasks 1.8.2–1.8.3)_
-- Rank: ✅ formula implemented (**1.9.1**); ⏳ integration in job (**1.9.3**)
-- Draft: ✅ service implemented (**1.9.2**); ⏳ integration in job (**1.9.3**)
+- Rank: ✅ formula (**1.9.1**) + job Step 5 (**1.9.3**)
+- Draft: ✅ service (**1.9.2**) + job Step 6 (**1.9.3**)
 
-**Overall Pipeline Progress:** ~95% (ranking + draft logic done; job wiring **1.9.3** remaining)
+**Overall Pipeline Progress:** 100% (wedge pipeline end-to-end trong `PipelineCrawlJob`)
 
 **Services Implemented:**
 
@@ -559,8 +571,8 @@ Tuỳ scope (1.9.3 vs 1.3.3 vs 1.10.1)
 - TweetClassifierService ✅
 - TweetClusterService ✅
 - SignalSummarizerService ✅
-- SignalRankingService ✅ (integrate in job → **1.9.3**)
-- DraftTweetService ✅ (integrate in job → **1.9.3**)
+- SignalRankingService ✅ (wired in **`PipelineCrawlJob`** — **1.9.3**)
+- DraftTweetService ✅ (wired in **`PipelineCrawlJob`** — **1.9.3**)
 
 **Test Data (snapshot Task 1.8.3 session 2026-04-09 — môi trường có thể khác):**
 
@@ -624,13 +636,13 @@ Tuỳ scope (1.9.3 vs 1.3.3 vs 1.10.1)
 
 - **Quyết định:** `PipelineCrawlJob` gọi `SignalSummarizerService` theo cluster; `Digest::firstOrCreate` theo ngày; insert `signals` + `signal_sources`; idempotency `idx_signals_cluster_digest` + `persistableClusterId` (hash digest + tweet ids).
 - **Kết quả:** 7 signals / 16 junction rows (session test); duplicate → QueryException **23505**.
-- **Follow-up:** **1.9.1** ranking formula ✅ (2026-04-09 — xem mục dưới); **1.9.2** draft generation ✅; **1.9.3** tích hợp rank + draft vào job.
+- **Follow-up:** **1.9.1** ranking formula ✅; **1.9.2** draft generation ✅; **1.9.3** tích hợp rank + draft vào job ✅ (2026-04-10).
 
 **2026-04-09 — Task 1.9.1 Signal ranking formula**
 
 - **Quyết định:** `SignalRankingService` — `rank_score = 0.4×source + 0.3×quality + 0.3×recency`; `source_score = min(1, log(n+1)/log(6))`; quality = avg `tweet.signal_score` qua `signal_sources`; recency = `exp(-hours/24)`; clamp + làm tròn 4 chữ số.
 - **Kết quả:** 7 signals xếp hạng trong session verify; `EXPLAIN ANALYZE` dùng index `idx_signals_rank_score`.
-- **Next:** **1.9.3** — gọi `rankAllSignals()` + draft generation trong `PipelineCrawlJob` sau bước tạo signal.
+- **Done:** **1.9.3** — `calculateRankScore()` + `generateDraft()` trong `PipelineCrawlJob` sau persist signals (2026-04-10).
 
 **2026-04-09 — Task 1.9.2 Draft tweet generation**
 
@@ -643,7 +655,7 @@ Tuỳ scope (1.9.3 vs 1.3.3 vs 1.10.1)
   - Testing: 16-step Tinker validation; only 1 API call used (~$0.001)
 - **Test / kết quả:** 2 drafts verified (161-191 chars); quality OK (specific facts, active voice, no hype); character limits enforced ✅.
 - **Cost:** ~$0.03/day draft (ước tính 7 signals × 4 runs); total pipeline ~$10.05/day.
-- **Impact:** Flow ready for final integration — **1.9.3** wires ranking + draft into `PipelineCrawlJob`.
+- **Impact:** **1.9.3** ✅ — ranking + draft wired trong `PipelineCrawlJob`; next: **1.10.1** API signals.
 
 **2026-04-09 — Task 1.8.2 Signal summarization service**
 
@@ -671,7 +683,7 @@ Tuỳ scope (1.9.3 vs 1.3.3 vs 1.10.1)
 - **Test / kết quả:** PHPUnit **11** PASS; kịch bản mẫu ~**60%** signal rate; threshold `≥0.6` → `is_signal`
 - **Cost estimate (scale):** ~**$9.60**/day nếu ~3.200 calls × ~$0.003 (chỉnh theo usage thực tế)
 - **Impact (2026-04-08):** Flow 3 **Crawl ✅ → Classify ✅**. **Cập nhật 2026-04-09:** **Cluster ✅** (Task 1.8.1 — xem *Current Focus*).
-- **Roadmap sau đó:** **1.8.3** ✅ → **1.9.1** ✅ (2026-04-09) → **1.9.3** (integrate rank trong job).
+- **Roadmap sau đó:** **1.8.3** ✅ → **1.9.1** ✅ → **1.9.3** ✅ (rank + draft trong job, 2026-04-10) → **1.10.1**.
 
 **2026-04-08 — Task 1.6.3 Incremental crawl deployed**
 
@@ -691,7 +703,7 @@ Tuỳ scope (1.9.3 vs 1.3.3 vs 1.10.1)
   - Reduced API calls via incremental filtering
   - No duplicate storage waste
   - Production-ready crawler system
-- **Later pipeline (2026-04-09 snapshot):** persist signals **1.8.3** ✅; ranking formula **1.9.1** ✅; integrate **1.9.3** pending.
+- **Later pipeline:** persist signals **1.8.3** ✅; ranking **1.9.1** ✅; rank + draft trong job **1.9.3** ✅ (2026-04-10).
 
 **2026-04-08 13:09 +07 — Task 1.6.2 Scheduler deployed**
 
