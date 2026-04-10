@@ -10,6 +10,9 @@ export interface SignalSource {
   handle: string;
   display_name: string;
   tweet_url: string | null;
+  /** Chi tiết GET /api/signals/{id} (SignalDetailResource). */
+  tweet_text?: string | null;
+  posted_at?: string | null;
   is_my_source?: boolean | null;
 }
 
@@ -29,6 +32,8 @@ export interface Signal {
   sources: SignalSource[];
   draft_tweets: DraftTweet[];
   date: string;
+  /** Chi tiết signal (optional trên list). */
+  published_at?: string | null;
   type: number;
   is_personal: boolean;
 }

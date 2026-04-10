@@ -1,4 +1,4 @@
-import type { SignalsResponse } from "@/types/signal";
+import type { Signal, SignalsResponse } from "@/types/signal";
 
 export interface FetchSignalsParams {
   date?: string;
@@ -90,6 +90,42 @@ export interface ApiCategory {
   id: number;
   name: string;
   slug: string;
+}
+
+export async function fetchSignalDetail(id: number): Promise<Signal> {
+  const token = getAuthToken();
+  const headers: HeadersInit = {
+    Accept: "application/json",
+    "X-Requested-With": "XMLHttpRequest",
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`/api/signals/${id}`, {
+    headers,
+    credentials: "same-origin",
+  });
+
+  if (response.status === 401) {
+    throw new Error("Authentication required. Please sign in.");
+  }
+
+  if (response.status === 404) {
+    throw new Error("Signal not found");
+  }
+
+  if (!response.ok) {
+    const message = await parseErrorMessage(response);
+    throw new Error(message || "Failed to fetch signal detail");
+  }
+
+  const json = (await response.json()) as { data?: Signal };
+  if (!json.data) {
+    throw new Error("Failed to fetch signal detail");
+  }
+
+  return json.data;
 }
 
 export async function fetchCategories(): Promise<ApiCategory[]> {

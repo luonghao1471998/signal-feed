@@ -28,6 +28,8 @@ interface Props {
   className?: string;
   sheetMode?: boolean;
   onSignalOpen?: (signal: DigestSignal) => void;
+  /** Khi có: click mở detail (modal) thay vì expand / bottom sheet. */
+  onClick?: () => void;
   myKolsOnly?: boolean;
   userPlan?: "free" | "pro" | "power";
 }
@@ -42,12 +44,14 @@ const DigestSignalCard: React.FC<Props> = ({
   className,
   sheetMode,
   onSignalOpen,
+  onClick,
   myKolsOnly = false,
   userPlan = "free",
 }) => {
   const [inlineExpanded, setInlineExpanded] = useState(sheetMode ? false : (signal.defaultExpanded ?? false));
   const [copied, setCopied] = useState(false);
-  const expanded = !sheetMode && inlineExpanded;
+  const modalMode = Boolean(onClick);
+  const expanded = !modalMode && !sheetMode && inlineExpanded;
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -71,6 +75,10 @@ const DigestSignalCard: React.FC<Props> = ({
   const signalHasMyKolMatch = signal.sources.some((s) => s.isMySource);
 
   const onCardClick = () => {
+    if (onClick) {
+      onClick();
+      return;
+    }
     if (sheetMode) {
       onSignalOpen?.(signal);
       return;

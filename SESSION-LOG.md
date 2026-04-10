@@ -3985,3 +3985,137 @@ interface SignalsResponse {
 - Frontend integration với /api/signals/{id} endpoint
 
 ---
+
+## ✅ Task 1.11.2 Completed: Build Signal Detail Modal Screen #7
+
+**Completion Date:** 2026-04-10
+
+**Objective:** Tạo modal overlay hiển thị full signal detail với complete source attribution.
+
+### Implementation Summary
+
+**Created Files:**
+- ✅ `resources/js/components/SignalDetailModal.tsx` - Main modal component (Desktop: Dialog, Mobile: Sheet)
+- ✅ `resources/js/components/SourceAttribution.tsx` - Source attribution item với avatar, tweet quote, timestamp
+- ✅ `resources/js/services/signalService.ts` - Added `fetchSignalDetail(id)` method
+
+**Updated Files:**
+- ✅ `resources/js/pages/DigestPage.tsx` - Integrated modal với state management
+- ✅ `resources/js/components/DigestSignalCard.tsx` - Added onClick prop
+- ✅ `resources/js/types/signal.ts` - Added `tweet_text`, `posted_at` fields to SignalSource
+
+**Dependencies:**
+- ✅ `date-fns` - Already installed (relative timestamp formatting)
+
+### Features Implemented
+
+**1. Signal Detail Modal:**
+- Responsive design: Sheet (mobile ≤767px) / Dialog (desktop ≥768px)
+- Fetch full detail from `GET /api/signals/{id}` on open
+- Loading state: Skeleton placeholders
+- Error handling: Network errors, 404 not found
+- Close behaviors: Backdrop click, Escape key, X button
+
+**2. Data Display:**
+- Title + RankBadge (màu theo tier: Gold/Silver/Bronze)
+- Full summary (no truncation)
+- Categories badges + Topic tags
+- Source count metadata
+
+**3. Source Attribution:**
+- Avatar với initials (fallback vì chưa có avatar URLs)
+- Display name + handle (@username)
+- Tweet text styled như blockquote (border-left, italic)
+- Relative timestamp: "2 days ago", "3 hours ago" (date-fns)
+- "View on X" external link (opens new tab)
+- Visual separators (border-bottom between sources)
+
+**4. Draft Tweet Section (Pro/Power Only):**
+- Conditional rendering: `userPlan !== 'free' && signal.draft_tweets.length > 0`
+- Blue background container (`bg-blue-50`)
+- Draft text preview
+- "Copy to X" button (placeholder alert for Task 1.12.3)
+- Hidden for Free users (monetization strategy)
+
+### Testing Results
+
+**Manual Testing (All PASS ✅):**
+1. ✅ Click signal card → Modal opens with loading skeleton
+2. ✅ API call `GET /api/signals/{id}` with Bearer token
+3. ✅ Full detail renders: title, summary, categories, tags, sources
+4. ✅ Sources display with complete attribution (5 sources for Signal ID 5)
+5. ✅ Avatar initials correct (e.g., "Ethan Mollick" → "EM")
+6. ✅ Relative timestamps accurate ("2 days ago")
+7. ✅ Tweet links open in new tab with correct URLs
+8. ✅ Draft section visible for Pro user (Signal ID 2)
+9. ✅ Draft section hidden for Free user (tested with logout/login)
+10. ✅ "Copy to X" button shows alert placeholder
+11. ✅ Mobile responsive: Bottom sheet, swipeable to close
+12. ✅ Desktop: Centered dialog, max-width 800px
+13. ✅ Close behaviors work: Backdrop, Escape, X button
+14. ✅ No console errors, smooth animations
+
+**Tested Signals:**
+- Signal ID 5: "AI Expert Warns Mythos..." (5 sources, no drafts)
+- Signal ID 2: "Lex Fridman Releases Jensen Huang..." (2 sources, 1 draft)
+
+**API Verification:**
+- Endpoint: `GET /api/signals/5` returns 200 OK
+- Response structure: `{ data: { id, title, summary, sources[], draft_tweets[], ... } }`
+- Sources include: `handle, display_name, tweet_text, posted_at, tweet_url`
+
+### Technical Notes
+
+**Responsive Breakpoint:** 768px
+- Mobile (<768px): `useMediaQuery` detects viewport → renders Sheet
+- Desktop (≥768px): renders Dialog
+
+**State Management:**
+- Local component state (no Redux/Context needed)
+- `selectedSignalId`: Track which signal to display
+- `isDetailModalOpen`: Control modal visibility
+- Signal detail fetched on `useEffect` dependency: `[signalId, isOpen]`
+
+**Field Name Corrections:**
+- Database: `x_handle` (not `handle`)
+- Database: `text` (not `tweet_text`) on tweets table
+- API transforms to: `handle, tweet_text` for frontend consistency
+
+**Draft Section Logic:**
+```typescript
+// Show only if:
+// 1. User is Pro/Power (not Free)
+// 2. Signal has at least 1 draft tweet
+userPlan !== 'free' && signal.draft_tweets.length > 0
+```
+
+### Integration Points
+
+**DigestPage Flow:**
+User clicks DigestSignalCard
+↓
+handleSignalClick(signalId) sets state
+↓
+SignalDetailModal opens (isOpen=true, signalId set)
+↓
+useEffect triggers fetchSignalDetail(signalId)
+↓
+API returns full signal with sources[], draft_tweets[]
+↓
+Modal renders with all data
+
+
+### Deliverables Checklist
+
+- [x] SignalDetailModal component (responsive)
+- [x] SourceAttribution component (tweet quote style)
+- [x] fetchSignalDetail service method
+- [x] DigestPage integration
+- [x] DigestSignalCard onClick handler
+- [x] Type definitions updated
+- [x] Manual testing completed
+- [x] No database modifications
+- [x] No console errors
+- [x] Documentation updated
+
+---

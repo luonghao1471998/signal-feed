@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, SlidersHorizontal, Zap } from "lucide-react"
 import DigestSignalCard from "../components/DigestSignalCard";
 import PipelineFooter from "../components/PipelineFooter";
 import MySourcesStatsBar from "../components/MySourcesStatsBar";
-import SignalBottomSheet from "../components/SignalBottomSheet";
+import { SignalDetailModal } from "@/components/SignalDetailModal";
 import FilterSheet from "../components/FilterSheet";
 import { useCategoryFilter } from "@/contexts/CategoryFilterContext";
 import type { CategoryFilterKey } from "@/contexts/CategoryFilterContext";
@@ -69,7 +69,9 @@ const DigestPage: React.FC = () => {
   const [filterDate, setFilterDate] = useState(() => dateParam ?? todayYmd());
   const [myKolsOnly, setMyKolsOnly] = useState(false);
   const [activeTags, setActiveTags] = useState<string[]>([]);
-  const [selectedSignal, setSelectedSignal] = useState<DigestSignal | null>(null);
+  const [selectedSignalId, setSelectedSignalId] = useState<number | null>(null);
+  const [selectedListRank, setSelectedListRank] = useState<number | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [apiCategories, setApiCategories] = useState<ApiCategory[]>([]);
   const [rawSignals, setRawSignals] = useState<DigestSignal[]>([]);
@@ -541,8 +543,11 @@ const DigestPage: React.FC = () => {
                     <DigestSignalCard
                       key={signal.id}
                       signal={signal}
-                      sheetMode={isMobile}
-                      onSignalOpen={setSelectedSignal}
+                      onClick={() => {
+                        setSelectedSignalId(Number(signal.id));
+                        setSelectedListRank(signal.rank);
+                        setIsDetailModalOpen(true);
+                      }}
                       myKolsOnly={myKolsOnly}
                       userPlan={userPlan}
                     />
@@ -582,11 +587,6 @@ const DigestPage: React.FC = () => {
 
       {isMobile && (
         <>
-          <SignalBottomSheet
-            signal={selectedSignal}
-            onDismiss={() => setSelectedSignal(null)}
-            userPlan={userPlan}
-          />
           <FilterSheet
             open={filterSheetOpen}
             onClose={() => setFilterSheetOpen(false)}
@@ -601,6 +601,18 @@ const DigestPage: React.FC = () => {
           />
         </>
       )}
+
+      <SignalDetailModal
+        signalId={selectedSignalId}
+        listRank={selectedListRank}
+        isOpen={isDetailModalOpen}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setSelectedSignalId(null);
+          setSelectedListRank(null);
+        }}
+        userPlan={userPlan}
+      />
     </div>
   );
 };
