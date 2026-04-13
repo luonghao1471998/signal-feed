@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,6 +12,9 @@ import SettingsPage from "./pages/SettingsPage";
 import OnboardingStep1 from "./pages/OnboardingStep1";
 import OnboardingStep2 from "./pages/OnboardingStep2";
 import NotFound from "./pages/NotFound";
+import AdminLayout from "./layouts/AdminLayout";
+import AdminSourcesPage from "./pages/AdminSourcesPage";
+import AdminPipelinePage from "./pages/AdminPipelinePage";
 import { CategoryFilterProvider } from "./contexts/CategoryFilterContext";
 import { AuthProvider } from "./contexts/AuthContext";
 import { useIsPWA } from "./hooks/useIsPWA";
@@ -31,6 +34,12 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
+
+      <Route path="/admin" element={<AdminLayout />}>
+        <Route index element={<Navigate to="/admin/sources" replace />} />
+        <Route path="sources" element={<AdminSourcesPage />} />
+        <Route path="pipeline" element={<AdminPipelinePage />} />
+      </Route>
       <Route path="/onboarding" element={<OnboardingStep1 />} />
       <Route path="/onboarding/follow" element={<OnboardingStep2 />} />
 

@@ -31,6 +31,7 @@ class CurrentUserController extends Controller
             'plan' => $plan,
             'x_username' => $user->x_username,
             'my_categories' => $user->my_categories ?? [],
+            'is_admin' => (bool) $user->is_admin,
         ]);
     }
 }

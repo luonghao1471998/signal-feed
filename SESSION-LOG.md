@@ -4153,3 +4153,116 @@ Modal renders with all data
 - Subscribe UI (My KOLs page / onboarding) vẫn **local state**; subscription thật cần bản ghi `my_source_subscriptions` (API subscribe theo roadmap / tinker dev).
 
 ---
+
+## Task 1.12.1: Implement POST /api/signals/{id}/draft/copy endpoint
+
+**Objective:** Tạo API endpoint `POST /api/signals/{id}/draft/copy` trả về Twitter Web Intent URL với draft text pre-filled.
+
+**Dependencies:**
+
+- ✅ Task 1.11.1: `GET /api/signals/{id}` endpoint
+- ✅ Task 1.9.2: Draft tweets generation
+- ✅ Task 1.2.4: `user_interactions` table
+
+**Scope:**
+
+### Core Functionality
+
+1. **`POST /api/signals/{signal_id}/draft/copy` endpoint**
+   - Find signal + draft tweet
+   - Generate Twitter Web Intent URL với draft text URL-encoded
+   - Log UserInteraction (`action='copy_draft'`)
+   - Return `twitter_intent_url`
+
+2. **Response Structure:**
+
+```json
+{
+  "data": {
+    "twitter_intent_url": "https://twitter.com/intent/tweet?text=OpenAI%20launches%20nonprofit%20foundation..."
+  }
+}
+```
+
+3. **Twitter Web Intent URL Format:**
+   - Base: `https://twitter.com/intent/tweet`
+   - Query param: `?text={url_encoded_draft_text}`
+   - URL encoding: RFC 3986 percent-encoding
+   - Example: spaces → `%20`, emoji → UTF-8 encoded
+
+4. **Permission Guards:**
+   - Pro/Power users only (403 for Free users)
+   - Signal must exist (404)
+   - Draft must exist for signal (404)
+
+5. **Side Effect:**
+   - Log UserInteraction record:
+     - `user_id`: authenticated user
+     - `signal_id`: signal ID
+     - `action`: `'copy_draft'`
+     - `metadata`: `{draft_id: X}` (optional)
+     - `created_at`: timestamp
+
+**Implementation Plan:**
+
+### Step 1: Create DraftController
+
+- `php artisan make:controller Api/DraftController`
+- Method: `copy(Request $request, int $signalId)`
+
+### Step 2: Business Logic
+
+- Find signal or fail (404)
+- Check signal has draft (404 if missing)
+- Check user plan (403 if free)
+- Generate Twitter Web Intent URL
+- Log UserInteraction
+- Return response
+
+### Step 3: URL Encoding
+
+- Use PHP `rawurlencode()` (RFC 3986 compliant)
+- Encode draft text properly
+- Handle special characters, emoji, symbols
+
+### Step 4: UserInteraction Logging
+
+- Create record in `user_interactions` table
+- Fields: `user_id`, `signal_id`, `action='copy_draft'`, `created_at`
+- Use event listener (Task 1.12.2 sẽ refactor thành event)
+
+### Step 5: Add Route
+
+- `Route::post('/signals/{signalId}/draft/copy', ...)`
+- Middleware: `auth:sanctum`
+- Middleware: `checkPlan:pro,power` (custom)
+
+**Expected Output:**
+
+- API returns Twitter Web Intent URL
+- URL opens Twitter composer with pre-filled text
+- UserInteraction logged in database
+- Free users blocked with 403
+- Missing signal/draft returns 404
+
+**Testing Strategy:**
+
+1. `POST /api/signals/1/draft/copy` (Pro user) → 200 OK with URL
+2. Verify URL format: `https://twitter.com/intent/tweet?text=...`
+3. Verify URL encoding: spaces, special chars encoded
+4. Open URL in browser → Twitter composer opens with text
+5. Verify UserInteraction logged in DB
+6. Free user → 403 FORBIDDEN
+7. Signal without draft → 404 NOT_FOUND
+8. Invalid signal ID → 404 NOT_FOUND
+9. Emoji in draft → properly encoded
+10. Long draft (≥280 chars) → encoded correctly
+
+**References:**
+
+- `SPEC-api.md`: `POST /api/signals/{id}/draft/copy` spec
+- `IMPLEMENTATION-ROADMAP.md`: Task 1.12.1
+- `SPEC-core.md`: Flow 5 (User Opens Twitter Composer)
+- Twitter Web Intent docs: https://developer.twitter.com/en/docs/twitter-for-websites/tweet-button/guides/web-intent
+
+---

@@ -1,7 +1,8 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { Zap, Users, Bookmark, Settings, MoreHorizontal } from "lucide-react";
+import { Zap, Users, Bookmark, Settings, MoreHorizontal, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
   { to: "/digest", label: "Digest", icon: Zap },
@@ -17,6 +18,8 @@ const LogoBolt = () => (
 );
 
 const LeftSidebar: React.FC = () => {
+  const { user } = useAuth();
+
   return (
     <aside className="hidden md:flex flex-col w-[240px] h-screen border-r border-[#eff3f4] bg-white fixed left-0 top-0 z-30">
       <div className="flex items-center gap-2.5 px-3 pt-3 pb-6">
@@ -51,6 +54,29 @@ const LeftSidebar: React.FC = () => {
             )}
           </NavLink>
         ))}
+        {user?.is_admin && (
+          <NavLink
+            to="/admin/sources"
+            className={({ isActive }) =>
+              cn(
+                "flex w-full cursor-pointer items-center gap-4 rounded-full border-none bg-transparent text-left text-[19px] text-[#0f1419] transition-colors",
+                "px-4 py-3",
+                isActive ? "font-[700]" : "font-[400] hover:bg-[#eff3f4]",
+              )
+            }
+          >
+            {({ isActive }) => (
+              <>
+                <Shield
+                  className="h-6 w-6 shrink-0 text-[#0f1419]"
+                  strokeWidth={isActive ? 2.5 : 1.8}
+                  aria-hidden
+                />
+                Admin
+              </>
+            )}
+          </NavLink>
+        )}
       </nav>
 
       <div className="p-3">

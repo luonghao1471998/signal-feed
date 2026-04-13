@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -44,5 +45,18 @@ class Source extends Model
     public function categories(): BelongsToMany
     {
         return $this->belongsToMany(Category::class, 'source_categories');
+    }
+
+    public function addedByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'added_by_user_id');
+    }
+
+    /**
+     * Distinct signals linked via signal_sources (M:N).
+     */
+    public function signals(): BelongsToMany
+    {
+        return $this->belongsToMany(Signal::class, 'signal_sources');
     }
 }

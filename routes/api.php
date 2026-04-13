@@ -7,8 +7,11 @@
 | Domain endpoints are added in later roadmap tasks (1.4+, 1.10+, …).
 */
 
+use App\Http\Controllers\Api\Admin\AdminPipelineController;
+use App\Http\Controllers\Api\Admin\AdminSourceController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CurrentUserController;
+use App\Http\Controllers\Api\DraftController;
 use App\Http\Controllers\Api\SignalController;
 use App\Http\Controllers\Api\SourceController;
 use App\Http\Controllers\Api\UpdateCurrentUserController;
@@ -21,5 +24,12 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', CurrentUserController::class);
     Route::patch('/me', UpdateCurrentUserController::class);
     Route::get('/signals', [SignalController::class, 'index']);
+    Route::post('/signals/{id}/draft/copy', [DraftController::class, 'copy'])->whereNumber('id');
     Route::get('/signals/{id}', [SignalController::class, 'show'])->whereNumber('id');
+
+    Route::middleware('admin')->prefix('admin')->group(function (): void {
+        Route::get('/sources', [AdminSourceController::class, 'index']);
+        Route::patch('/sources/{source}', [AdminSourceController::class, 'update'])->whereNumber('source');
+        Route::get('/pipeline/status', [AdminPipelineController::class, 'status']);
+    });
 });
