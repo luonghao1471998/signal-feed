@@ -1,11 +1,29 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-13 (Task 1.12.3 complete)
+**Last Updated:** 2026-04-13 (Task 2.1.1 complete)
 **Current Phase:** Giai đoạn 3 - Implementation
-**Current Sprint:** Sprint 1 - Wedge Delivery
-**Completed Task:** **1.12.3** — Copy to X (`signalService.copyDraft` + dual-mode UX + CSRF Sanctum) ✅
-**Next Task:** **1.11.3** — Render metadata (categories, tags, date)
-**Status:** Draft copy end-to-end (API + event log + Copy to X UI); next **1.11.3** metadata
+**Current Sprint:** Sprint 2 — My KOLs
+**Completed Task:** **2.1.1** — `POST /api/sources` (add user source, Pro/Power, H1 cap) ✅ — 2026-04-13
+**Next Task:** **2.1.2** — Build Add Source Form Screen #11 (React) — `IMPLEMENTATION-ROADMAP.md` Task 2.1.2 (depends **2.1.1** ✅)
+**Status:** Sprint 2; API thêm nguồn user ✅; next **2.1.2** UI
+
+---
+
+## Sprint 2 — My KOLs (`IMPLEMENTATION-ROADMAP.md`)
+
+**Progress (12 tasks):** **1 / 12**
+
+### ✅ Task 2.1.1: `POST /api/sources` — COMPLETED (2026-04-13)
+
+- **Files:** `SourceController.php` (`store`), `User.php` (`sourceSubscriptions`), `routes/api.php` (`POST /sources`, `auth:sanctum`).
+- **Handle:** request có `@` → DB `x_handle` không `@` → response `handle` có `@`.
+- **H1:** Pro 10 / Power 50 subscriptions; `is_subscribed` theo cap.
+- **Tests:** Manual **9/9** (tinker + curl); không automated tests (DATABASE SAFETY RULES).
+- **DB (phiên test):** vd. sources id 81–82, subscription + pivot như SESSION-LOG — không truncate pool.
+
+### Next
+
+- **2.1.2** — Build Add Source Form Screen #11 (React modal or page)
 
 ---
 
@@ -95,21 +113,22 @@
 
 **Notes:** Intent base URL backend: `https://x.com/intent/post?text=`; CSRF stateful Sanctum cho POST.
 
-### In Progress
-- [ ] **Task 1.11.3:** Render metadata (categories, tags, date)
+### In Progress / Next (roadmap)
+- **Next (Sprint 2):** **2.1.2** — Build Add Source Form Screen #11 — sau **2.1.1** ✅
+- **Backlog (ngoài bảng Sprint 2):** **1.11.3** — metadata digest (tùy ưu tiên)
 
 ### Statistics
-- **Total tasks completed (Sprint 1 roadmap table):** 31 / 34
-- **Estimated remaining:** 3 tasks (1.11.3 + carry-over roadmap)
-- **Current phase:** MVP Core Features — digest wedge: next = **1.11.3** metadata
+- **Sprint 1 (34 tasks, `IMPLEMENTATION-ROADMAP`):** 34 / 34 ✅
+- **Sprint 2 (12 tasks):** 1 / 12 — next **2.1.2**
 
 ### Progress Summary
 
-**Completed Tasks:** 31/34 (Sprint 1 roadmap table)
-**Current Phase:** Phase 1 — MVP Foundation (Digest UI wedge)
+**Completed Tasks:** Sprint 1 **34/34** ✅; Sprint 2 **1/12** (2.1.1 ✅, 2026-04-13)
+**Current phase:** Sprint 2 — My KOLs; next = **2.1.2**
 **Last Updated:** 2026-04-13
 
 **Recent Completions:**
+- ✅ Task 2.1.1: `POST /api/sources` — add user source + H1 + manual 9/9 (2026-04-13)
 - ✅ Task 1.12.3: Copy to X UI — dual-mode + CSRF (2026-04-13)
 - ✅ Task 1.12.2: Event-driven logging + duplicate listener fix (2026-04-13)
   - `DraftCopied` / `LogUserInteraction`; `withEvents(false)`; verified single listener
@@ -190,14 +209,14 @@
 - **Created:** `TweetClassifierService`, `config/signalfeed.php`, migration `signal_score` unclassified; tests unit/feature bổ sung
 - **Modified:** `PipelineCrawlJob` (refactor orchestration), `docs/prompts/v1/classify.md`, `routes/console.php` (scheduler 4×/day), `.env.example`, `TwitterCrawlerService`, `LLMClient`, `FakeLLMClient`
 
-**Next:** Task **1.11.3** — Render metadata (categories, tags, date) _( **1.10.1** list API ✅, **1.10.2** digest UI ✅, **1.11.1** detail API ✅, **1.11.2** detail modal ✅ )._
+**Next (block Task 1.7.2 lịch sử):** theo roadmap hiện tại → **2.1.2** (Sprint 2); backlog **1.11.3**.
 
 ## Current Sprint Status
 
-**Completed Task:** Task 1.11.2 — Signal Detail Modal (Screen #7) ✅ (2026-04-10)  
-**Next Task:** Task 1.11.3 — Render metadata (categories, tags, date)  
-**Status:** `SignalDetailModal` + `SourceAttribution` + `fetchSignalDetail`; digest card opens modal; manual 14/14 PASS (SESSION-LOG)  
-**Previous Task:** Task 1.11.1 — `GET /api/signals/{id}` detail API ✅ (2026-04-10)
+**Completed Task:** Task **2.1.1** — `POST /api/sources` (add user source) ✅ (2026-04-13)  
+**Next Task:** Task **2.1.2** — Build Add Source Form Screen #11 (React) — `IMPLEMENTATION-ROADMAP.md`  
+**Status:** Sprint 2; `SourceController::store` + `User::sourceSubscriptions` + manual 9/9 (SESSION-LOG)  
+**Previous:** Sprint 1 wedge + Task 1.12.3 Copy to X ✅
 
 **Recent Completions:**
 
@@ -447,7 +466,7 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
   - `DraftController::copy`, Twitter Web Intent + `UserInteraction` logging (ban đầu)
 - ✅ **1.12.2**: Event-driven `copy_draft` logging — **COMPLETED** (2026-04-13)
   - `DraftCopied` / `LogUserInteraction`; `withEvents(discover: false)`; không duplicate listener/DB row
-- [ ] **1.11.3**: Render metadata (categories, tags, date)
+- [ ] **1.11.3**: Render metadata (categories, tags, date) _(backlog / không trong bảng Sprint 2)_
 - [x] **1.12.3**: Draft Copy Button + Twitter composer (React) — **COMPLETED** (2026-04-13)
   - `signalService.copyDraft` + Sanctum CSRF; `SignalDetailModal` dual-mode (browser vs X app) + `localStorage` + clipboard
 
@@ -455,9 +474,9 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
 
 ## 🎯 Current Focus
 
-**Completed Task:** Task 1.12.3 — Copy to X (dual-mode UX) ✅ (April 13, 2026)  
-**Next Task:** Task 1.11.3 — Render metadata (categories, tags, date)  
-**Previous Task:** Task 1.12.2 — Event-driven `copy_draft` logging ✅ (April 13, 2026)
+**Completed Task:** Task **2.1.1** — `POST /api/sources` ✅ (April 13, 2026)  
+**Next Task:** Task **2.1.2** — Build Add Source Form Screen #11 (React)  
+**Previous Task:** Task 1.12.3 — Copy to X (dual-mode UX) ✅ (April 13, 2026)
 
 ### Vừa Hoàn Thành
 
@@ -606,12 +625,13 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
 
 Không có
 
-### Task Tiếp Theo
+### Task Tiếp Theo (`IMPLEMENTATION-ROADMAP.md`)
 
-🔜 **Task 1.11.3** — Render metadata (categories, tags, date)
+🔜 **Task 2.1.2** — Build Add Source Form Screen #11 (React modal or page) — depends **2.1.1** ✅
 
-- **Digest:** Task **1.10.1** ✅ list API; **1.10.2** ✅ digest SPA; **1.11.1** ✅ detail API; **1.11.2** ✅ detail modal.
-- **Pipeline wedge:** Task **1.9.3** ✅ — `PipelineCrawlJob` Step 5 (`calculateRankScore`) + Step 6 (`generateDraft`); per-signal try/catch; return metrics.
+- **Sprint 2 tiếp:** **2.2.1** → **2.2.2** → **2.2.3** → … (subscribe/unsubscribe + browse UI)
+- **Digest:** **1.10.x–1.12.x** ✅; backlog **1.11.3** metadata nếu cần.
+- **Pipeline wedge:** Task **1.9.3** ✅ — `PipelineCrawlJob` Step 5–6.
 
 **Pipeline Progress:**
 
@@ -662,7 +682,7 @@ _(Removed: API credits depleted — resolved via top-up hoặc không chặn dev
 ## Next Session Plan
 
 ### Target
-- **1.11.3** metadata polish hoặc onboarding **1.3.3** polish; top-up twitterapi.io khi crawl quy mô lớn _(1.10.1 ✅; 1.10.2 ✅; 1.11.1 ✅; **1.11.2** ✅; 1.9.3 ✅)._
+- **Task 2.1.2** — Add Source Form UI (Screen #11); tiếp theo roadmap Sprint 2: **2.2.1** / **2.2.2**. _(Backlog: **1.11.3** metadata, **1.3.3** onboarding polish.)_
 
 ### Pre-requisites
 - [x] WSL / dev environment
@@ -683,7 +703,7 @@ _(Removed: API credits depleted — resolved via top-up hoặc không chặn dev
 - [x] Rank + draft trong pipeline job (1.9.3)
 
 ### Expected Duration
-Tuỳ scope (1.11.3 metadata vs 1.3.3 polish)
+Tuỳ scope **2.1.2** + nối API; polish 1.11.3 / 1.3.3 tách khỏi chuỗi Sprint 2
 
 ---
 
@@ -702,7 +722,10 @@ Tuỳ scope (1.11.3 metadata vs 1.3.3 polish)
 - [x] **Task 1.10.2:** Digest View Screen #5 (real API) ✅ (2026-04-10)
 - [x] **Task 1.11.1:** `GET /api/signals/{id}` ✅ (2026-04-10)
 - [x] **Task 1.11.2:** Signal Detail Modal (Screen #7) ✅ (2026-04-10)
-- [ ] **Task 1.11.3:** Render metadata (categories, tags, date)
+- [ ] **Task 1.11.3:** Render metadata (categories, tags, date) _(backlog)_
+- [x] **Tasks 1.12.1–1.12.3:** Draft copy API + logging + Copy to X UI ✅ (2026-04-13)
+- [x] **Task 2.1.1:** `POST /api/sources` (add user source) ✅ (2026-04-13)
+- [ ] **Task 2.1.2:** Add Source Form Screen #11 (React)
 
 ---
 

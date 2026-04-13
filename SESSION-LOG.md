@@ -3,9 +3,9 @@
 **Session ID:** SES-20260406-001
 **Date:** 2026-04-06
 **Phase:** Giai đoạn 3 - Implementation
-**Sprint:** Sprint 1 - Wedge Delivery
-**Tasks Covered (đã làm):** 1.1.1 – 1.2.5, **1.3.1** (OAuth X.com), **1.4.1** (categories seed), **1.4.2** (`GET /api/categories`), **1.5.1** (source pool CSV 80 rows), **1.5.2** (source pool seeder), **1.10.1** (`GET /api/signals`), **1.10.2** (Digest View + real API), **1.11.1** (`GET /api/signals/{id}` detail), **1.11.2** (Signal Detail Modal), **1.12.1** (`POST /api/signals/{id}/draft/copy`), **1.12.2** (Event-driven `copy_draft` logging), **1.12.3** (Copy to X — `signalService.copyDraft` + dual-mode UX)  
-**Next:** **1.11.3** — Render metadata (categories, tags, date) _(wedge digest UI)_
+**Sprint:** Sprint 2 — My KOLs _(Sprint 1 wedge 34/34 complete)_  
+**Tasks Covered (đã làm):** 1.1.1 – 1.2.5, **1.3.1** (OAuth X.com), **1.4.1** (categories seed), **1.4.2** (`GET /api/categories`), **1.5.1** (source pool CSV 80 rows), **1.5.2** (source pool seeder), **1.10.1** (`GET /api/signals`), **1.10.2** (Digest View + real API), **1.11.1** (`GET /api/signals/{id}` detail), **1.11.2** (Signal Detail Modal), **1.12.1** (`POST /api/signals/{id}/draft/copy`), **1.12.2** (Event-driven `copy_draft` logging), **1.12.3** (Copy to X — `signalService.copyDraft` + dual-mode UX), **2.1.1** (`POST /api/sources` — add user source, Pro/Power, H1 cap)  
+**Next:** **2.1.2** — Build Add Source Form Screen #11 (React) — `IMPLEMENTATION-ROADMAP.md` (depends **2.1.1** ✅)
 
 **Lưu ý cho agent / Claude:** Khi user chỉ nhắc `SESSION-LOG` + SPEC để **cập nhật log / context**, **không** tự implement code trừ khi user ghi rõ *Implement Feature* / *làm task X*. OAuth X.com (1.3.1) **đã có trong repo** (Socialite + `twitter-oauth-2`).
 
@@ -5051,3 +5051,45 @@ Tích hợp nút **Copy to X** trong `SignalDetailModal`, gọi `POST /api/signa
 
 **Session Complete:** All Sprint 1 tasks documented, tested, and pushed to Git.  
 **Ready for:** Production deployment + Kill checkpoint test + Sprint 2 planning
+
+---
+
+## ✅ Task 2.1.1: `POST /api/sources` (add user source) — COMPLETED
+
+**Status:** ✅ Completed  
+**Completed:** 2026-04-13  
+**Type:** POST-WEDGE — Sprint 2 — `IMPLEMENTATION-ROADMAP.md` Task 2.1.1  
+**Source:** `SPEC-api.md` POST `/api/sources`, `SPEC-core.md` Section 4 Option A
+
+### Implementation summary
+
+| Hạng mục | Chi tiết |
+|----------|-----------|
+| **Files** | `app/Http/Controllers/Api/SourceController.php` — `store()`; `app/Models/User.php` — `sourceSubscriptions()`; `routes/api.php` — `POST /api/sources` (`auth:sanctum`) |
+| **Handle** | Request `handle` có prefix **`@`**; cột DB **`x_handle`** không có `@`; response JSON field **`handle`** trả về có `@` |
+| **H1 cap** | Pro ≤10, Power ≤50 `MySourceSubscription`; dưới cap → auto-subscribe; đủ cap → vẫn **201**, `is_subscribed: false` |
+| **Source** | `type=user`, `status=active`, `added_by_user_id`, `account_url` = `https://x.com/{x_handle}` |
+| **Categories** | M:N `source_categories`; pivot gồm `tenant_id`, `created_at` |
+
+### Test results (manual — 9/9 PASS)
+
+- **Functional:** Pro tạo source + auto-subscribe khi &lt; cap; Pro đủ cap → 201 + `is_subscribed` false; DB khớp response; pivot categories đúng.
+- **Validation:** Không `@` → 422; trùng handle → 422; `category_id` không hợp lệ → 422.
+- **Permission:** Free → **403** (`This feature requires Pro or Power plan`).
+- **Cách test:** `php artisan tinker` (setup/token/verify) + **curl**; không PHPUnit / không `php artisan test` (DATABASE SAFETY RULES).
+
+### Database impact (phiên verify)
+
+- Ghi nhận: 2 source user-generated (vd. id **81**, **82**), 1 bản ghi subscription (source 81), 3 dòng pivot (2 cho 81, 1 cho 82). Không truncate/migrate/rollback; pool KOL mặc định giữ nguyên.
+
+### Task checklist
+
+- [x] `store()` + validation + guard Free → 403  
+- [x] Auto-subscribe + cap Pro/Power  
+- [x] `account_url`, categories attach, `is_subscribed` trong response  
+- [x] Route `POST /sources`  
+- [x] Manual 9/9; verify SQL/tinker  
+
+### Next (`IMPLEMENTATION-ROADMAP.md`)
+
+- **2.1.2** — Build Add Source Form Screen #11 (React modal or page)

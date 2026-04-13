@@ -23,6 +23,7 @@ Route::get('/sources', [SourceController::class, 'index']);
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', CurrentUserController::class);
     Route::patch('/me', UpdateCurrentUserController::class);
+    Route::post('/sources', [SourceController::class, 'store']);
     Route::get('/signals', [SignalController::class, 'index']);
     Route::post('/signals/{id}/draft/copy', [DraftController::class, 'copy'])->whereNumber('id');
     Route::get('/signals/{id}', [SignalController::class, 'show'])->whereNumber('id');
