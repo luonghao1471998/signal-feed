@@ -4,8 +4,8 @@
 **Date:** 2026-04-06
 **Phase:** Giai đoạn 3 - Implementation
 **Sprint:** Sprint 1 - Wedge Delivery
-**Tasks Covered (đã làm):** 1.1.1 – 1.2.5, **1.3.1** (OAuth X.com), **1.4.1** (categories seed), **1.4.2** (`GET /api/categories`), **1.5.1** (source pool CSV 80 rows), **1.5.2** (source pool seeder), **1.10.1** (`GET /api/signals`), **1.10.2** (Digest View + real API), **1.11.1** (`GET /api/signals/{id}` detail)  
-**Next:** **1.11.2** — Signal Detail Modal UI (hoặc **1.12.x** draft copy API)
+**Tasks Covered (đã làm):** 1.1.1 – 1.2.5, **1.3.1** (OAuth X.com), **1.4.1** (categories seed), **1.4.2** (`GET /api/categories`), **1.5.1** (source pool CSV 80 rows), **1.5.2** (source pool seeder), **1.10.1** (`GET /api/signals`), **1.10.2** (Digest View + real API), **1.11.1** (`GET /api/signals/{id}` detail), **1.11.2** (Signal Detail Modal), **1.12.1** (`POST /api/signals/{id}/draft/copy`)  
+**Next:** **1.12.2** — UserInteraction event/listener _(hoặc **1.11.3** metadata / **1.12.3** Copy button UI)_
 
 **Lưu ý cho agent / Claude:** Khi user chỉ nhắc `SESSION-LOG` + SPEC để **cập nhật log / context**, **không** tự implement code trừ khi user ghi rõ *Implement Feature* / *làm task X*. OAuth X.com (1.3.1) **đã có trong repo** (Socialite + `twitter-oauth-2`).
 
@@ -4264,5 +4264,109 @@ Modal renders with all data
 - `IMPLEMENTATION-ROADMAP.md`: Task 1.12.1
 - `SPEC-core.md`: Flow 5 (User Opens Twitter Composer)
 - Twitter Web Intent docs: https://developer.twitter.com/en/docs/twitter-for-websites/tweet-button/guides/web-intent
+
+---
+
+## Session 2026-04-13 - Task 1.12.1: POST /api/signals/{id}/draft/copy Implementation
+
+**Objective:** Implement API endpoint để generate Twitter Web Intent URL với draft text pre-filled.
+
+**Files Created/Modified:**
+
+1. ✅ `app/Http/Controllers/Api/DraftController.php` — `copy()` method
+2. ✅ `app/Models/UserInteraction.php` — model với fillable fields và casts
+3. ✅ `routes/api.php` — `POST /api/signals/{id}/draft/copy` route
+4. ✅ `tests/Feature/DraftCopyApiTest.php` — test file (dùng `DatabaseTransactions`)
+
+**Implementation Details:**
+
+### Controller Logic (DraftController::copy)
+
+- Permission guard: Free users → 403 FORBIDDEN với message contract
+- Find signal with draft → 404 nếu không tồn tại
+- Check draft exists → 404 nếu signal không có draft
+- Generate Twitter Intent URL: `https://twitter.com/intent/tweet?text={encoded}`
+- URL encoding: `rawurlencode()` (RFC 3986 compliant)
+- Log UserInteraction: `user_id`, `signal_id`, `action='copy_draft'`, `metadata={draft_id}`
+- Return JSON response: `{data: {twitter_intent_url: "..."}}`
+
+### Route Configuration
+
+- Endpoint: `POST /api/signals/{id}/draft/copy`
+- Middleware: `auth:sanctum`
+- Path constraint: `whereNumber('id')`
+
+### UserInteraction Model
+
+- Fillable: `user_id`, `signal_id`, `action`, `metadata`, `tenant_id`, `created_at`
+- Casts: `metadata` → array, `created_at` → datetime
+- Timestamps: `false` (chỉ `created_at`, không có `updated_at`)
+- Relationships: `belongsTo` User, `belongsTo` Signal
+
+**Testing Results (Manual - Tinker + cURL):**
+
+✅ **Test 1: Pro User Success (200 OK)**
+
+- Signal ID: 2 (có draft)
+- User ID: 2 (plan=pro)
+- Response: Twitter Intent URL với text encoded đúng
+- URL format: `https://twitter.com/intent/tweet?text=Lex%20Fridman%20released...`
+
+✅ **Test 2: UserInteraction Logged**
+
+- Record created: `user_id=2`, `signal_id=2`, `action='copy_draft'`
+- Metadata: `{"draft_id": 3}`
+
+✅ **Test 3: Free User Blocked (403 FORBIDDEN)**
+
+- User ID: 1 (plan=free)
+- Response: `{"message": "Draft access is available for Pro/Power users only. Upgrade to access this feature."}`
+
+✅ **Test 4: Signal Not Found (404)**
+
+- Signal ID: 999999 (không tồn tại)
+- Response: `{"message": "Signal not found"}`
+
+✅ **Test 5: Draft Not Found (404)**
+
+- Signal ID: 3 (tồn tại nhưng không có draft)
+- Response: `{"message": "Draft not found for this signal"}`
+
+✅ **Test 6: URL Encoding Verification (RFC 3986)**
+
+- Spaces → `%20` (NOT `+`)
+- Comma → `%2C`
+- Dash, dot → giữ nguyên
+- Encoding method: `rawurlencode()`
+
+**API Contract Compliance:**
+
+- ✅ Response structure đúng spec
+- ✅ Error messages đúng contract (không có dấu chấm cuối)
+- ✅ Status codes đúng: 200, 403, 404
+- ✅ Permission guard hoạt động
+- ✅ Side effect logging đúng
+
+**Database Impact:**
+
+- ✅ Read-only operations (không modify structure)
+- ✅ INSERT vào `user_interactions` table (analytics logging)
+- ✅ No data loss, no migrations run
+
+**Dependencies:**
+
+- Laravel Sanctum (authentication)
+- Signal model với `draft` relationship
+- UserInteraction model
+- RFC 3986 URL encoding (`rawurlencode`)
+
+**Notes:**
+
+- Test strategy: Manual testing với Tinker + cURL (KHÔNG dùng `php artisan test`)
+- Database transactions trong test file để avoid data loss
+- URL encoding critical: `rawurlencode()` cho spaces → `%20` thay vì `+`
+- UserInteraction logging cho future analytics/rate limiting
+
+**Status:** ✅ COMPLETED — All test cases passed
 
 ---

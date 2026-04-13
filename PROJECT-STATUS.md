@@ -1,11 +1,11 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-10 (Task 1.11.2 complete)
+**Last Updated:** 2026-04-13 (Task 1.12.1 complete)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 1 - Wedge Delivery
-**Completed Task:** **1.11.2** — Signal Detail Modal (Screen #7) — `SignalDetailModal` + `SourceAttribution` + `fetchSignalDetail` ✅
-**Next Task:** **1.11.3** — Render metadata (categories, tags, date) + draft copy flow (**1.12.x**)
-**Status:** Detail modal live; API `GET /api/signals/{id}` consumed by SPA; next metadata polish + `POST` draft copy (`auth:sanctum`)
+**Completed Task:** **1.12.1** — `POST /api/signals/{id}/draft/copy` — Twitter Web Intent + `UserInteraction` logging ✅
+**Next Task:** **1.12.2** — Refactor interaction logging to event/listener _(và/hoặc **1.11.3** metadata polish)_
+**Status:** Draft copy API live (Pro/Power); manual tests (Tinker + cURL) PASS; next **1.12.2** hoặc **1.11.3**
 
 ---
 
@@ -26,22 +26,62 @@
   - `fetchSignalDetail(id)` + `DigestPage` state + `DigestSignalCard` `onClick`
   - Draft block Pro/Power only; “Copy to X” placeholder (Task 1.12.3)
   - Manual testing: 14/14 scenarios PASS (SESSION-LOG)
+- ✅ **Task 1.12.1:** `POST /api/signals/{id}/draft/copy` — COMPLETED 2026-04-13
+  - `DraftController::copy` + `UserInteraction` model + route `auth:sanctum` + `whereNumber('id')`
+  - Twitter Web Intent (`rawurlencode` RFC 3986); Free → 403; missing signal/draft → 404
+  - Tests: `DraftCopyApiTest` dùng `DatabaseTransactions` (không `RefreshDatabase`)
+
+### Task 1.12: Draft Sharing & Social Integration
+
+#### 1.12.1 POST /api/signals/{id}/draft/copy endpoint ✅ COMPLETED
+
+**Status:** DONE (April 13, 2026)
+
+**Deliverables:**
+
+- ✅ DraftController với `copy()` method
+- ✅ Twitter Web Intent URL generation
+- ✅ Permission guard (Pro/Power only)
+- ✅ UserInteraction logging
+- ✅ URL encoding RFC 3986 compliant
+- ✅ Error handling (403, 404)
+- ✅ Manual testing passed (9 test cases)
+
+**Testing:**
+
+- Pro user success → 200 OK with Twitter Intent URL
+- Free user blocked → 403 FORBIDDEN
+- Signal not found → 404
+- Draft not found → 404
+- URL encoding verified (spaces=%20, special chars encoded)
+- UserInteraction logged correctly
+
+**Files:**
+
+- `app/Http/Controllers/Api/DraftController.php`
+- `app/Models/UserInteraction.php`
+- `routes/api.php`
+- `tests/Feature/DraftCopyApiTest.php`
+
+**Next:** Task 1.12.2 — Refactor interaction logging to event/listener
 
 ### In Progress
 - [ ] **Task 1.11.3:** Render metadata (categories, tags, date)
 
 ### Statistics
-- **Total tasks completed (Sprint 1 roadmap table):** 28 / 34
-- **Estimated remaining:** 6 tasks (1.11.3–1.12.x wedge + any carry-over)
-- **Current phase:** MVP Core Features — detail modal done; next = metadata polish + draft copy API/UI
+- **Total tasks completed (Sprint 1 roadmap table):** 29 / 34
+- **Estimated remaining:** 5 tasks (1.11.3, 1.12.2–1.12.3 wedge + any carry-over)
+- **Current phase:** MVP Core Features — draft copy API done; next = **1.12.2** event/listener hoặc **1.11.3** metadata + **1.12.3** Copy button UI
 
 ### Progress Summary
 
-**Completed Tasks:** 28/34 (Sprint 1 roadmap table)
+**Completed Tasks:** 29/34 (Sprint 1 roadmap table)
 **Current Phase:** Phase 1 — MVP Foundation (Digest UI wedge)
-**Last Updated:** 2026-04-10
+**Last Updated:** 2026-04-13
 
 **Recent Completions:**
+- ✅ Task 1.12.1: POST `/api/signals/{id}/draft/copy` (2026-04-13)
+  - Twitter Web Intent URL + `UserInteraction` (`copy_draft`); manual Tinker + cURL verification
 - ✅ Task 1.11.2: Signal Detail Modal (2026-04-10)
   - Responsive modal với full signal detail
   - Source attribution với relative timestamps
@@ -521,7 +561,7 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
   - ✅ Task 1.9.1: Ranking Formula (`SignalRankingService`)
   - ✅ Task 1.9.2: Draft tweet generation (`DraftTweetService`)
   - ✅ Task 1.9.3: Rank + draft trong job (`PipelineCrawlJob` Step 5–6)
-- 🔄 Phase 5: Digest UI (**4/7** — nhóm 1.10–1.12; **1.10.1** ✅ **1.10.2** ✅ **1.11.1** ✅ **1.11.2** ✅)
+- 🔄 Phase 5: Digest UI (**5/7** — nhóm 1.10–1.12; **1.10.1** ✅ **1.10.2** ✅ **1.11.1** ✅ **1.11.2** ✅ **1.12.1** ✅)
 
 ### Đang Làm
 
