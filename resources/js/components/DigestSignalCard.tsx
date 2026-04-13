@@ -245,7 +245,7 @@ const DigestSignalCard: React.FC<Props> = ({
                   )}
                 </button>
                 <a
-                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(signal.draftTweet)}`}
+                  href={`https://x.com/intent/post?text=${encodeURIComponent(signal.draftTweet)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex cursor-pointer items-center rounded-full bg-[#0f1419] px-5 py-2 text-[14px] font-bold text-white no-underline"

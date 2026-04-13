@@ -1,4 +1,5 @@
 import type { Signal, SignalsResponse } from "@/types/signal";
+import { authFetchHeaders, ensureSanctumCsrf } from "@/services/authService";
 
 export interface FetchSignalsParams {
   date?: string;
@@ -126,6 +127,43 @@ export async function fetchSignalDetail(id: number): Promise<Signal> {
   }
 
   return json.data;
+}
+
+export interface CopyDraftResult {
+  twitter_intent_url: string;
+}
+
+/**
+ * POST /api/signals/{id}/draft/copy — Twitter Web Intent URL (Pro/Power).
+ * Rejects with Error; check `(err as Error & { status?: number }).status` for HTTP code when present.
+ */
+export async function copyDraft(signalId: number): Promise<CopyDraftResult> {
+  await ensureSanctumCsrf();
+
+  const response = await fetch(`/api/signals/${signalId}/draft/copy`, {
+    method: "POST",
+    headers: authFetchHeaders(),
+    credentials: "same-origin",
+  });
+
+  if (response.status === 401) {
+    throw new Error("Authentication required. Please sign in.");
+  }
+
+  if (!response.ok) {
+    const message = await parseErrorMessage(response);
+    const err = new Error(message) as Error & { status: number };
+    err.status = response.status;
+    throw err;
+  }
+
+  const json = (await response.json()) as { data?: { twitter_intent_url?: string } };
+  const url = json.data?.twitter_intent_url;
+  if (!url || typeof url !== "string") {
+    throw new Error("Invalid response");
+  }
+
+  return { twitter_intent_url: url };
 }
 
 export async function fetchCategories(): Promise<ApiCategory[]> {

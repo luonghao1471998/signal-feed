@@ -1,11 +1,11 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-13 (Task 1.12.2 complete)
+**Last Updated:** 2026-04-13 (Task 1.12.3 complete)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 1 - Wedge Delivery
-**Completed Task:** **1.12.2** — Event-driven `copy_draft` logging (`DraftCopied` + `LogUserInteraction`) + fix duplicate listener ✅
-**Next Task:** **1.12.3** — Draft Copy Button + Twitter composer link (React) _(và/hoặc **1.11.3** metadata polish)_
-**Status:** Draft copy API + event logging live; 1 request = 1 `user_interactions` row; next **1.12.3** UI hoặc **1.11.3**
+**Completed Task:** **1.12.3** — Copy to X (`signalService.copyDraft` + dual-mode UX + CSRF Sanctum) ✅
+**Next Task:** **1.11.3** — Render metadata (categories, tags, date)
+**Status:** Draft copy end-to-end (API + event log + Copy to X UI); next **1.11.3** metadata
 
 ---
 
@@ -24,7 +24,7 @@
   - `SignalDetailModal.tsx`: responsive Dialog (desktop) / Sheet (mobile), skeleton, errors
   - `SourceAttribution.tsx`: initials avatar, blockquote tweet, `date-fns` relative time, “View on X”
   - `fetchSignalDetail(id)` + `DigestPage` state + `DigestSignalCard` `onClick`
-  - Draft block Pro/Power only; “Copy to X” placeholder (Task 1.12.3)
+  - Draft block Pro/Power only; “Copy to X” wired (Task 1.12.3 ✅)
   - Manual testing: 14/14 scenarios PASS (SESSION-LOG)
 - ✅ **Task 1.12.1:** `POST /api/signals/{id}/draft/copy` — COMPLETED 2026-04-13
   - `DraftController::copy` + `UserInteraction` model + route `auth:sanctum` + `whereNumber('id')`
@@ -37,6 +37,10 @@
   - `bootstrap/app.php`: `->withEvents(discover: false)` (fix duplicate listener với Laravel 11 auto-discovery)
   - Controller decoupled from `UserInteraction` model trong `DraftController`
   - Verified: 1 HTTP request → 1 DB record (`count(getListeners(DraftCopied)) === 1`)
+- ✅ **Task 1.12.3:** Copy to X button — dual-mode (browser tab vs X desktop app) ✅ (2026-04-13)
+  - `resources/js/services/signalService.ts`: `copyDraft()` + `ensureSanctumCsrf()` + `authFetchHeaders()`
+  - `resources/js/components/SignalDetailModal.tsx`: `handleCopyDraft`, toast, `localStorage` `signalfeed_x_client_mode`, intent `x.com/intent/post` mở tab (`<a rel="noopener">`)
+  - Clipboard fallback; desktop-app mode không mở URL (PWA pre-fill limitation)
 
 ### Task 1.12: Draft Sharing & Social Integration
 
@@ -80,23 +84,33 @@
 - ✅ Duplicate logging fix: `shouldDiscoverEvents()` + `withEvents(discover: false)`
 - ✅ Manual verification (Tinker + cURL): một request chỉ một bản ghi `copy_draft`
 
-**Next:** Task 1.12.3 — Draft Copy Button (React)
+#### 1.12.3 Copy to X button (React) ✅ COMPLETED
+
+**Status:** DONE (April 13, 2026)
+
+**Files:**
+
+- `resources/js/services/signalService.ts` — `copyDraft()`
+- `resources/js/components/SignalDetailModal.tsx` — dual-mode, clipboard, toast
+
+**Notes:** Intent base URL backend: `https://x.com/intent/post?text=`; CSRF stateful Sanctum cho POST.
 
 ### In Progress
 - [ ] **Task 1.11.3:** Render metadata (categories, tags, date)
 
 ### Statistics
-- **Total tasks completed (Sprint 1 roadmap table):** 30 / 34
-- **Estimated remaining:** 4 tasks (1.11.3, 1.12.3 wedge + any carry-over)
-- **Current phase:** MVP Core Features — draft copy API + event logging done; next = **1.12.3** Copy button UI hoặc **1.11.3** metadata
+- **Total tasks completed (Sprint 1 roadmap table):** 31 / 34
+- **Estimated remaining:** 3 tasks (1.11.3 + carry-over roadmap)
+- **Current phase:** MVP Core Features — digest wedge: next = **1.11.3** metadata
 
 ### Progress Summary
 
-**Completed Tasks:** 30/34 (Sprint 1 roadmap table)
+**Completed Tasks:** 31/34 (Sprint 1 roadmap table)
 **Current Phase:** Phase 1 — MVP Foundation (Digest UI wedge)
 **Last Updated:** 2026-04-13
 
 **Recent Completions:**
+- ✅ Task 1.12.3: Copy to X UI — dual-mode + CSRF (2026-04-13)
 - ✅ Task 1.12.2: Event-driven logging + duplicate listener fix (2026-04-13)
   - `DraftCopied` / `LogUserInteraction`; `withEvents(false)`; verified single listener
 - ✅ Task 1.12.1: POST `/api/signals/{id}/draft/copy` (2026-04-13)
@@ -434,15 +448,16 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
 - ✅ **1.12.2**: Event-driven `copy_draft` logging — **COMPLETED** (2026-04-13)
   - `DraftCopied` / `LogUserInteraction`; `withEvents(discover: false)`; không duplicate listener/DB row
 - [ ] **1.11.3**: Render metadata (categories, tags, date)
-- [ ] **1.12.3**: Draft Copy Button + Twitter composer (React)
+- [x] **1.12.3**: Draft Copy Button + Twitter composer (React) — **COMPLETED** (2026-04-13)
+  - `signalService.copyDraft` + Sanctum CSRF; `SignalDetailModal` dual-mode (browser vs X app) + `localStorage` + clipboard
 
 ---
 
 ## 🎯 Current Focus
 
-**Completed Task:** Task 1.12.2 — Event-driven `copy_draft` logging ✅ (April 13, 2026)  
-**Next Task:** Task 1.12.3 — Draft Copy Button (React) _(hoặc Task 1.11.3 — metadata)_  
-**Previous Task:** Task 1.12.1 — `POST /api/signals/{id}/draft/copy` ✅ (April 13, 2026)
+**Completed Task:** Task 1.12.3 — Copy to X (dual-mode UX) ✅ (April 13, 2026)  
+**Next Task:** Task 1.11.3 — Render metadata (categories, tags, date)  
+**Previous Task:** Task 1.12.2 — Event-driven `copy_draft` logging ✅ (April 13, 2026)
 
 ### Vừa Hoàn Thành
 
@@ -585,7 +600,7 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
   - ✅ Task 1.9.1: Ranking Formula (`SignalRankingService`)
   - ✅ Task 1.9.2: Draft tweet generation (`DraftTweetService`)
   - ✅ Task 1.9.3: Rank + draft trong job (`PipelineCrawlJob` Step 5–6)
-- 🔄 Phase 5: Digest UI (**6/7** — nhóm 1.10–1.12; **1.10.1** ✅ **1.10.2** ✅ **1.11.1** ✅ **1.11.2** ✅ **1.12.1** ✅ **1.12.2** ✅)
+- ✅ Phase 5: Digest UI (**7/7** — nhóm 1.10–1.12; **1.10.1** ✅ **1.10.2** ✅ **1.11.1** ✅ **1.11.2** ✅ **1.12.1** ✅ **1.12.2** ✅ **1.12.3** ✅)
 
 ### Đang Làm
 

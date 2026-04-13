@@ -40,7 +40,8 @@ class DraftController extends Controller
         }
 
         $text = $draft->text;
-        $twitterIntentUrl = 'https://twitter.com/intent/tweet?text='.rawurlencode($text);
+        // x.com/intent/post matches the current compose flow better than /intent/tweet (prefill race on X SPA).
+        $twitterIntentUrl = 'https://x.com/intent/post?text='.rawurlencode($text);
 
         event(new DraftCopied($user, $signal, $draft));
 

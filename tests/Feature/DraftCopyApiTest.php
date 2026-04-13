@@ -51,7 +51,7 @@ class DraftCopyApiTest extends TestCase
         $response->assertOk();
         $url = $response->json('data.twitter_intent_url');
         $this->assertIsString($url);
-        $this->assertStringStartsWith('https://twitter.com/intent/tweet?text=', $url);
+        $this->assertStringStartsWith('https://x.com/intent/post?text=', $url);
 
         $query = parse_url($url, PHP_URL_QUERY);
         $this->assertIsString($query);

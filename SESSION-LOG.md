@@ -4,8 +4,8 @@
 **Date:** 2026-04-06
 **Phase:** Giai đoạn 3 - Implementation
 **Sprint:** Sprint 1 - Wedge Delivery
-**Tasks Covered (đã làm):** 1.1.1 – 1.2.5, **1.3.1** (OAuth X.com), **1.4.1** (categories seed), **1.4.2** (`GET /api/categories`), **1.5.1** (source pool CSV 80 rows), **1.5.2** (source pool seeder), **1.10.1** (`GET /api/signals`), **1.10.2** (Digest View + real API), **1.11.1** (`GET /api/signals/{id}` detail), **1.11.2** (Signal Detail Modal), **1.12.1** (`POST /api/signals/{id}/draft/copy`), **1.12.2** (Event-driven `copy_draft` logging)  
-**Next:** **1.12.3** — Draft Copy Button + Twitter composer (React) _(hoặc **1.11.3** metadata polish)_
+**Tasks Covered (đã làm):** 1.1.1 – 1.2.5, **1.3.1** (OAuth X.com), **1.4.1** (categories seed), **1.4.2** (`GET /api/categories`), **1.5.1** (source pool CSV 80 rows), **1.5.2** (source pool seeder), **1.10.1** (`GET /api/signals`), **1.10.2** (Digest View + real API), **1.11.1** (`GET /api/signals/{id}` detail), **1.11.2** (Signal Detail Modal), **1.12.1** (`POST /api/signals/{id}/draft/copy`), **1.12.2** (Event-driven `copy_draft` logging), **1.12.3** (Copy to X — `signalService.copyDraft` + dual-mode UX)  
+**Next:** **1.11.3** — Render metadata (categories, tags, date) _(wedge digest UI)_
 
 **Lưu ý cho agent / Claude:** Khi user chỉ nhắc `SESSION-LOG` + SPEC để **cập nhật log / context**, **không** tự implement code trừ khi user ghi rõ *Implement Feature* / *làm task X*. OAuth X.com (1.3.1) **đã có trong repo** (Socialite + `twitter-oauth-2`).
 
@@ -4034,7 +4034,7 @@ interface SignalsResponse {
 - Conditional rendering: `userPlan !== 'free' && signal.draft_tweets.length > 0`
 - Blue background container (`bg-blue-50`)
 - Draft text preview
-- "Copy to X" button (placeholder alert for Task 1.12.3)
+- "Copy to X" button (`copyDraft` + dual-mode UX — Task 1.12.3 ✅)
 - Hidden for Free users (monetization strategy)
 
 ### Testing Results
@@ -4615,6 +4615,173 @@ DraftCopied::class => [
 
 **Status:** ✅ COMPLETED — Ready for production
 
-**Next Task:** **1.12.3** — Build Draft Copy Button + Twitter Composer link (React) — `IMPLEMENTATION-ROADMAP.md`
+**Next Task:** **1.11.3** — Render metadata (categories, tags, date) — `IMPLEMENTATION-ROADMAP.md`
+
+---
+
+## Task 1.12.3: Build Draft Copy Button + Twitter Composer link (React)
+
+**Objective:** Tích hợp nút **"Copy to X"** trong `SignalDetailModal`, gọi API `POST /api/signals/{id}/draft/copy`, mở Twitter composer với draft đã điền sẵn.
+
+**Dependencies:**
+
+- ✅ Task 1.12.1: `POST /api/signals/{id}/draft/copy` API endpoint
+- ✅ Task 1.12.2: Event-driven logging
+- ✅ Task 1.11.2: `SignalDetailModal` component
+- ✅ Existing UI: Button components, toast notifications
+
+**Scope:**
+
+### Core Features
+
+1. **"Copy to X" Button:**
+   - Vị trí: khu draft trong `SignalDetailModal` (chỉ Pro/Power)
+   - `onClick`: gọi API `POST /api/signals/{id}/draft/copy`
+   - Lấy `twitter_intent_url` từ response
+   - Mở URL tab mới (`window.open`)
+
+2. **User Feedback:**
+   - Loading: disable nút, spinner
+   - Success: toast **"Opened in X"**
+   - Error: toast lỗi
+   - Trạng thái: idle, loading, success, error
+
+3. **API Integration:**
+   - `POST /api/signals/{id}/draft/copy` + Bearer token
+   - Xử lý 200 OK, 403 FORBIDDEN, 404 NOT_FOUND
+   - Parse: `{ data: { twitter_intent_url: "..." } }`
+
+4. **Twitter Composer:**
+   - `window.open(url, '_blank')`
+   - URL: `https://twitter.com/intent/tweet?text=...`
+   - User đăng tweet trên X.com
+
+**Existing Files to Modify:**
+
+- `resources/js/components/SignalDetailModal.tsx`
+- `resources/js/services/signalService.ts` (thêm `copyDraft`)
+
+**Implementation Plan:**
+
+### Step 1: Add `copyDraft` Service Method
+
+- File: `signalService.ts`
+- Method: `copyDraft(signalId)` → `Promise<{ twitter_intent_url: string }>`
+- POST kèm Bearer token
+
+### Step 2: Update `SignalDetailModal`
+
+- State: `copyLoading`, `copyError` (hoặc tương đương)
+- Handler: `handleCopyDraft()`
+- Nút: `onClick={handleCopyDraft}`
+- Bỏ placeholder `alert`
+
+### Step 3: Button States
+
+- Idle: **"Copy to X"**
+- Loading: **"Opening..."** (disabled + spinner)
+- Success: mở Twitter + toast
+- Error: toast + bật lại nút
+
+### Step 4: Toast Notifications
+
+- Success: **"Opened in X"**
+- Error: **"Failed to copy draft. Please try again."**
+- Dùng toast system hiện có (shadcn/ui)
+
+**Expected Output:**
+
+- Nút hoạt động trong `SignalDetailModal`
+- Gọi API thành công
+- Composer Twitter mở với draft
+- Toast đúng kịch bản
+- Xử lý lỗi ổn định
+
+**Testing Strategy:**
+
+1. Pro user bấm **Copy to X** → loading
+2. API trả `twitter_intent_url`
+3. Tab mới mở composer
+4. Text draft khớp
+5. Toast **Opened in X**
+6. Free user không thấy nút (guard sẵn có)
+7. Lỗi mạng → toast lỗi
+8. 404 → toast lỗi
+9. Nút disabled khi loading
+10. Tránh double-submit (debounce / disable)
+
+**References:**
+
+- `IMPLEMENTATION-ROADMAP.md`: Task 1.12.3
+- Task 1.12.1: API contract
+- Task 1.11.2: `SignalDetailModal` hiện tại
+- shadcn/ui Toast component
+
+**Status:** ✅ Completed — xem entry **Task 1.12.3 — COMPLETED** (2026-04-13) bên dưới.
+
+---
+
+## ✅ Task 1.12.3: Copy to X Button Implementation — COMPLETED
+
+**Date:** 2026-04-13  
+**Status:** ✅ Completed  
+
+### Implementation Summary
+
+Tích hợp nút **Copy to X** trong `SignalDetailModal`, gọi `POST /api/signals/{id}/draft/copy`, hỗ trợ **hai chế độ** (tab trình duyệt vs app X desktop) vì giới hạn PWA/X khi mở intent URL.
+
+### What Was Implemented
+
+#### 1. Frontend service
+
+**File:** `resources/js/services/signalService.ts`
+
+- Hàm **`copyDraft(signalId)`**: POST với Bearer + **`ensureSanctumCsrf()`** + **`authFetchHeaders()`** (tránh **CSRF token mismatch** với `statefulApi()`).
+- Trả về `{ twitter_intent_url }` từ backend.
+
+#### 2. SignalDetailModal
+
+**File:** `resources/js/components/SignalDetailModal.tsx`
+
+- Thay placeholder `alert` bằng **`handleCopyDraft`** (loading, toast, lỗi).
+- **Hai chế độ** (lưu **`localStorage`** `signalfeed_x_client_mode` = `browser_tab` | `x_desktop_app`):
+  - **Chrome / browser tab:** copy clipboard → mở intent URL tab mới (`openIntentUrlInNewTab` — thẻ `<a target="_blank" rel="noopener">`).
+  - **X desktop app:** vẫn gọi API (log `copy_draft`) + copy clipboard → **không mở link** → toast hướng dẫn mở X và dán (tránh composer trống / stack modal của PWA).
+- Radio **“How do you use X?”**; loading **Opening…** / **Copying…**.
+
+#### 3. Intent URL (backend)
+
+**File:** `app/Http/Controllers/Api/DraftController.php` (đã chỉnh trong cùng wedge)
+
+- Base: **`https://x.com/intent/post?text=`** + `rawurlencode()` (RFC 3986).
+
+#### 4. Liên quan UI khác
+
+- `DigestSignalCard.tsx` / `SignalBottomSheet.tsx`: link nhanh draft dùng cùng host intent `x.com/intent/post` (client).
+
+### Technical note — PWA / desktop X
+
+- Không có API chuẩn để ép mở tab Chrome thay vì app đã cài → **lựa chọn người dùng** + clipboard.
+- Clipboard là fallback an toàn cho cả hai chế độ.
+
+### Files touched (frontend chính)
+
+- `resources/js/services/signalService.ts` — `copyDraft`
+- `resources/js/components/SignalDetailModal.tsx` — dual-mode, toast, intent mở tab
+
+### Testing
+
+- Manual (browser): Pro user, cả hai chế độ, toast, không double-submit khi loading.
+- Không chạy `php artisan test` toàn suite (theo rule DB dự án).
+
+### Integration
+
+- **1.12.1:** API `draft/copy`  
+- **1.12.2:** `DraftCopied` → `LogUserInteraction` khi copy thành công  
+- **1.11.2:** khung draft trong modal  
+
+### Task 1.12.3 status
+
+✅ **COMPLETED** — production-ready theo wedge hiện tại.
 
 ---

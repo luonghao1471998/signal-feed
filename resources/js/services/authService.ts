@@ -47,7 +47,8 @@ export async function fetchCurrentUser(): Promise<AuthUser | null> {
   }
 }
 
-async function ensureSanctumCsrf(): Promise<void> {
+/** Gọi trước POST/PATCH/DELETE tới API stateful để refresh cookie CSRF. */
+export async function ensureSanctumCsrf(): Promise<void> {
   await fetch("/sanctum/csrf-cookie", {
     credentials: "same-origin",
     headers: {
@@ -69,7 +70,8 @@ function xsrfTokenFromCookie(): string | null {
   }
 }
 
-function authFetchHeaders(): Record<string, string> {
+/** Header cho fetch JSON tới `/api/*` khi dùng Sanctum stateful (cookie + Bearer). */
+export function authFetchHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
     Accept: "application/json",
     "Content-Type": "application/json",

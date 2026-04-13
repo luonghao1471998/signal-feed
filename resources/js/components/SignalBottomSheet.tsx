@@ -148,7 +148,7 @@ const SignalBottomSheet: React.FC<SignalBottomSheetProps> = ({ signal, onDismiss
                 )}
               </button>
               <a
-                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(draft)}`}
+                href={`https://x.com/intent/post?text=${encodeURIComponent(draft)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="mt-2 block w-full rounded-full bg-[#0f1419] py-2.5 text-center text-sm font-medium text-white"
