@@ -1,11 +1,11 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-13 (Task 1.12.1 complete)
+**Last Updated:** 2026-04-13 (Task 1.12.2 complete)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 1 - Wedge Delivery
-**Completed Task:** **1.12.1** — `POST /api/signals/{id}/draft/copy` — Twitter Web Intent + `UserInteraction` logging ✅
-**Next Task:** **1.12.2** — Refactor interaction logging to event/listener _(và/hoặc **1.11.3** metadata polish)_
-**Status:** Draft copy API live (Pro/Power); manual tests (Tinker + cURL) PASS; next **1.12.2** hoặc **1.11.3**
+**Completed Task:** **1.12.2** — Event-driven `copy_draft` logging (`DraftCopied` + `LogUserInteraction`) + fix duplicate listener ✅
+**Next Task:** **1.12.3** — Draft Copy Button + Twitter composer link (React) _(và/hoặc **1.11.3** metadata polish)_
+**Status:** Draft copy API + event logging live; 1 request = 1 `user_interactions` row; next **1.12.3** UI hoặc **1.11.3**
 
 ---
 
@@ -30,6 +30,13 @@
   - `DraftController::copy` + `UserInteraction` model + route `auth:sanctum` + `whereNumber('id')`
   - Twitter Web Intent (`rawurlencode` RFC 3986); Free → 403; missing signal/draft → 404
   - Tests: `DraftCopyApiTest` dùng `DatabaseTransactions` (không `RefreshDatabase`)
+- ✅ **Task 1.12.2:** Refactor to Event-Driven Logging ✅ (2026-04-13)
+  - Event: `app/Events/DraftCopied.php` created
+  - Listener: `app/Listeners/LogUserInteraction.php` created
+  - `EventServiceProvider`: `$listen` mapping + `shouldDiscoverEvents(): false`
+  - `bootstrap/app.php`: `->withEvents(discover: false)` (fix duplicate listener với Laravel 11 auto-discovery)
+  - Controller decoupled from `UserInteraction` model trong `DraftController`
+  - Verified: 1 HTTP request → 1 DB record (`count(getListeners(DraftCopied)) === 1`)
 
 ### Task 1.12: Draft Sharing & Social Integration
 
@@ -63,23 +70,35 @@
 - `routes/api.php`
 - `tests/Feature/DraftCopyApiTest.php`
 
-**Next:** Task 1.12.2 — Refactor interaction logging to event/listener
+#### 1.12.2 Event-driven UserInteraction logging (`copy_draft`) ✅ COMPLETED
+
+**Status:** DONE (April 13, 2026)
+
+**Deliverables:**
+
+- ✅ `DraftCopied` event + `LogUserInteraction` listener
+- ✅ Duplicate logging fix: `shouldDiscoverEvents()` + `withEvents(discover: false)`
+- ✅ Manual verification (Tinker + cURL): một request chỉ một bản ghi `copy_draft`
+
+**Next:** Task 1.12.3 — Draft Copy Button (React)
 
 ### In Progress
 - [ ] **Task 1.11.3:** Render metadata (categories, tags, date)
 
 ### Statistics
-- **Total tasks completed (Sprint 1 roadmap table):** 29 / 34
-- **Estimated remaining:** 5 tasks (1.11.3, 1.12.2–1.12.3 wedge + any carry-over)
-- **Current phase:** MVP Core Features — draft copy API done; next = **1.12.2** event/listener hoặc **1.11.3** metadata + **1.12.3** Copy button UI
+- **Total tasks completed (Sprint 1 roadmap table):** 30 / 34
+- **Estimated remaining:** 4 tasks (1.11.3, 1.12.3 wedge + any carry-over)
+- **Current phase:** MVP Core Features — draft copy API + event logging done; next = **1.12.3** Copy button UI hoặc **1.11.3** metadata
 
 ### Progress Summary
 
-**Completed Tasks:** 29/34 (Sprint 1 roadmap table)
+**Completed Tasks:** 30/34 (Sprint 1 roadmap table)
 **Current Phase:** Phase 1 — MVP Foundation (Digest UI wedge)
 **Last Updated:** 2026-04-13
 
 **Recent Completions:**
+- ✅ Task 1.12.2: Event-driven logging + duplicate listener fix (2026-04-13)
+  - `DraftCopied` / `LogUserInteraction`; `withEvents(false)`; verified single listener
 - ✅ Task 1.12.1: POST `/api/signals/{id}/draft/copy` (2026-04-13)
   - Twitter Web Intent URL + `UserInteraction` (`copy_draft`); manual Tinker + cURL verification
 - ✅ Task 1.11.2: Signal Detail Modal (2026-04-10)
@@ -410,15 +429,20 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
   - Components: `SignalDetailModal.tsx` (Dialog/Sheet), `SourceAttribution.tsx`, `fetchSignalDetail(id)`
   - Integration: `DigestPage` state; `DigestSignalCard` `onClick`; types `tweet_text` / `posted_at`
   - Features: full summary, sources, `date-fns` timestamps, draft section Pro/Power; manual 14/14 PASS
+- ✅ **1.12.1**: `POST /api/signals/{id}/draft/copy` — **COMPLETED** (2026-04-13)
+  - `DraftController::copy`, Twitter Web Intent + `UserInteraction` logging (ban đầu)
+- ✅ **1.12.2**: Event-driven `copy_draft` logging — **COMPLETED** (2026-04-13)
+  - `DraftCopied` / `LogUserInteraction`; `withEvents(discover: false)`; không duplicate listener/DB row
 - [ ] **1.11.3**: Render metadata (categories, tags, date)
+- [ ] **1.12.3**: Draft Copy Button + Twitter composer (React)
 
 ---
 
 ## 🎯 Current Focus
 
-**Completed Task:** Task 1.11.2 — Signal Detail Modal (Screen #7) ✅ (April 10, 2026)  
-**Next Task:** Task 1.11.3 — Render metadata (categories, tags, date)  
-**Previous Task:** Task 1.11.1 — `GET /api/signals/{id}` detail API ✅ (April 10, 2026)
+**Completed Task:** Task 1.12.2 — Event-driven `copy_draft` logging ✅ (April 13, 2026)  
+**Next Task:** Task 1.12.3 — Draft Copy Button (React) _(hoặc Task 1.11.3 — metadata)_  
+**Previous Task:** Task 1.12.1 — `POST /api/signals/{id}/draft/copy` ✅ (April 13, 2026)
 
 ### Vừa Hoàn Thành
 
@@ -561,7 +585,7 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
   - ✅ Task 1.9.1: Ranking Formula (`SignalRankingService`)
   - ✅ Task 1.9.2: Draft tweet generation (`DraftTweetService`)
   - ✅ Task 1.9.3: Rank + draft trong job (`PipelineCrawlJob` Step 5–6)
-- 🔄 Phase 5: Digest UI (**5/7** — nhóm 1.10–1.12; **1.10.1** ✅ **1.10.2** ✅ **1.11.1** ✅ **1.11.2** ✅ **1.12.1** ✅)
+- 🔄 Phase 5: Digest UI (**6/7** — nhóm 1.10–1.12; **1.10.1** ✅ **1.10.2** ✅ **1.11.1** ✅ **1.11.2** ✅ **1.12.1** ✅ **1.12.2** ✅)
 
 ### Đang Làm
 

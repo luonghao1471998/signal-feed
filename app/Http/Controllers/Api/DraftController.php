@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\DraftCopied;
 use App\Http\Controllers\Controller;
 use App\Models\Signal;
-use App\Models\UserInteraction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -42,14 +42,7 @@ class DraftController extends Controller
         $text = $draft->text;
         $twitterIntentUrl = 'https://twitter.com/intent/tweet?text='.rawurlencode($text);
 
-        UserInteraction::query()->create([
-            'user_id' => $user->id,
-            'signal_id' => $signal->id,
-            'action' => 'copy_draft',
-            'metadata' => ['draft_id' => $draft->id],
-            'tenant_id' => $user->tenant_id ?? 1,
-            'created_at' => now()->utc(),
-        ]);
+        event(new DraftCopied($user, $signal, $draft));
 
         return response()->json([
             'data' => [

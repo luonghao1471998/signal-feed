@@ -4,8 +4,8 @@
 **Date:** 2026-04-06
 **Phase:** Giai đoạn 3 - Implementation
 **Sprint:** Sprint 1 - Wedge Delivery
-**Tasks Covered (đã làm):** 1.1.1 – 1.2.5, **1.3.1** (OAuth X.com), **1.4.1** (categories seed), **1.4.2** (`GET /api/categories`), **1.5.1** (source pool CSV 80 rows), **1.5.2** (source pool seeder), **1.10.1** (`GET /api/signals`), **1.10.2** (Digest View + real API), **1.11.1** (`GET /api/signals/{id}` detail), **1.11.2** (Signal Detail Modal), **1.12.1** (`POST /api/signals/{id}/draft/copy`)  
-**Next:** **1.12.2** — UserInteraction event/listener _(hoặc **1.11.3** metadata / **1.12.3** Copy button UI)_
+**Tasks Covered (đã làm):** 1.1.1 – 1.2.5, **1.3.1** (OAuth X.com), **1.4.1** (categories seed), **1.4.2** (`GET /api/categories`), **1.5.1** (source pool CSV 80 rows), **1.5.2** (source pool seeder), **1.10.1** (`GET /api/signals`), **1.10.2** (Digest View + real API), **1.11.1** (`GET /api/signals/{id}` detail), **1.11.2** (Signal Detail Modal), **1.12.1** (`POST /api/signals/{id}/draft/copy`), **1.12.2** (Event-driven `copy_draft` logging)  
+**Next:** **1.12.3** — Draft Copy Button + Twitter composer (React) _(hoặc **1.11.3** metadata polish)_
 
 **Lưu ý cho agent / Claude:** Khi user chỉ nhắc `SESSION-LOG` + SPEC để **cập nhật log / context**, **không** tự implement code trừ khi user ghi rõ *Implement Feature* / *làm task X*. OAuth X.com (1.3.1) **đã có trong repo** (Socialite + `twitter-oauth-2`).
 
@@ -4368,5 +4368,253 @@ Modal renders with all data
 - UserInteraction logging cho future analytics/rate limiting
 
 **Status:** ✅ COMPLETED — All test cases passed
+
+---
+
+## Task 1.12.2: Implement UserInteraction logging (copy_draft event)
+
+**Objective:** Refactor UserInteraction logging trong `DraftController` thành Event-Driven architecture với Event + Listener.
+
+**Dependencies:**
+
+- ✅ Task 1.12.1: `POST /api/signals/{id}/draft/copy` endpoint
+- ✅ Task 1.2.4: `user_interactions` table
+- ✅ Laravel Event/Listener system
+
+**Scope:**
+
+### Core Functionality
+
+1. **Event-Driven Architecture:**
+   - Extract UserInteraction logging từ controller
+   - Create `DraftCopied` event
+   - Create `LogUserInteraction` listener
+   - Decouple logging logic khỏi business logic
+
+2. **DraftCopied Event:**
+   - Properties: `user`, `signal`, `draft`
+   - Dispatched khi draft copied successfully
+   - Immutable data transfer object
+
+3. **LogUserInteraction Listener:**
+   - Listen to `DraftCopied` event
+   - Create `user_interactions` record
+   - Action: `'copy_draft'`
+   - Metadata: `{draft_id, signal_id}`
+
+4. **Benefits:**
+   - Separation of concerns
+   - Easy to add more listeners (analytics, notifications)
+   - Testable in isolation
+   - Follows Strategy V1 Rule #1 (log all interactions)
+
+**Current Implementation (Task 1.12.1):**
+
+```php
+// In DraftController@copy()
+UserInteraction::query()->create([
+    'user_id' => $user->id,
+    'signal_id' => $signal->id,
+    'action' => 'copy_draft',
+    'metadata' => ['draft_id' => $draft->id],
+    'tenant_id' => $user->tenant_id ?? 1,
+    'created_at' => now()->utc(),
+]);
+```
+
+**Target Implementation:**
+
+```php
+// In DraftController@copy()
+event(new DraftCopied($user, $signal, $draft));
+
+// Listener handles logging automatically
+```
+
+**Implementation Plan:**
+
+### Step 1: Create DraftCopied Event
+
+- `php artisan make:event DraftCopied`
+- Properties: `User $user`, `Signal $signal`, `DraftTweet $draft`
+- Implements `ShouldBroadcast`? No (internal only)
+
+### Step 2: Create LogUserInteraction Listener
+
+- `php artisan make:listener LogUserInteraction --event=DraftCopied`
+- `handle(DraftCopied $event)` method
+- Create `UserInteraction` record
+
+### Step 3: Register Event/Listener
+
+- Update `EventServiceProvider` (hoặc đăng ký trong `AppServiceProvider` / `bootstrap` theo convention Laravel 11)
+- Map `DraftCopied` => `LogUserInteraction`
+
+### Step 4: Update DraftController
+
+- Replace `UserInteraction::create()` với `event()`
+- Remove direct dependency on `UserInteraction` model (trong controller)
+
+### Step 5: Test Event System
+
+- Dispatch event manually
+- Verify listener executes
+- Verify `UserInteraction` created
+
+**Expected Output:**
+
+- `DraftCopied` event class
+- `LogUserInteraction` listener class
+- Event/Listener registered
+- `DraftController` refactored
+- UserInteraction logging decoupled
+
+**Testing Strategy:**
+
+1. `POST /api/signals/1/draft/copy` → event dispatched
+2. Listener creates `UserInteraction` record
+3. Verify `action='copy_draft'` in DB
+4. Verify metadata contains `draft_id`
+5. Test event in isolation (unit test)
+6. Test listener in isolation (unit test)
+7. Integration test: endpoint → event → listener → DB
+8. Verify no duplicate logging
+9. Verify timestamps correct
+10. Check `Event::fake()` for testing
+
+**References:**
+
+- `IMPLEMENTATION-ROADMAP.md`: Task 1.12.2
+- `SPEC-core.md`: 2.2b Event-Driven pattern
+- `SPEC-core.md`: Strategy V1 Rule #1 (log interactions)
+- Laravel Events docs: https://laravel.com/docs/11.x/events
+
+**Status:** ✅ Completed — xem entry **2026-04-13: Task 1.12.2** bên dưới.
+
+---
+
+## 2026-04-13: Task 1.12.2 - Event-Driven Logging Implementation ✅
+
+**Objective:** Refactor UserInteraction logging từ hard-coded sang Event-Driven Architecture.
+
+### Implementation Summary
+
+**Files Created:**
+
+1. `app/Events/DraftCopied.php` — Event class với properties: `User $user`, `Signal $signal`, `DraftTweet $draft`
+2. `app/Listeners/LogUserInteraction.php` — Listener tạo UserInteraction records với `action='copy_draft'`
+3. Updated `app/Providers/EventServiceProvider.php` — Mapping `DraftCopied` → `LogUserInteraction` + `shouldDiscoverEvents(): false`
+
+**Files Modified:**
+
+1. `app/Http/Controllers/Api/DraftController.php`:
+   - Removed: `use App\Models\UserInteraction;`
+   - Added: `use App\Events\DraftCopied;`
+   - Replaced: `UserInteraction::create([...])` → `event(new DraftCopied($user, $signal, $draft))`
+   - Controller decoupled khỏi logging logic
+
+2. `bootstrap/app.php`:
+   - Added: `->withEvents(discover: false)` để disable Laravel auto-discovery
+   - Fix duplicate listener registration issue
+
+3. `bootstrap/providers.php`:
+   - Registered `EventServiceProvider::class`
+
+### Critical Bug Fix: Duplicate Logging
+
+**Problem Discovered:**
+
+- Initial implementation tạo **2 UserInteraction records** cho mỗi HTTP request
+- Root cause: Laravel 11 auto-discovery + manual mapping = listener registered 2 lần
+
+**Solution Applied:**
+
+1. Added `shouldDiscoverEvents(): false` trong `EventServiceProvider`
+2. Added `->withEvents(discover: false)` trong `bootstrap/app.php`
+3. Result: `count(app('events')->getListeners('App\Events\DraftCopied'))` = 1 ✅
+
+### Testing Results
+
+**Manual Testing (Tinker):**
+
+```php
+// Event registration verified
+>>> count(app('events')->getListeners('App\Events\DraftCopied'));
+=> 1 ✅
+
+// Manual event dispatch
+>>> event(new \App\Events\DraftCopied($user, $signal, $draft));
+=> [null] ✅
+
+// UserInteraction created
+>>> \App\Models\UserInteraction::latest()->first();
+=> action: "copy_draft", metadata: {"draft_id": 3, "signal_id": 2} ✅
+```
+
+**HTTP Integration Testing:**
+
+```bash
+# Request
+curl -X POST \
+  -H "Authorization: Bearer {PRO_TOKEN}" \
+  http://localhost:8000/api/signals/2/draft/copy
+
+# Response: 200 OK
+{"data":{"twitter_intent_url":"https://twitter.com/intent/tweet?text=..."}}
+
+# Verification
+Before: count = 6
+After: count = 7 (+1 only, no duplicate) ✅
+```
+
+**No Duplicate Timestamps:**
+
+```php
+>>> \App\Models\UserInteraction::where('action', 'copy_draft')->latest()->take(2)->get(['id', 'created_at']);
+ID=7: created_at: "2026-04-13 03:20:29+07"
+ID=5: created_at: "2026-04-13 03:11:19+07"
+// Different timestamps = no duplicate ✅
+```
+
+### Architecture Benefits
+
+**Achieved:**
+
+- ✅ Separation of Concerns: Controller chỉ dispatch event, Listener handle logging
+- ✅ Extensibility: Dễ dàng add thêm listeners (analytics, notifications, webhooks)
+- ✅ Testability: Event, Listener, Controller testable riêng biệt
+- ✅ Laravel Best Practices: Follow Event-Driven pattern
+
+**Future Extensions Ready:**
+
+```php
+// Easy to add more listeners without touching controller
+DraftCopied::class => [
+    LogUserInteraction::class,
+    SendAnalyticsEvent::class,      // Future: PostHog tracking
+    NotifySlackChannel::class,      // Future: Admin monitoring
+]
+```
+
+### Compliance
+
+- ✅ Follow SPEC-core.md: Strategy V1 Rule #1 (log all user interactions)
+- ✅ Follow IMPLEMENTATION-ROADMAP.md: Task 1.12.2 requirements
+- ✅ Database Safety: Không mất data, chỉ test trên existing records
+- ✅ API Efficiency: Không tốn Twitter API credits (test với existing signals)
+
+### Deliverables
+
+1. ✅ Event class: `DraftCopied.php`
+2. ✅ Listener class: `LogUserInteraction.php`
+3. ✅ EventServiceProvider updated với mapping
+4. ✅ DraftController refactored (decoupled)
+5. ✅ Duplicate logging bug fixed
+6. ✅ Manual testing verified (Tinker + cURL)
+7. ✅ Documentation updated
+
+**Status:** ✅ COMPLETED — Ready for production
+
+**Next Task:** **1.12.3** — Build Draft Copy Button + Twitter Composer link (React) — `IMPLEMENTATION-ROADMAP.md`
 
 ---
