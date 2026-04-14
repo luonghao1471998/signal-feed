@@ -1,5 +1,6 @@
 import type { Signal, SignalsResponse } from "@/types/signal";
 import { authFetchHeaders, ensureSanctumCsrf } from "@/services/authService";
+import { getCategories, type Category } from "@/services/categoryService";
 
 export interface FetchSignalsParams {
   date?: string;
@@ -87,11 +88,7 @@ export async function fetchSignals(params: FetchSignalsParams): Promise<SignalsR
   return response.json() as Promise<SignalsResponse>;
 }
 
-export interface ApiCategory {
-  id: number;
-  name: string;
-  slug: string;
-}
+export type ApiCategory = Category;
 
 export async function fetchSignalDetail(id: number): Promise<Signal> {
   const token = getAuthToken();
@@ -167,13 +164,5 @@ export async function copyDraft(signalId: number): Promise<CopyDraftResult> {
 }
 
 export async function fetchCategories(): Promise<ApiCategory[]> {
-  const response = await fetch("/api/categories", {
-    headers: { Accept: "application/json", "X-Requested-With": "XMLHttpRequest" },
-    credentials: "same-origin",
-  });
-  if (!response.ok) {
-    throw new Error("Failed to load categories");
-  }
-  const json = (await response.json()) as { data?: ApiCategory[] };
-  return json.data ?? [];
+  return getCategories();
 }

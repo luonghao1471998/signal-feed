@@ -1,5 +1,85 @@
 # Session Log - 20260406-001
 
+## 2026-04-14 - Task 2.2.3: Follow/Unfollow Buttons on Browse Source Pool — ✅ COMPLETED
+
+**Status:** ✅ DONE — 2026-04-14 — **Báo cáo triển khai + test:** mục **## Task 2.2.3 — Follow/Unfollow Buttons in Browse Source Pool UI** (gần cuối file). Đoạn dưới đây giữ như **kế hoạch / scope gốc** (reference).  
+**Objective:** Tích hợp Follow/Unfollow buttons vào Browse Source Pool screen để users có thể subscribe/unsubscribe KOL sources.
+
+**Dependencies (đã thỏa):**
+- ✅ Task 2.2.1: `POST /api/sources/{id}/subscribe`
+- ✅ Task 2.2.2: `DELETE /api/sources/{id}/subscribe`
+- ✅ Task 1.5.3: `GET /api/sources` (browse pool endpoint)
+
+### Scope — Core Features
+
+1. **Follow/Unfollow buttons trên từng source card**
+   - Hiển thị trong Browse Source Pool
+   - States: `Follow` (chưa subscribe) ↔ `Following` (đã subscribe)
+   - Loading state trong lúc gọi API
+   - Free plan: disable button + upgrade prompt
+
+2. **Button behavior**
+   - Click `Follow` → `POST /api/sources/{id}/subscribe` → đổi sang `Following`
+   - Click `Following` → `DELETE /api/sources/{id}/subscribe` → đổi sang `Follow`
+   - Ưu tiên optimistic UI (rollback khi API lỗi)
+   - Hiển thị toast success/error
+
+3. **Plan restrictions / caps**
+   - Free: disable + tooltip `Upgrade to Pro`
+   - Pro: hiển thị usage `X/10`
+   - Power: hiển thị usage `X/50`
+   - At cap: Pro hiển thị upgrade prompt; Power hiển thị `Limit reached`
+
+4. **UI/UX details**
+   - Icon: Follow (`user-plus`), Following (`check`)
+   - Màu: Follow (primary), Following (success)
+   - Disabled: `opacity-50`, `cursor-not-allowed`
+   - Loading: spinner + text `Following...` / `Unfollowing...`
+
+### Files impact (planned)
+
+- `resources/js/services/sourceService.ts`
+  - Add methods `subscribeToSource(sourceId)` và `unsubscribeFromSource(sourceId)`
+- `resources/js/components/SourceCard.tsx` _(hoặc component tương đương đang render source item)_
+  - Add follow/unfollow button UI + handlers + loading state
+- `resources/js/pages/BrowseSourcesPage.tsx` _(hoặc page tương đương)_
+  - Manage subscription state map + callback `onSubscriptionChange`
+
+### Implementation plan (gợi ý)
+
+| Bước | Nội dung |
+|------|----------|
+| 1 | Cập nhật `sourceService.ts`: thêm API methods subscribe/unsubscribe với `authFetchHeaders()` |
+| 2 | Cập nhật Source card component: props `isSubscribed`, `onSubscriptionChange`, loading handlers |
+| 3 | Cập nhật Browse page: track state theo source id, đồng bộ state khi follow/unfollow |
+| 4 | Enforce plan restrictions + cap messaging từ user plan/subscription count |
+| 5 | Bổ sung optimistic UI + rollback + toast feedback |
+
+### Expected output
+
+- Follow/Unfollow buttons xuất hiện trên mỗi source card
+- State đổi đúng sau API calls
+- Toast notifications cho success/error
+- Plan restrictions/caps hiển thị đúng theo user plan
+- Subscription state persist đúng sau refresh (theo data/API hiện có)
+
+### Testing strategy (checklist)
+
+1. Browse sources hiển thị đầy đủ buttons  
+2. Click Follow → state đổi `Following`  
+3. Click Following → state đổi về `Follow`  
+4. Verify network call đúng `POST`/`DELETE` endpoint  
+5. Free user: button disable + tooltip  
+6. Pro at cap: show upgrade message  
+7. Loading state hiển thị khi pending request  
+8. Toast success/error hoạt động  
+9. Subscription count cập nhật theo thao tác  
+10. Refresh page, state hiển thị consistent với API/data
+
+**References:** `SPEC-plan.md` (UI Screen #10), `IMPLEMENTATION-ROADMAP.md` Task 2.2.3, patterns từ Task 2.1.2 (`AddSourceModal`).
+
+---
+
 ## 2026-04-14 - Task 2.2.2: `DELETE /api/sources/{id}/subscribe` — 📋 SPEC / IMPLEMENTATION PLAN
 
 **Status:** 📋 Documented — implementation pending  
@@ -5575,11 +5655,122 @@ Endpoint aligns with `SPEC-api.md` — Subscribe to Source (Flow 2):
 - **Testing:** ~1 hour (10 test cases via tinker + curl)
 - **Total:** ~3 hours
 
-### Next Steps
+### Next Steps _(updated 2026-04-14)_
 
-Ready to proceed to:
+**Done:** Task **2.2.2** ✅ (see **Session: 2026-04-14 - Task 2.2.2** above) · Task **2.2.3** ✅ (section below).
 
-- **Task 2.2.2:** `DELETE /api/sources/{id}/subscribe` (unsubscribe — inverse operation; `SPEC-api` / roadmap)
+**Next:**
+
+- **Task 2.3.1:** Add search filter to `GET /api/sources` (`IMPLEMENTATION-ROADMAP.md`)
 - **Task 2.4.1:** `GET /api/my-sources` (list user's subscriptions — roadmap module 2.4)
+
+---
+
+## Task 2.2.3 — Follow/Unfollow Buttons in Browse Source Pool UI
+
+**Started:** 2026-04-14  
+**Completed:** 2026-04-14  
+**Status:** ✅ DONE  
+**Type:** CORE FEATURE  
+**Source:** `IMPLEMENTATION-ROADMAP.md` Task 2.2.3
+
+### Requirements
+
+Tích hợp Follow/Unfollow buttons vào Browse Source Pool (tab **Browse** trên `/my-kols`) để user subscribe/unsubscribe KOL sources.
+
+**Dependencies:**
+
+- ✅ Task 2.2.1: `POST /api/sources/{id}/subscribe`
+- ✅ Task 2.2.2: `DELETE /api/sources/{id}/subscribe`
+- ✅ Task 1.5.3: `GET /api/sources` (browse pool — đã bổ sung `is_subscribed`)
+
+### Implementation Summary
+
+#### Backend
+
+1. **`GET /api/sources` — field `is_subscribed` per source**  
+   - `SourceController@index`: với user Sanctum, query `my_source_subscriptions` và gắn `is_subscribed` từng `Source`.  
+   - Cho phép sau **refresh** trang vẫn đúng trạng thái Follow/Following.
+
+2. **`SourceResource`**  
+   - Xuất `is_subscribed: boolean` trong JSON.
+
+**Files:** `app/Http/Controllers/Api/SourceController.php`, `app/Http/Resources/SourceResource.php`
+
+#### Frontend services
+
+3. **`sourceService.ts`**  
+   - `fetchBrowseSources()`: gửi `Authorization: Bearer` khi có token để nhận `is_subscribed`.  
+   - `subscribeToSource(id)` → `POST /api/sources/{id}/subscribe`  
+   - `unsubscribeFromSource(id)` → `DELETE /api/sources/{id}/subscribe`  
+   - `ensureSanctumCsrf()` + `authFetchHeaders()`; lỗi → `SourceSubscriptionError`.
+
+4. **`categoryService.ts` (new)**  
+   - `getCategories()` → `GET /api/categories` — category filter động (không hardcode constant trên Browse).
+
+**Files:** `resources/js/services/sourceService.ts`, `resources/js/services/categoryService.ts` (new)
+
+#### UI — `MyKOLsPage.tsx` (tab Browse)
+
+- **Follow / Following:** variant default ↔ outline; icons `UserPlus` / `Check`; spinner + nhãn busy theo từng `source.id` (chống double-click).  
+- **Optimistic UI:** đổi `is_subscribed` ngay; rollback khi API lỗi; toast success/error.  
+- **Free:** bấm Follow → toast upgrade (không gọi API); dòng gợi ý: *Upgrade to the Pro version to follow My KOLs.*  
+- **Pro (10):** quota `Following: X / 10`; khi đủ cap → nút Follow (nguồn chưa follow) mờ + toast lỗi kiểu *Subscription limit reached. Upgrade to Power to follow more KOLs.* (không gọi thêm subscribe).  
+- **Power (50):** quota `X / 50`; khi đủ cap → tương tự; sau khi follow thành công lần đạt **50/50** → `AlertDialog`: *The maximum of 50 KOLs has been reached.*  
+- **Category filter:** multi-select, logic **OR**; chấm màu theo slug (`categoryDotColor`).  
+- **Search:** lọc client-side theo tên / `@handle` (server-side search = **Task 2.3.1**).
+
+### Testing Results
+
+**Manual browser — các kịch bản chính PASS** (Free / Pro / Power; follow, unfollow, cap, optimistic rollback, refresh giữ trạng thái, filter category, search, quota).
+
+**API (network / contract):**
+
+| Call | Kỳ vọng |
+|------|---------|
+| `GET /api/sources` | Mỗi source có `is_subscribed` khi có Bearer |
+| `POST .../subscribe` | 201 khi thành công; 400 khi vượt cap (backend) |
+| `DELETE .../subscribe` | **204 No Content** khi thành công / idempotent |
+| `GET /api/categories` | Danh sách category cho filter |
+
+**Database (read-only SQL — snapshot ghi nhận trong session, không dùng migrate:test):**  
+`SELECT user_id, COUNT(*) FROM my_source_subscriptions GROUP BY user_id` — phù hợp UI (vd. Free 0 / Pro 10 / Power 50 tùy user test).
+
+### Out of Scope (roadmap sau)
+
+- Tab **Following** trên `/my-kols`: vẫn mock (`poolSources` + `Set` local) — **2.4.1** + **2.4.3**.  
+- **Server-side search** — **2.3.1**.  
+- Browse Screen #10 tách route `/sources` + polish — **2.3.2** (khi làm theo roadmap).
+
+### Files Summary
+
+| Action | Path |
+|--------|------|
+| New | `resources/js/services/categoryService.ts` |
+| Modified | `app/Http/Controllers/Api/SourceController.php`, `app/Http/Resources/SourceResource.php`, `resources/js/services/sourceService.ts`, `resources/js/pages/MyKOLsPage.tsx` |
+
+### Roadmap Verification (Task 2.2.3)
+
+| Requirement | Status |
+|-------------|--------|
+| Browse → Follow button | ✅ |
+| Đổi sang Following + gọi subscribe API | ✅ |
+| Bản ghi `my_source_subscriptions` (backend 2.2.1) | ✅ |
+| Phụ thuộc 2.2.1 / 2.2.2 / browse sources | ✅ |
+
+### Next Steps (Sprint 2)
+
+1. **2.3.1** — `?search=` trên `GET /api/sources`  
+2. **2.4.1** — `GET /api/my-sources`  
+3. **2.4.3** — list My KOLs thật (hoặc nối tab Following)
+
+### Suggested Git Commit _(optional — chạy tay khi sẵn sàng)_
+
+```bash
+git add -A
+git commit -m "docs: SESSION-LOG + PROJECT-STATUS — Task 2.2.3 complete (2026-04-14)"
+```
+
+**Tag (optional):** `task-2.2.3-complete`
 
 ---

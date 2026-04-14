@@ -15,6 +15,7 @@ export interface BrowseSource {
   type: string;
   status: string;
   categories: BrowseSourceCategory[];
+  is_subscribed: boolean;
 }
 
 export interface CreateSourceRequest {
@@ -60,6 +61,16 @@ export class CreateSourceError extends Error {
   }
 }
 
+export class SourceSubscriptionError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+    this.name = "SourceSubscriptionError";
+  }
+}
+
 async function parseErrorMessage(response: Response): Promise<string> {
   try {
     const data = (await response.json()) as { message?: string };
@@ -76,11 +87,17 @@ async function parseErrorMessage(response: Response): Promise<string> {
  * GET /api/sources — public browse pool (active sources).
  */
 export async function fetchBrowseSources(): Promise<BrowseSource[]> {
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    "X-Requested-With": "XMLHttpRequest",
+  };
+  const token = localStorage.getItem("auth_token");
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   const response = await fetch("/api/sources", {
-    headers: {
-      Accept: "application/json",
-      "X-Requested-With": "XMLHttpRequest",
-    },
+    headers,
     credentials: "same-origin",
   });
 
@@ -157,6 +174,44 @@ export async function createSource(payload: CreateSourceRequest): Promise<Create
   return data;
 }
 
+/**
+ * POST /api/sources/{id}/subscribe — follow KOL.
+ */
+export async function subscribeToSource(sourceId: number): Promise<void> {
+  await ensureSanctumCsrf();
+
+  const response = await fetch(`/api/sources/${sourceId}/subscribe`, {
+    method: "POST",
+    headers: authFetchHeaders(),
+    credentials: "same-origin",
+  });
+
+  if (!response.ok) {
+    const message = await parseErrorMessage(response);
+    throw new SourceSubscriptionError(message, response.status);
+  }
+}
+
+/**
+ * DELETE /api/sources/{id}/subscribe — unfollow KOL.
+ */
+export async function unsubscribeFromSource(sourceId: number): Promise<void> {
+  await ensureSanctumCsrf();
+
+  const response = await fetch(`/api/sources/${sourceId}/subscribe`, {
+    method: "DELETE",
+    headers: authFetchHeaders(),
+    credentials: "same-origin",
+  });
+
+  if (!response.ok) {
+    const message = await parseErrorMessage(response);
+    throw new SourceSubscriptionError(message, response.status);
+  }
+}
+
 export const sourceService = {
   createSource,
+  subscribeToSource,
+  unsubscribeFromSource,
 };

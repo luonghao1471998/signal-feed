@@ -23,6 +23,7 @@ class SourceResource extends JsonResource
             'account_url' => $this->account_url,
             'type' => $this->type,
             'status' => $this->status,
+            'is_subscribed' => (bool) ($this->is_subscribed ?? false),
             'categories' => CategoryResource::collection($this->whenLoaded('categories')),
         ];
     }

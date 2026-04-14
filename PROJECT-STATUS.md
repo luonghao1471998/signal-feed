@@ -1,11 +1,11 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-14 (Task 2.2.2 complete)
+**Last Updated:** 2026-04-14 (Task 2.2.3 complete)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 2 — My KOLs
-**Completed Task:** **2.2.2** — `DELETE /api/sources/{id}/subscribe` (idempotent unsubscribe, 204 No Content) ✅ — 2026-04-14
-**Next Task:** **2.2.3** — Follow/Unfollow buttons to Browse Source Pool UI _(hoặc **2.1.3** my submissions / admin queue — tùy ưu tiên)_
-**Status:** Sprint 2; subscribe + unsubscribe APIs ✅; next **2.2.3** UI integration
+**Completed Task:** **2.2.3** — Add Follow/Unfollow buttons to Browse Source Pool UI ✅ — 2026-04-14
+**Next Task:** **2.3.1** — Add search filter to `GET /api/sources` _(hoặc **2.4.1** `GET /api/my-sources` — tùy ưu tiên)_
+**Status:** Sprint 2; subscribe + unsubscribe APIs + Browse Follow/Unfollow UI ✅; next **2.3.1** / **2.4.1**
 
 ---
 
@@ -13,7 +13,15 @@
 
 **Đồng bộ roadmap 2026-04-14:** Sprint 2 = **14** task (thêm **2.1.3** / **2.1.4**); tổng dự án **59** task — xem `IMPLEMENTATION-ROADMAP.md`.
 
-**Progress (14 tasks):** **4 / 14** (~29%)
+**Progress (14 tasks):** **5 / 14** (~36%)
+
+### Feature 2.2: Follow/Unfollow KOL Sources
+
+| Task # | Task Name | Status | Completed Date |
+|--------|-----------|--------|----------------|
+| 2.2.1 | POST /api/sources/{id}/subscribe endpoint | ✅ COMPLETED | 2026-04-14 |
+| 2.2.2 | DELETE /api/sources/{id}/subscribe endpoint | ✅ COMPLETED | 2026-04-14 |
+| 2.2.3 | Add Follow/Unfollow buttons to Browse UI | ✅ COMPLETED | 2026-04-14 |
 
 ### ✅ Task 2.1.1: `POST /api/sources` — COMPLETED (2026-04-13)
 
@@ -48,7 +56,7 @@
 - ✅ No auto-subscription (verified in DB)
 - ✅ Free users restricted (button hidden)
 
-**Next Step:** Task **2.2.2** — `DELETE /api/sources/{id}/subscribe`; hoặc **2.1.3** — API my submissions; admin approve = **3.3.x** trong `IMPLEMENTATION-ROADMAP.md`
+**Next Step:** Task **2.3.1** — search filter `GET /api/sources`; hoặc **2.4.1** — `GET /api/my-sources`; hoặc **2.1.3** — API my submissions; admin approve = **3.3.x** trong `IMPLEMENTATION-ROADMAP.md`
 
 ---
 
@@ -61,7 +69,7 @@
 - ✅ Task 2.2.1: Implement POST /api/sources/{id}/subscribe endpoint — **COMPLETED 2026-04-14** (`SubscriptionController`, cap Pro≤10/Power≤50, `auth:sanctum`, manual tests 10/10)
 - ✅ Task 2.2.2: Implement DELETE /api/sources/{id}/subscribe endpoint — **COMPLETED 2026-04-14** (idempotent delete + `204 No Content`, source `404`, auth `401`)
 
-_(Roadmap tiếp: **2.2.3** Follow/Unfollow UI — `IMPLEMENTATION-ROADMAP.md`.)_
+_(Roadmap tiếp: **2.3.1** server-side search / **2.4.1** my-sources — `IMPLEMENTATION-ROADMAP.md`.)_
 
 ---
 
@@ -71,9 +79,9 @@ _(Roadmap tiếp: **2.2.3** Follow/Unfollow UI — `IMPLEMENTATION-ROADMAP.md`.)
 
 | Task | Status | Assignee | Notes |
 |------|--------|----------|-------|
-| 2.2.1 `POST /api/sources/{id}/subscribe` | ✅ COMPLETED | Dev Team | Cap enforcement (Pro≤10, Power≤50), composite PK handling, `DB::transaction` + `lockForUpdate()`, `DB::table` insert for junction row. Manual tests 10/10 (tinker + curl). Ready for **2.2.2**. |
+| 2.2.1 `POST /api/sources/{id}/subscribe` | ✅ COMPLETED | Dev Team | Cap enforcement (Pro≤10, Power≤50), composite PK handling, `DB::transaction` + `lockForUpdate()`, `DB::table` insert for junction row. Manual tests 10/10 (tinker + curl). **2.2.1–2.2.3** ✅. |
 | 2.2.2 `DELETE /api/sources/{id}/subscribe` | ✅ COMPLETED | Dev Team | Idempotent unsubscribe (`204`), source validation (`404`), `auth:sanctum` (`401` unauthenticated), self-owned delete via `WHERE user_id`. Manual tests 7/7 passed. |
-| 2.2.3 Follow/Unfollow UI (browse pool) | ⏳ PENDING | — | Screen #10 — roadmap **2.2.3** _(depends **2.2.1**, **2.2.2**)_ |
+| 2.2.3 Follow/Unfollow UI (browse pool) | ✅ COMPLETED | Dev Team | Browse tab `/my-kols`: Follow/Following + subscribe APIs + `is_subscribed` on `GET /api/sources`; category filter + quota; manual browser tests PASS (2026-04-14). |
 
 **Ghi chú:** `GET /api/my-sources` = roadmap **2.4.1** (My KOLs list), không phải 2.2.3.
 
@@ -166,20 +174,21 @@ _(Roadmap tiếp: **2.2.3** Follow/Unfollow UI — `IMPLEMENTATION-ROADMAP.md`.)
 **Notes:** Intent base URL backend: `https://x.com/intent/post?text=`; CSRF stateful Sanctum cho POST.
 
 ### In Progress / Next (roadmap)
-- **Next (Sprint 2):** **2.2.2** DELETE subscribe _(hoặc **2.1.3** my submissions API)_ — sau **2.2.1** ✅
+- **Next (Sprint 2):** **2.3.1** search on `GET /api/sources` _(hoặc **2.4.1** my-sources / **2.1.3** my submissions)_ — sau **2.2.3** ✅
 - **Backlog (ngoài bảng Sprint 2):** **1.11.3** — metadata digest (tùy ưu tiên)
 
 ### Statistics
 - **Sprint 1 (34 tasks, `IMPLEMENTATION-ROADMAP`):** 34 / 34 ✅
-- **Sprint 2 (14 tasks):** 3 / 14 (~21%) — next **2.2.2** (DELETE subscribe) / **2.1.3** (my submissions)
+- **Sprint 2 (14 tasks):** 5 / 14 (~36%) — next **2.3.1** (search filter) / **2.4.1** (my-sources) / **2.1.3** (my submissions)
 
 ### Progress Summary
 
-**Completed Tasks:** Sprint 1 **34/34** ✅; Sprint 2 **3/14** (2.1.1 ✅ 2026-04-13, 2.1.2 ✅ 2026-04-14, **2.2.1** ✅ 2026-04-14)
-**Current phase:** Sprint 2 — My KOLs; next = **2.2.2** hoặc **2.1.3**
+**Completed Tasks:** Sprint 1 **34/34** ✅; Sprint 2 **5/14** (2.1.1 ✅ 2026-04-13, 2.1.2 ✅ 2026-04-14, **2.2.1–2.2.3** ✅ 2026-04-14)
+**Current phase:** Sprint 2 — My KOLs; next = **2.3.1** hoặc **2.4.1** hoặc **2.1.3**
 **Last Updated:** 2026-04-14
 
 **Recent Completions:**
+- ✅ Task 2.2.3: Follow/Unfollow buttons in Browse Source Pool UI — `is_subscribed`, `categoryService`, optimistic UI, plan caps, manual browser tests (2026-04-14)
 - ✅ Task 2.2.2: `DELETE /api/sources/{id}/subscribe` — idempotent unsubscribe, manual 7/7 (2026-04-14)
 - ✅ Task 2.2.1: `POST /api/sources/{id}/subscribe` — `SubscriptionController`, cap + transaction lock, manual 10/10 (2026-04-14)
 - ✅ Task 2.1.2: Add Source Form (Option B) — `AddSourceModal` + `pending_review` (2026-04-14)
@@ -264,14 +273,14 @@ _(Roadmap tiếp: **2.2.3** Follow/Unfollow UI — `IMPLEMENTATION-ROADMAP.md`.)
 - **Created:** `TweetClassifierService`, `config/signalfeed.php`, migration `signal_score` unclassified; tests unit/feature bổ sung
 - **Modified:** `PipelineCrawlJob` (refactor orchestration), `docs/prompts/v1/classify.md`, `routes/console.php` (scheduler 4×/day), `.env.example`, `TwitterCrawlerService`, `LLMClient`, `FakeLLMClient`
 
-**Next (block Task 1.7.2 lịch sử):** theo roadmap hiện tại → **2.2.2** (Sprint 2); backlog **1.11.3**.
+**Next (block Task 1.7.2 lịch sử):** theo roadmap hiện tại → **2.3.1** / **2.4.1** (Sprint 2); backlog **1.11.3**.
 
 ## Current Sprint Status
 
-**Completed Task:** Task **2.2.1** — `POST /api/sources/{id}/subscribe` ✅ (2026-04-14)  
-**Next Task:** Task **2.2.2** — `DELETE /api/sources/{id}/subscribe` — `IMPLEMENTATION-ROADMAP.md`  
-**Status:** Sprint 2; subscribe API + `SubscriptionController` — SESSION-LOG 2026-04-14  
-**Previous:** Task 2.1.2 Add Source Form ✅ (2026-04-14); Task 2.1.1 `POST /api/sources` ✅ (2026-04-13)
+**Completed Task:** Task **2.2.3** — Follow/Unfollow Browse UI ✅ (2026-04-14)  
+**Next Task:** Task **2.3.1** — search filter `GET /api/sources` — `IMPLEMENTATION-ROADMAP.md`  
+**Status:** Sprint 2; **2.2.1–2.2.3** subscribe + unsubscribe + Browse UI — SESSION-LOG 2026-04-14  
+**Previous:** Tasks 2.2.1–2.2.2 APIs ✅ (2026-04-14); Task 2.1.2 Add Source Form ✅ (2026-04-14); Task 2.1.1 ✅ (2026-04-13)
 
 **Recent Completions:**
 
@@ -371,7 +380,7 @@ _(Roadmap tiếp: **2.2.3** Follow/Unfollow UI — `IMPLEMENTATION-ROADMAP.md`.)
 **Public APIs** (no auth required):
 
 - `GET /api/categories` — 10 categories ✅
-- `GET /api/sources` — 80 sources kèm categories ✅
+- `GET /api/sources` — 80 sources kèm categories ✅ (với Bearer: thêm **`is_subscribed`** / user — Task **2.2.3** ✅)
 
 **Authenticated APIs:**
 
@@ -379,6 +388,7 @@ _(Roadmap tiếp: **2.2.3** Follow/Unfollow UI — `IMPLEMENTATION-ROADMAP.md`.)
 - `GET /api/signals/{id}` — signal detail + tweet attribution (Task **1.11.1** ✅, `auth:sanctum`)
 - `POST /api/sources` — add user source (Task **2.1.1** ✅, Pro/Power, Option B `pending_review`)
 - `POST /api/sources/{id}/subscribe` — My KOLs subscribe (Task **2.2.1** ✅, `auth:sanctum`, cap Pro≤10 / Power≤50)
+- `DELETE /api/sources/{id}/subscribe` — unsubscribe (Task **2.2.2** ✅, `204 No Content`, idempotent)
 
 **Next APIs to build:**
 - `POST /api/user/categories` (Task **1.3.3** — onboarding; đã có `PATCH /api/me` cho `my_categories`)
@@ -531,9 +541,9 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
 
 ## 🎯 Current Focus
 
-**Completed Task:** Task **2.2.1** — `POST /api/sources/{id}/subscribe` ✅ (April 14, 2026)  
-**Next Task:** Task **2.2.2** — `DELETE /api/sources/{id}/subscribe` _(hoặc **2.1.3** my submissions)_  
-**Previous Task:** Task **2.1.2** — Add Source Form (Option B) ✅ (April 14, 2026)
+**Completed Task:** Task **2.2.3** — Follow/Unfollow buttons in Browse Source Pool UI ✅ (April 14, 2026)  
+**Next Task:** Task **2.3.1** — Add search filter to `GET /api/sources` _(hoặc **2.4.1** `GET /api/my-sources`)_  
+**Previous Task:** Tasks **2.2.1–2.2.2** — subscribe + unsubscribe APIs ✅ (April 14, 2026)
 
 ### Vừa Hoàn Thành
 
@@ -684,9 +694,9 @@ Không có
 
 ### Task Tiếp Theo (`IMPLEMENTATION-ROADMAP.md`)
 
-🔜 **Task 2.2.2** — `DELETE /api/sources/{id}/subscribe` — depends **2.2.1** ✅
+🔜 **Task 2.3.1** — `GET /api/sources?search=` — depends **2.2.2** ✅
 
-- **Sprint 2 tiếp:** **2.2.2** → **2.2.3** (UI) → … ; **2.1.3** admin approval nếu tách task
+- **Sprint 2 tiếp:** **2.3.1** → **2.3.2** (Browse UI polish) / **2.4.1** my-sources → … ; **2.1.3** admin approval nếu tách task
 - **Digest:** **1.10.x–1.12.x** ✅; backlog **1.11.3** metadata nếu cần.
 - **Pipeline wedge:** Task **1.9.3** ✅ — `PipelineCrawlJob` Step 5–6.
 
@@ -739,7 +749,7 @@ _(Removed: API credits depleted — resolved via top-up hoặc không chặn dev
 ## Next Session Plan
 
 ### Target
-- **Task 2.2.2** / **2.1.3** — Unsubscribe API hoặc my submissions / admin queue; tiếp theo roadmap Sprint 2: **2.2.3** (UI). _(Backlog: **1.11.3** metadata, **1.3.3** onboarding polish.)_
+- **Task 2.3.1** / **2.4.1** / **2.1.3** — Server-side search, `GET /api/my-sources`, hoặc my submissions / admin queue. _(Backlog: **1.11.3** metadata, **1.3.3** onboarding polish.)_
 
 ### Pre-requisites
 - [x] WSL / dev environment
@@ -760,7 +770,7 @@ _(Removed: API credits depleted — resolved via top-up hoặc không chặn dev
 - [x] Rank + draft trong pipeline job (1.9.3)
 
 ### Expected Duration
-Tuỳ scope **2.2.2** (unsubscribe) hoặc **2.1.3** (my submissions); polish 1.11.3 / 1.3.3 tách khỏi chuỗi Sprint 2
+Tuỳ scope **2.3.1** (search) hoặc **2.4.1** (my-sources) hoặc **2.1.3** (my submissions); polish 1.11.3 / 1.3.3 tách khỏi chuỗi Sprint 2
 
 ---
 

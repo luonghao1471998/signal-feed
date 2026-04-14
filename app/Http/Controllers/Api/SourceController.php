@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\SourceResource;
+use App\Models\MySourceSubscription;
 use App\Models\Source;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class SourceController extends Controller
@@ -15,13 +17,27 @@ class SourceController extends Controller
     /**
      * Browse platform source pool (wedge: no pagination / filters).
      */
-    public function index(): AnonymousResourceCollection
+    public function index(Request $request): AnonymousResourceCollection
     {
         $sources = Source::query()
             ->where('status', 'active')
             ->with('categories')
             ->orderBy('id')
             ->get();
+
+        $subscribedIds = [];
+        $authUser = Auth::guard('sanctum')->user() ?? $request->user();
+        if ($authUser) {
+            $subscribedIds = MySourceSubscription::query()
+                ->where('user_id', $authUser->id)
+                ->pluck('source_id')
+                ->all();
+        }
+
+        $subscribedSet = array_flip($subscribedIds);
+        $sources->each(function (Source $source) use ($subscribedSet): void {
+            $source->setAttribute('is_subscribed', isset($subscribedSet[$source->id]));
+        });
 
         return SourceResource::collection($sources);
     }

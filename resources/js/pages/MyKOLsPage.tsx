@@ -1,12 +1,30 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Check, Loader2, Plus, Search, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Av, avatarUrlForHandle } from "@/components/Avatar";
 import CategoryBadge, { type CategoryKey } from "@/components/CategoryBadge";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AddSourceModal } from "@/components/AddSourceModal";
-import { DIGEST_FILTER_CATEGORIES, useCategoryFilter } from "@/contexts/CategoryFilterContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { fetchBrowseSources, type BrowseSource } from "@/services/sourceService";
+import { categoryDotActiveClass, categoryDotFilledClass } from "@/lib/categoryDotColor";
+import { getCategories, type Category } from "@/services/categoryService";
+import {
+  fetchBrowseSources,
+  SourceSubscriptionError,
+  subscribeToSource,
+  type BrowseSource,
+  unsubscribeFromSource,
+} from "@/services/sourceService";
+import { toast } from "sonner";
 
 interface KOLSource {
   id: string;
@@ -76,8 +94,7 @@ const MOCK_QUALITY_SIGNAL_COUNT: Partial<Record<string, number>> = {
   "@swyx": 10,
 };
 
-const MyKOLsPage: React.FC = () => {
-  const { activeCategory, selectCategory } = useCategoryFilter();
+const MyKOLsPage = () => {
   const { user, authReady } = useAuth();
   const canAddSource = Boolean(user && (user.plan === "pro" || user.plan === "power"));
 
@@ -90,6 +107,12 @@ const MyKOLsPage: React.FC = () => {
   const [apiSources, setApiSources] = useState<BrowseSource[]>([]);
   const [apiLoading, setApiLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [busySourceId, setBusySourceId] = useState<number | null>(null);
+  const [browseCategories, setBrowseCategories] = useState<Category[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
+  const [powerCapDialogOpen, setPowerCapDialogOpen] = useState(false);
+
   const loadBrowseSources = useCallback(async () => {
     setApiLoading(true);
     setApiError(null);
@@ -107,19 +130,53 @@ const MyKOLsPage: React.FC = () => {
     void loadBrowseSources();
   }, [loadBrowseSources]);
 
-  const filteredApi = apiSources.filter((s) => {
-    const handle = `@${s.x_handle}`;
-    const name = (s.display_name ?? "").toLowerCase();
-    const q = search.toLowerCase();
-    const matchSearch =
-      !search ||
-      name.includes(q) ||
-      handle.toLowerCase().includes(q) ||
-      s.x_handle.toLowerCase().includes(q);
-    const matchCat =
-      activeCategory === "all" || s.categories.some((c) => c.slug === activeCategory);
-    return matchSearch && matchCat;
-  });
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setCategoriesLoading(true);
+      try {
+        const list = await getCategories();
+        if (!cancelled) {
+          setBrowseCategories(list);
+        }
+      } catch {
+        if (!cancelled) {
+          toast.error("Failed to load categories");
+          setBrowseCategories([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setCategoriesLoading(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const toggleBrowseCategoryId = (categoryId: number) => {
+    setSelectedCategoryIds((prev) =>
+      prev.includes(categoryId) ? prev.filter((id) => id !== categoryId) : [...prev, categoryId],
+    );
+  };
+
+  const filteredApi = useMemo(() => {
+    return apiSources.filter((s) => {
+      const handle = `@${s.x_handle}`;
+      const name = (s.display_name ?? "").toLowerCase();
+      const q = search.toLowerCase();
+      const matchSearch =
+        !search ||
+        name.includes(q) ||
+        handle.toLowerCase().includes(q) ||
+        s.x_handle.toLowerCase().includes(q);
+      const matchCat =
+        selectedCategoryIds.length === 0 ||
+        s.categories.some((c) => selectedCategoryIds.includes(c.id));
+      return matchSearch && matchCat;
+    });
+  }, [apiSources, search, selectedCategoryIds]);
 
   const toggleFollow = (id: string) => {
     setFollowing((prev) => {
@@ -134,7 +191,69 @@ const MyKOLsPage: React.FC = () => {
   };
 
   const followingList = poolSources.filter((s) => following.has(s.id));
-  const planLimit = 10;
+  const subscriptionLimit = user?.plan === "power" ? 50 : user?.plan === "pro" ? 10 : 0;
+  const currentSubscriptions = apiSources.filter((source) => source.is_subscribed).length;
+  const followingQuotaLabel = subscriptionLimit > 0 ? `${currentSubscriptions}/${subscriptionLimit}` : "0/0";
+
+  const handleToggleSubscription = async (source: BrowseSource) => {
+    const sourceHandle = `@${source.x_handle}`;
+    const isSubscribed = source.is_subscribed;
+
+    if (!user) {
+      toast.error("Please sign in to manage subscriptions");
+      return;
+    }
+
+    if (user.plan === "free") {
+      toast.info("Upgrade Required", {
+        description: "Upgrade to Pro to follow KOLs",
+      });
+      return;
+    }
+
+    const atLimit = !isSubscribed && currentSubscriptions >= subscriptionLimit;
+    if (atLimit) {
+      toast.error(
+        user.plan === "pro"
+          ? "Subscription limit reached. Upgrade to Power to follow more KOLs."
+          : "Subscription limit reached for your plan.",
+      );
+      return;
+    }
+
+    setApiSources((prev) =>
+      prev.map((row) => (row.id === source.id ? { ...row, is_subscribed: !isSubscribed } : row)),
+    );
+    setBusySourceId(source.id);
+
+    try {
+      if (isSubscribed) {
+        await unsubscribeFromSource(source.id);
+        toast.success(`Unfollowed ${sourceHandle}`);
+      } else {
+        await subscribeToSource(source.id);
+        toast.success(`Following ${sourceHandle}`);
+        if (
+          user.plan === "power" &&
+          subscriptionLimit === 50 &&
+          currentSubscriptions + 1 >= subscriptionLimit
+        ) {
+          setPowerCapDialogOpen(true);
+        }
+      }
+    } catch (error) {
+      setApiSources((prev) =>
+        prev.map((row) => (row.id === source.id ? { ...row, is_subscribed: isSubscribed } : row)),
+      );
+      if (error instanceof SourceSubscriptionError) {
+        toast.error(error.message);
+      } else {
+        toast.error("Failed to update subscription");
+      }
+    } finally {
+      setBusySourceId((prev) => (prev === source.id ? null : prev));
+    }
+  };
 
   return (
     <div className="min-h-screen bg-white">
@@ -183,30 +302,64 @@ const MyKOLsPage: React.FC = () => {
               />
             </div>
 
+            <div className="mb-3 flex items-center justify-between text-sm">
+              <span className="text-[#536471]">
+                Following: <span className="font-semibold text-[#0f1419]">{followingQuotaLabel}</span>
+              </span>
+              {user?.plan === "free" ? (
+                <span className="text-[#1d9bf0]">Upgrade to the Pro version to follow My KOLs.</span>
+              ) : null}
+            </div>
+
             <div className="mb-3 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-              {DIGEST_FILTER_CATEGORIES.map((cat) => (
-                <button
-                  key={cat.key}
-                  type="button"
-                  onClick={() => selectCategory(cat.key)}
-                  className={cn(
-                    "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-sm",
-                    activeCategory === cat.key
-                      ? "border-none bg-[#0f1419] font-bold text-white"
-                      : "border border-[#eff3f4] bg-transparent font-medium text-[#536471]",
-                  )}
-                >
-                  {cat.key !== "all" && (
+              {categoriesLoading ? (
+                <span className="shrink-0 px-2 py-1 text-sm text-[#536471]">Loading categories…</span>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCategoryIds([])}
+                    className={cn(
+                      "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-sm",
+                      selectedCategoryIds.length === 0
+                        ? "border-none bg-[#0f1419] font-bold text-white"
+                        : "border border-[#eff3f4] bg-transparent font-medium text-[#536471]",
+                    )}
+                  >
                     <span
                       className={cn(
                         "h-1.5 w-1.5 shrink-0 rounded-full",
-                        activeCategory === cat.key ? "bg-white" : cat.dotColor,
+                        selectedCategoryIds.length === 0 ? categoryDotActiveClass() : "bg-[#1d9bf0]",
                       )}
                     />
-                  )}
-                  {cat.label}
-                </button>
-              ))}
+                    All
+                  </button>
+                  {browseCategories.map((cat) => {
+                    const active = selectedCategoryIds.includes(cat.id);
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => toggleBrowseCategoryId(cat.id)}
+                        className={cn(
+                          "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-sm",
+                          active
+                            ? "border-none bg-[#0f1419] font-bold text-white"
+                            : "border border-[#eff3f4] bg-transparent font-medium text-[#536471]",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "h-1.5 w-1.5 shrink-0 rounded-full",
+                            active ? categoryDotActiveClass() : categoryDotFilledClass(cat.slug),
+                          )}
+                        />
+                        {cat.name}
+                      </button>
+                    );
+                  })}
+                </>
+              )}
             </div>
 
             {apiLoading ? (
@@ -219,10 +372,24 @@ const MyKOLsPage: React.FC = () => {
               <p className="py-8 text-center text-sm text-[#536471]">No sources match your filters.</p>
             ) : null}
             {!apiLoading && !apiError && filteredApi.length > 0 ? (
-              <div className="divide-y divide-[#eff3f4] border-t border-[#eff3f4]">
+              <TooltipProvider>
+                <div className="divide-y divide-[#eff3f4] border-t border-[#eff3f4]">
                 {filteredApi.map((source) => {
                   const handle = `@${source.x_handle}`;
                   const title = source.display_name?.trim() || source.x_handle;
+                  const isBusy = busySourceId === source.id;
+                  const isSubscribed = source.is_subscribed;
+                  const blockedByPlan = !user || user.plan === "free";
+                  const blockedByCap = !isSubscribed && subscriptionLimit > 0 && currentSubscriptions >= subscriptionLimit;
+                  const isBlocked = blockedByCap;
+                  const shouldShowTooltip = blockedByPlan || blockedByCap;
+                  const tooltipLabel = blockedByPlan
+                    ? "Upgrade to Pro to follow KOLs"
+                    : blockedByCap
+                      ? user?.plan === "pro"
+                        ? "Limit reached (10). Upgrade to Power."
+                        : "Limit reached (50)."
+                      : "";
                   return (
                     <div key={source.id} className="flex items-center gap-3 py-4">
                       <Av src={avatarUrlForHandle(handle)} name={title} size={40} />
@@ -241,19 +408,46 @@ const MyKOLsPage: React.FC = () => {
                         </div>
                       </div>
                       <div className="flex shrink-0 flex-col items-end gap-1">
-                        <button
-                          type="button"
-                          disabled
-                          title="Subscribe via API in a later task (2.2.x)"
-                          className="rounded-full border border-[#eff3f4] px-3 py-1 text-xs text-[#536471] opacity-60"
-                        >
-                          Follow
-                        </button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={isSubscribed ? "outline" : "default"}
+                              aria-disabled={isBlocked || isBusy}
+                              onClick={() => void handleToggleSubscription(source)}
+                              className={cn(
+                                "rounded-full px-3 text-xs",
+                                isBlocked && "opacity-50 cursor-not-allowed",
+                                isBusy && "cursor-wait",
+                              )}
+                            >
+                              {isBusy ? (
+                                <>
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  {isSubscribed ? "Unfollowing..." : "Following..."}
+                                </>
+                              ) : isSubscribed ? (
+                                <>
+                                  <Check className="h-3.5 w-3.5" />
+                                  Following
+                                </>
+                              ) : (
+                                <>
+                                  <UserPlus className="h-3.5 w-3.5" />
+                                  Follow
+                                </>
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          {shouldShowTooltip ? <TooltipContent>{tooltipLabel}</TooltipContent> : null}
+                        </Tooltip>
                       </div>
                     </div>
                   );
                 })}
-              </div>
+                </div>
+              </TooltipProvider>
             ) : null}
           </div>
         )}
@@ -262,15 +456,17 @@ const MyKOLsPage: React.FC = () => {
           <div>
             <div className="mb-4 flex items-center justify-between">
               <span className="text-sm text-[#536471]">
-                {followingList.length} / {planLimit} KOLs
+                {followingList.length} / {Math.max(subscriptionLimit, 10)} KOLs
               </span>
               <div className="mx-3 h-1 flex-1 rounded-full bg-[#eff3f4]">
                 <div
                   className="h-full rounded-full bg-[#1d9bf0] transition-all"
-                  style={{ width: `${Math.min(100, (followingList.length / planLimit) * 100)}%` }}
+                  style={{ width: `${Math.min(100, (followingList.length / Math.max(subscriptionLimit, 10)) * 100)}%` }}
                 />
               </div>
-              <span className="text-[13px] font-medium text-[#1d9bf0]">Pro plan</span>
+              <span className="text-[13px] font-medium text-[#1d9bf0]">
+                {user?.plan === "power" ? "Power plan" : user?.plan === "pro" ? "Pro plan" : "Free plan"}
+              </span>
             </div>
 
             <div className="divide-y divide-[#eff3f4] border-t border-[#eff3f4]">
@@ -328,6 +524,19 @@ const MyKOLsPage: React.FC = () => {
         )}
 
         <AddSourceModal isOpen={addModalOpen} onClose={() => setAddModalOpen(false)} />
+
+        <AlertDialog open={powerCapDialogOpen} onOpenChange={setPowerCapDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>The maximum of 50 KOLs has been reached.</AlertDialogTitle>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction type="button" onClick={() => setPowerCapDialogOpen(false)}>
+              Close
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
