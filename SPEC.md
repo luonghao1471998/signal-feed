@@ -11,9 +11,21 @@ Do tổng nội dung > 60.000 ký tự, spec được **chia 3 file** (theo rule
 | `SPEC-core.md` | 1–8 | Overview, NFR, Architecture, State/Error, Domain, Permissions, Flows, Data Model |
 | `SPEC-api.md` | 9–11 | DB Schema, External API Contracts, Internal REST API Specs |
 | `SPEC-plan.md` | 12–13 + Appendix A/B + Consistency Report | Delivery & Ops, **Sprint Plan** (Section 13); roadmap task → **`IMPLEMENTATION-ROADMAP.md`** riêng (playbook 2.2h) |
-| *(playbook)* | — | **`CLAUDE.md`** — rule ngắn cho agent; **`IMPLEMENTATION-ROADMAP.md`** — bảng task đánh số 1.x–3.x (**59** task tổng; Sprint 1: 34, Sprint 2: 14, Sprint 3: 11 — đối chiếu file roadmap) |
+| *(playbook)* | — | **`CLAUDE.md`** — rule ngắn cho agent; **`IMPLEMENTATION-ROADMAP.md`** — bảng task đánh số 1.x–3.x (**69** task tổng sau CR 2026-04-15; Sprint 1: 36, Sprint 2: 21, Sprint 3: 14 — đối chiếu file roadmap) |
 
 **Change request (2026-04-13):** Chuyển workflow Source Phase 1 sang **Option B**. User thêm nguồn (`type=user`) tạo với **`status='pending_review'`**; chỉ vào crawl pool sau khi admin `approve` → `active`. Admin review queue qua `GET/PATCH /api/admin/sources`; state machine `SPEC-core.md` Section 4; UI/sprint Screen **#11**, **#13** + tasks **2.1.x**, **3.3.x** trong `SPEC-plan.md` / `IMPLEMENTATION-ROADMAP.md`.
+
+**Change request (2026-04-14):** Bổ sung scope **Archive + Settings + Language** trong roadmap triển khai:  
+- Digest có action **Save to Archive** + archive list API/UI thật (không chỉ mock).  
+- Settings page chuyển từ UI tĩnh sang API-persisted preferences (profile/digest/categories/language).  
+- Đa ngôn ngữ UI bật baseline **en/vi** theo lộ trình 2.5.x → 3.5.x.  
+- Đồng bộ spec chi tiết: `SPEC-api` thêm `users.locale`, `user_archived_signals`, endpoint `/api/settings`, `/api/signals/{id}/archive`, `/api/archive/signals`; `SPEC-core` thêm Flow archive/settings + entity archive; `SPEC-plan` thêm Screen #16 Archive.
+Chi tiết task ở `IMPLEMENTATION-ROADMAP.md` (**1.3.4–1.3.5**, **2.5.1–2.5.7**, **3.5.1–3.5.3**).
+
+**Change request (2026-04-15):** Bổ sung onboarding Step 2 hoàn chỉnh trong Sprint 1:  
+- Sau Screen #3 (category selection), user đi tới `/onboarding/sources` (Screen #4).  
+- Danh sách KOL lọc theo `my_categories`; user có thể **Follow ngay** hoặc **Skip** vào digest.  
+- Roadmap thêm **1.3.4** (subscribe API sớm cho onboarding) + **1.3.5** (UI onboarding sources).
 
 ---
 

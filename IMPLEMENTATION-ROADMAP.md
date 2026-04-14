@@ -28,6 +28,8 @@
 | 1.3.1 | Implement OAuth X.com redirect + callback flow | 1.3 | [SUPPORT] | Routes /auth/twitter, /auth/twitter/callback implemented, OAuth flow redirects to X.com authorize page | 1.2.2 | Click "Login with X" → redirects to twitter.com/oauth2/authorize with correct params | 2.1 NFR OAuth X.com flow diagram, 2.2e Auth endpoints |
 | 1.3.2 | Implement OAuth token exchange + user upsert | 1.3 | [SUPPORT] | POST callback handler exchanges code for tokens, creates/updates User record (x_user_id, x_username, x_access_token), creates session | 1.3.1 | Complete OAuth flow → User record created in DB with x_user_id, session active | 2.1 NFR OAuth flow steps 5-9, 2.2e User table |
 | 1.3.3 | Build onboarding Screen #3: Category selection | 1.3 | [SUPPORT] | React component /onboarding/categories renders 10 categories, user selects 1-3, saves to User.my_categories | 1.3.2, 1.4.1 | After OAuth login → onboarding screen shows, select categories → User.my_categories updated | 2.2f UI Skeleton Screen #3, 2.2a CRUD summary (category selection) |
+| 1.3.4 | Enable subscribe API for onboarding follow step | 1.3 | [SUPPORT] | Implement `POST /api/sources/{id}/subscribe` sớm để Step 2 onboarding có thể follow ngay (cap guard + idempotency + Pro/Power policy giữ nguyên) | 1.3.3, 1.5.3 | User mới ở onboarding gọi follow thành công, `my_source_subscriptions` được tạo đúng cap | Onboarding Screen #4 needs immediate follow, 2.2a Flow 2 |
+| 1.3.5 | Build onboarding Screen #4: `/onboarding/sources` (filter by my_categories, follow/skip) | 1.3 | [SUPPORT] | UI lấy sources `status=active` theo category user đã chọn (`my_categories`), cho phép Follow ngay tại onboarding hoặc Skip đi thẳng digest | 1.3.4, 1.3.3, 1.5.3 | Sau Step 1 → vào Step 2 thấy list KOL đúng category; follow tạo subscription; skip chuyển `/digest` | SPEC-plan Screen #4, Strategy Rule onboarding 2-step |
 | 1.4.1 | Seed 10 categories migration | 1.4 | [SUPPORT] | categories table seeded with 10 hardcoded categories (id, name, slug) per 2.2a | 1.2.2 | Query categories table → 10 rows exist matching 2.2a category list | 2.2a Entity Relationship (10 categories), 2.2f Test Data Strategy (fixture files) |
 | 1.4.2 | Implement GET /api/categories endpoint | 1.4 | [SUPPORT] | API returns all 10 categories as JSON array | 1.4.1 | GET /api/categories → 200 OK with 10 category objects | 2.2e GET /api/categories spec |
 | 1.5.1 | Create source pool CSV seed data | 1.5 | [WEDGE] | CSV file with 500 KOL handles + categories (~500 rows: handle, display_name, account_url, categories[]) | 1.4.1 | CSV file exists, parseable, contains 500 rows | 2.2f Test Data Strategy (seed script for 500 KOL pool), Strategy Wedge Feature #1 |
@@ -72,6 +74,13 @@
 | 2.4.3 | Build My KOLs List Screen #8 (React) | 2.4 | [POST-WEDGE] | Screen renders My KOLs list from API, shows subscribed sources with Unfollow button | 2.4.1, 2.2.2 | Navigate to /my-sources → shows subscribed sources, click Unfollow → subscription deleted | 2.2f UI Skeleton Screen #8, 2.2a F06 |
 | 2.4.4 | Build My KOLs Stats Screen #9 (React) | 2.4 | [POST-WEDGE] | Screen fetches stats API, renders stats bar (signal count, top sources, 7-day trend chart, per-category breakdown) | 2.4.2, 2.4.3 | Navigate to /my-sources/stats → shows computed stats | 2.2f UI Skeleton Screen #9, 2.2a F15 |
 | 2.4.5 | Add My KOLs filter toggle to Digest View | 2.4 | [POST-WEDGE] | Toggle button on Screen #5 (digest), ?my_sources_only=true query param, filters signals to My KOLs sources only | 2.4.1, 1.10.2 | Toggle "My KOLs Only" on digest → signals filtered to subscribed sources | 2.2f UI Skeleton Screen #6 (filter toggle), 2.2a F14 |
+| 2.5.1 | Implement POST/DELETE /api/signals/{id}/archive endpoints | 2.5 | [POST-WEDGE] | API toggle save/unsave signal vào personal archive (self-owned), idempotent cho repeated requests | 1.10.1, 1.2.4 | POST archive → 201/200; DELETE archive → 204; only current user archive affected | CR 2026-04-14 (Archive save flow), Screen #5 + Archive menu behavior |
+| 2.5.2 | Implement GET /api/archive/signals endpoint | 2.5 | [POST-WEDGE] | API trả danh sách archived signals của user với filter date/category/search + pagination | 2.5.1, 1.10.1 | GET /api/archive/signals?date_range=last30 → trả archived list đúng user | CR 2026-04-14, Screen Archive (`/archive`), SPEC-plan assumption #22 |
+| 2.5.3 | Add “Save to Archive” button on Digest cards | 2.5 | [POST-WEDGE] | Nút bookmark/save trên Digest (Screen #5), optimistic UI Saved/Unsaved, sync với archive endpoints | 2.5.1, 1.10.2 | Click Save on digest card → state đổi Saved + record archive created | CR 2026-04-14, Digest Screen #5 (missing save action) |
+| 2.5.4 | Integrate Archive Screen with real API | 2.5 | [POST-WEDGE] | Thay mock `archivedSignals` bằng GET /api/archive/signals, giữ date/category/search filters + empty state | 2.5.2 | Navigate /archive → hiển thị dữ liệu lưu thật, filters hoạt động đúng | CR 2026-04-14, existing `ArchivePage.tsx` |
+| 2.5.5 | Implement GET/PATCH /api/settings endpoints | 2.5 | [POST-WEDGE] | API đọc/cập nhật user settings: profile basics, digest preferences, category prefs, locale | 1.3.2, 1.4.2 | PATCH /api/settings thành công → refresh GET phản ánh cấu hình mới | CR 2026-04-14, Screen #12 Settings |
+| 2.5.6 | Integrate Settings Screen with settings APIs | 2.5 | [POST-WEDGE] | Nối `SettingsPage` tabs (profile/digest/billing/telegram/language) vào API thật, bỏ hardcoded defaults | 2.5.5 | Save in Settings → reload vẫn giữ dữ liệu đúng | CR 2026-04-14, existing `/settings` route |
+| 2.5.7 | Add i18n foundation + Language persistence | 2.5 | [POST-WEDGE] | Setup i18n dictionaries (en/vi baseline), locale provider, bind Language tab với `PATCH /api/settings` | 2.5.5, 2.5.6 | Switch language in Settings → UI shell đổi ngôn ngữ và persist qua reload | CR 2026-04-14, multi-language enablement |
 
 ---
 
@@ -90,6 +99,9 @@
 | 3.3.4 | Notify submitter when moderation completes (approve / reject / spam) | 3.3 | [POST-WEDGE] | Sau PATCH admin thành công: gửi thông báo tới `added_by_user_id` — **Phase 1 tối thiểu:** email (Resend) **hoặc** in-app (poll `2.1.3` + banner); log product/audit (`admin.source.reviewed`, `source.flagged_spam`, … per SPEC-api §9). Tuỳ chọn: Telegram (Power) = backlog | 3.3.2 | User nhận được thông báo đúng hành động admin; không im lặng sau duyệt | SPEC-core §4 (notify khi spam), SPEC.md VR-1, Open Q email Sprint 2+ |
 | 3.4.1 | Implement GET /api/admin/pipeline endpoint | 3.4 | [POST-WEDGE] | API returns pipeline metrics: crawl_status, last_run_at, total_tweets_today, total_signals_today, classify_accuracy_sample (spot-check), error_rate, per_category_signal_volume | 3.3.1 | GET /api/admin/pipeline → 200 OK with metrics object | 2.2e GET /api/admin/pipeline spec, 2.2a Flow 7 (Admin Monitors Pipeline) |
 | 3.4.2 | Build Admin Pipeline Monitor Screen #14 (React) | 3.4 | [POST-WEDGE] | Screen fetches pipeline metrics API, renders dashboard (crawl status, signal volume chart, error log) | 3.4.1 | Navigate to /admin/pipeline → shows metrics dashboard | 2.2f UI Skeleton Screen #14, 2.2a F22 |
+| 3.5.1 | Expand i18n coverage for Digest/My KOLs/Archive pages | 3.5 | [POST-WEDGE] | Replace hardcoded UI copy by i18n keys on major user screens | 2.5.7, 1.10.2, 2.4.4, 2.5.4 | Switch locale en↔vi → Digest/My KOLs/Archive copy changes correctly | CR 2026-04-14, multi-language rollout |
+| 3.5.2 | Add i18n coverage for Settings + Admin screens | 3.5 | [POST-WEDGE] | Localize Settings/Admin strings with fallback policy (`en` default) | 3.5.1, 3.3.3, 3.4.2 | Switch locale → Settings/Admin labels localized, no missing-key crash | CR 2026-04-14 |
+| 3.5.3 | Implement locale-aware formatting standards | 3.5 | [POST-WEDGE] | Date/number format theo locale (digest timestamps, stats cards, archive dates) | 3.5.1 | Locale vi/en hiển thị format ngày/số khác nhau đúng chuẩn | CR 2026-04-14, UX consistency |
 
 ---
 
@@ -103,7 +115,7 @@
     → 1.2.5 (Indexes)
   
 1.2.2 → 1.4.1 (Category Seed) → 1.4.2 (Category API)
-      → 1.3.1 (OAuth Redirect) → 1.3.2 (OAuth Token Exchange) → 1.3.3 (Onboarding UI)
+      → 1.3.1 (OAuth Redirect) → 1.3.2 (OAuth Token Exchange) → 1.3.3 (Onboarding Step 1) → 1.3.4 (Subscribe API) → 1.3.5 (Onboarding Step 2)
       → 1.5.1 (Source CSV) → 1.5.2 (Source Seed Script) → 1.5.3 (Source API)
                           → 1.6.1 (Twitter Client / POC contract) → 1.6.2 (Crawl Job + loop) → 1.6.3 (Scheduler)
                                                    → 1.7.1 (LLM Classify) → 1.7.2 (Classify Step)
@@ -124,9 +136,10 @@ Sprint 1 Complete → 2.1.1 (Add Source API) → 2.1.2 (Add Source UI) → 2.1.3
                   → 2.2.1 (Subscribe API), 2.2.2 (Unsubscribe API) → 2.2.3 (Follow Buttons)
                                                                    → 2.3.1 (Search Filter) → 2.3.2 (Browse UI)
                                                                    → 2.4.1 (My KOLs API), 2.4.2 (Stats API) → 2.4.3 (My KOLs List UI), 2.4.4 (Stats UI), 2.4.5 (Filter Toggle)
+                                                                   → 2.5.1 (Archive save API) → 2.5.2 (Archive list API) → 2.5.3 (Digest Save button), 2.5.4 (Archive UI API), 2.5.5 (Settings API) → 2.5.6 (Settings UI), 2.5.7 (i18n foundation)
 
-Critical Path: Sprint 1 → 2.1.1 → 2.2.1 → 2.4.1 → 2.4.5 (My KOLs complete)
-Parallel Paths: 2.3.x (Browse/Search) can run parallel with 2.4.x; 2.1.3–2.1.4 song song 2.2.x
+Critical Path: Sprint 1 → 2.1.1 → 2.2.1 → 2.4.1 → 2.4.5 → 2.5.1 → 2.5.4 (My KOLs + Archive complete)
+Parallel Paths: 2.3.x (Browse/Search) can run parallel with 2.4.x; 2.1.3–2.1.4 song song 2.2.x; 2.5.5-2.5.7 phụ thuộc song song API settings
 Option B closure: moderation **3.3.1–3.3.4** (Sprint 3) có thể bắt đầu sớm — không cần chờ Stripe — xem Sprint 3
 ```
 
@@ -139,34 +152,37 @@ Sprint 2 Complete → 3.1.1 (Stripe Checkout) → 3.1.2 (Stripe Webhook) → 3.1
 Parallel (Option B / admin — có thể lịch trước hoặc xen 3.1.x):
   3.3.1 (Admin Sources API) → 3.3.2 (Moderate API) → 3.3.3 (Moderation UI #13) → 3.3.4 (Notify submitter on outcome)
   3.4.1 (Pipeline Metrics API) → 3.4.2 (Pipeline Monitor UI)
+  3.5.1 (i18n app screens) → 3.5.2 (i18n settings/admin) → 3.5.3 (locale formatting)
 
 Critical Path (billing): Sprint 2 → 3.1.2 → 3.2.2 (plan enforcement complete)
-Parallel Paths: 3.3.x (Admin Sources + notify), 3.4.x (Admin Pipeline) — parallel với 3.1.x nếu cần
+Parallel Paths: 3.3.x (Admin Sources + notify), 3.4.x (Admin Pipeline), 3.5.x (i18n rollout) — parallel với 3.1.x nếu cần
 ```
 
 ---
 
 ## Execution Order Summary
 
-**Sprint 1 — Wedge Delivery (12 feature groups → 34 tasks):**
+**Sprint 1 — Wedge Delivery (12 feature groups → 36 tasks):**
 1. Setup + Infrastructure: Tasks 1.1.1 - 1.2.5 (8 tasks) — Project scaffold + DB schema
-2. Auth + Data Seed: Tasks 1.3.1 - 1.5.3 (8 tasks) — OAuth + categories + source pool
+2. Auth + Data Seed: Tasks 1.3.1 - 1.5.3 (10 tasks) — OAuth + onboarding step 2 + categories + source pool
 3. Pipeline Core: Tasks 1.6.1 - 1.9.3 (11 tasks) — Crawl → Classify → Cluster → Summarize → Rank → Draft
 4. Digest UI: Tasks 1.10.1 - 1.12.3 (7 tasks) — Digest view + detail + draft copy
 
-**Sprint 2 — My KOLs (4 feature groups → 14 tasks):**
+**Sprint 2 — My KOLs + Archive + Settings (5 feature groups → 21 tasks):**
 1. Add Source: Tasks 2.1.1 - 2.1.4 (4 tasks — API + form + **my submissions** visibility)
 2. Subscribe/Unsubscribe: Tasks 2.2.1 - 2.2.3 (3 tasks)
 3. Browse/Search: Tasks 2.3.1 - 2.3.2 (2 tasks)
 4. My KOLs UI + Stats: Tasks 2.4.1 - 2.4.5 (5 tasks)
+5. Archive + Settings + Language foundation: Tasks 2.5.1 - 2.5.7 (7 tasks)
 
-**Sprint 3 — Billing + Admin (4 feature groups → 11 tasks):**
+**Sprint 3 — Billing + Admin + i18n completion (5 feature groups → 14 tasks):**
 1. Stripe Integration: Tasks 3.1.1 - 3.1.3 (3 tasks)
 2. Free Tier Enforcement: Tasks 3.2.1 - 3.2.2 (2 tasks)
 3. Admin Source Moderation: Tasks 3.3.1 - 3.3.4 (4 tasks — list + PATCH + UI **+ notify submitter**)
 4. Admin Pipeline Monitor: Tasks 3.4.1 - 3.4.2 (2 tasks)
+5. Multi-language rollout: Tasks 3.5.1 - 3.5.3 (3 tasks)
 
-**Total: 59 tasks across 3 sprints** (đếm trực tiếp từ các bảng Task Table phía trên)
+**Total: 69 tasks across 3 sprints** (đếm trực tiếp từ các bảng Task Table phía trên)
 
 ---
 
@@ -181,7 +197,7 @@ Bảng này mô tả **trạng thái sau amendment**; mọi thay đổi tiếp t
 | **Crawl loop** | Mô tả trong **`SPEC-api` Phần 2** + Flow 3 | Task **1.6.2** |
 | **Lịch scheduler** | **4×/ngày** — `SPEC-core`, `SPEC-plan` | Task **1.6.3**; đổi lịch = CR |
 | **Tweet fetch abstraction** | **`SPEC-core` §3.2 LOCK** + **`SPEC-api` Section 10 §0** | Interface + DI; swap vendor không đụng `PipelineService` logic |
-| **Personal feed** | Bảng **`user_personal_feed_entries`** + endpoint trong `SPEC-api` — **Sprint 2+** | Ngoài 59 task roadmap hiện tại; xem backlog / CR task sau |
+| **Personal feed** | Bảng **`user_personal_feed_entries`** + endpoint trong `SPEC-api` — **Sprint 2+** | Ngoài 69 task roadmap hiện tại; xem backlog / CR task sau |
 | **Clustering** | **Prompt-based** Phase 1 — changelog `SPEC-api` + Flow 3 | Task **1.8.1** theo hướng này |
 
 ---
@@ -192,7 +208,7 @@ Bảng này mô tả **trạng thái sau amendment**; mọi thay đổi tiếp t
 |---|------|------|-----------------|--------------|
 | 1 | **500 KOL CSV seed data creation effort.** Task 1.5.1 assumes CSV file exists or is quickly created (1-2 hours manual curation). If CSV doesn't exist → founder must curate 500 handles with categories, estimated 1-2 days effort outside sprint. | Assumption | Blocks Task 1.5.2 (seed script). If CSV not ready → cannot seed source pool → pipeline has no sources to crawl → Sprint 1 fails. Must complete CSV pre-Sprint 1 or reduce to smaller seed (50-100 sources for dogfood test). | Task 1.5.1 |
 | 2 | **External service API blockers resolution.** Tasks 1.6.1, 1.7.1, 1.8.1, 1.8.2, 1.9.2 depend on twitterapi.io + Anthropic API endpoints. 2.2d lists 7 blockers (unknown endpoints, schemas, rate limits). Assumed blockers resolved before Sprint 1. | Assumption (inherited from 2.2d) | If blockers NOT resolved → integration client tasks blocked → cannot implement pipeline → Sprint 1 fails. MUST resolve 2.2d blockers #1-7 (verify API docs, test endpoints, confirm schemas) before starting Sprint 1. | Tasks 1.6.1, 1.7.1, 1.8.1, 1.8.2, 1.9.2 |
-| 3 | **Task 1.3.3 (onboarding category selection) placement.** Onboarding is part of auth flow (Screen #3) but not explicitly in Wedge features list. Assumed onboarding required for Sprint 1 because digest UI (Task 1.10.2) needs User.my_categories for filtering. | Assumption | If onboarding deferred → users cannot select categories → digest shows all categories unfiltered → poor UX. Must include in Sprint 1 OR default to "select all 10 categories" fallback. | Task 1.3.3 (depends on 1.4.1 categories seed) |
+| 3 | **Onboarding 2-step completeness (Screen #3 + #4).** Sau OAuth, user cần đi qua category selection rồi optional follow theo `my_categories` trước khi vào digest để tránh cold-start rỗng. | Assumption | Nếu bỏ Step 2 onboarding → user chưa follow KOL nào, My KOLs value bị chậm kích hoạt; cần CTA bù ở digest. | Tasks 1.3.3, 1.3.4, 1.3.5 |
 | 4 | **My KOLs filter toggle placement (Task 2.4.5) in Sprint 2 vs digest UI (Task 1.10.2) in Sprint 1.** Digest UI renders All Sources view Sprint 1. My KOLs toggle (Screen #6) adds filter. Conflict: toggle needs MySourceSubscription data (Sprint 2). Can founder dogfood My KOLs view in Sprint 1 kill checkpoint test? | Conflict | If My KOLs view needed for kill checkpoint → move Tasks 2.1-2.4 to Sprint 1 (increases Sprint 1 scope significantly). If not needed → Sprint 1 delivers All Sources view only, founder tests with all 500 sources (not personalized). Clarify kill checkpoint test scope. | Task 1.10.2 vs Task 2.4.5 |
 | 5 | **Stripe Checkout redirect vs embedded flow.** Task 3.1.1 assumes Stripe Checkout hosted page redirect (simpler). Alternative: embedded Checkout Elements (more control, more complexity). | Question | If embedded required (UX consistency) → add 1-2 days effort for Checkout Elements integration. If hosted OK → keep redirect approach. Affects frontend implementation. | Task 3.1.1 |
 | 6 | **Admin rank override endpoint not in Sprint 3.** 2.2a Permission Matrix mentions admin can "manual rank override" (assumption #3), but no endpoint or task defined. 2.2e assumption #16 flags conflict (Signal immutability vs admin override). | Conflict (inherited from 2.2e #16) | If admin rank override needed → add Task 3.4.3 (POST /api/admin/signals/{id}/rank endpoint + UI). If not needed → remove from Permission Matrix. Clarify with founder — pipeline accuracy spot-check requires override? | Sprint 3 Feature 3.4 (Pipeline Monitor) |
@@ -205,7 +221,7 @@ Bảng này mô tả **trạng thái sau amendment**; mọi thay đổi tiếp t
 | 13 | **“Flag as Noise” user feedback (Appendix A #17).** Phase 1 (Digest UI) vs Phase 2 — không có task roadmap. | Question | Nếu Phase 1 → thêm task UI + API/log tương ứng; nếu Phase 2 → giữ ngoài scope. | SPEC-plan Appendix A #17 |
 | 14 | **Clustering: prompt-based vs embeddings.** | **Đã chốt:** Phase 1 **prompt-based** (`SPEC-api` changelog 2026-04-06). | Embeddings = backlog / CR nếu sau này đổi chiến lược. | Task 1.8.1 |
 | 15 | **Admin role** | **Đã có:** `users.is_admin` trong `SPEC-api` §9 + middleware admin. | Seed / manual gán admin. | Tasks 3.3.x, 3.4.x |
-| 16 | **Personal feed Pro/Power** | **Schema/API đã lock** trong `SPEC-api`; triển khai job/UI **sau wedge**. | Không nằm trong 59 task roadmap hiện tại. | Sprint 2+ backlog |
+| 16 | **Personal feed Pro/Power** | **Schema/API đã lock** trong `SPEC-api`; triển khai job/UI **sau wedge**. | Không nằm trong 69 task roadmap hiện tại. | Sprint 2+ backlog |
 
 ---
 

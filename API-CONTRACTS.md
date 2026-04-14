@@ -4,6 +4,8 @@
 **Revised:** 2026-04-02 (all 30 gaps filled per technical review)  
 **Re-sync:** 2026-04-06: crawl **4×/ngày**; twitterapi.io primary **`advanced_search`** (Báo cáo POC); **`TweetFetchProvider`** abstraction; clustering Phase 1 **prompt-based**; `last_crawled_at` per source.  
 **Re-sync:** 2026-04-14: **Option B** (user-added source → `pending_review`) — crawl chỉ **`status=active`**; thông báo user sau moderation có thể dùng **Resend** (transactional) hoặc in-app — chi tiết task **`IMPLEMENTATION-ROADMAP.md`** **3.3.4** / **2.1.3–2.1.4**; REST nội bộ vẫn lấy từ **`SPEC-api.md`**.  
+**Re-sync:** 2026-04-14 (CR Archive/Settings/Language): bổ sung nhóm task 2.5.x/3.5.x cho **Save to Archive**, **Settings persistence**, **i18n**. Không thêm vendor mới; i18n dùng dictionary nội bộ + user locale preference qua internal API.
+**Re-sync:** 2026-04-15: bổ sung onboarding Step 2 (`/onboarding/sources`) lọc KOL theo `my_categories`, cho phép follow ngay bằng internal API subscribe hoặc skip vào digest; không phát sinh vendor mới.
 **Input:** Ideation v2.0 Section 7 + Domain Foundation (2.2a) + Architecture & State (2.2b) + Data Model (2.2c)  
 **Purpose:** Tóm tắt hợp đồng dịch vụ ngoài — **canonical = `SPEC-api.md` Section 10 + schema §9**. Nếu lệch, ưu tiên SPEC-api.
 
@@ -355,6 +357,7 @@
 | 6 | NFR audit logging scope: all services OR selective? | Dev effort (1-2 days if all), storage cost | NFR not provided. Assumed required for all. If NFR confirms NO → remove to save time. | Assumption #6 |
 | 7 | Free tier schedule: Mon/Wed/Fri locked OR configurable? | User expectation management, churn risk | Display clearly in signup. If high churn → consider configurable days Phase 2. | Assumption #7 |
 | 8 | My KOLs stats: cache strategy needed Phase 1? | Performance (if >2s load = UX hit) | Start on-demand, monitor Sprint 1. Add cache (Redis 1h TTL) if slow. | Assumption #8 |
+| 9 | i18n provider ngoài có cần cho Phase 1? | Scope/cost | **Không** — baseline en/vi dùng dictionary nội bộ; chưa dùng external translation API. | CR 2026-04-14 (2.5.7, 3.5.x) |
 | 9 | ~~Source review workflow~~ | Spam control vs user friction | **Đã chốt (CR 2026-04-13 / SPEC): Option B** — user-added → **`pending_review`**; admin **approve** → `active` rồi mới crawl/browse công khai. File này chỉ ghi thêm **Resend** có thể dùng cho thông báo sau duyệt. | `SPEC-core` §4, `SPEC.md`, `IMPLEMENTATION-ROADMAP.md` 3.3.x |
 | 10 | Category filter: OR confirmed OR needs founder decision? | Digest relevance, user satisfaction | 2.2a/2.2b conflict #24. Recommend OR logic (show if ANY match). Document as Hard Constraint #8. | 2.2a conflict #24, 2.2b conflict #16, Constraint #8 |
 

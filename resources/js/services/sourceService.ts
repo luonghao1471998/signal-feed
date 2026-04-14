@@ -18,6 +18,22 @@ export interface BrowseSource {
   is_subscribed: boolean;
 }
 
+export interface SubscribeResponse {
+  message: string;
+  current_count: number;
+  limit: number;
+  upgrade_required?: boolean;
+}
+
+export interface BulkSubscribeResponse {
+  message: string;
+  subscribed_count: number;
+  total_count: number;
+  limit: number;
+  hit_limit: boolean;
+  upgrade_required: boolean;
+}
+
 export interface SourceStats {
   signal_count: number;
   last_active_date: string | null;
@@ -133,7 +149,12 @@ async function parseErrorMessage(response: Response): Promise<string> {
 /**
  * GET /api/sources — public browse pool (active sources).
  */
-export async function fetchBrowseSources(): Promise<BrowseSource[]> {
+export async function fetchBrowseSources(params?: {
+  limit?: number;
+  onboarding?: boolean;
+  my_categories_only?: boolean;
+  per_page?: number;
+}): Promise<BrowseSource[]> {
   const headers: Record<string, string> = {
     Accept: "application/json",
     "X-Requested-With": "XMLHttpRequest",
@@ -143,7 +164,21 @@ export async function fetchBrowseSources(): Promise<BrowseSource[]> {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch("/api/sources", {
+  const query = new URLSearchParams();
+  if (params?.limit && params.limit > 0) {
+    query.set("limit", String(params.limit));
+  }
+  if (params?.onboarding) {
+    query.set("onboarding", "1");
+  }
+  if (params?.my_categories_only) {
+    query.set("my_categories_only", "1");
+  }
+  if (params?.per_page && params.per_page > 0) {
+    query.set("per_page", String(params.per_page));
+  }
+
+  const response = await fetch(`/api/sources${query.toString() ? `?${query.toString()}` : ""}`, {
     headers,
     credentials: "same-origin",
   });
@@ -224,7 +259,7 @@ export async function createSource(payload: CreateSourceRequest): Promise<Create
 /**
  * POST /api/sources/{id}/subscribe — follow KOL.
  */
-export async function subscribeToSource(sourceId: number): Promise<void> {
+export async function subscribeToSource(sourceId: number): Promise<SubscribeResponse> {
   await ensureSanctumCsrf();
 
   const response = await fetch(`/api/sources/${sourceId}/subscribe`, {
@@ -237,6 +272,57 @@ export async function subscribeToSource(sourceId: number): Promise<void> {
     const message = await parseErrorMessage(response);
     throw new SourceSubscriptionError(message, response.status);
   }
+
+  const json = (await response.json()) as {
+    message?: string;
+    current_count?: number;
+    limit?: number;
+    upgrade_required?: boolean;
+  };
+
+  return {
+    message: json.message ?? "Subscribed successfully",
+    current_count: json.current_count ?? 0,
+    limit: json.limit ?? 0,
+    upgrade_required: json.upgrade_required ?? false,
+  };
+}
+
+/**
+ * POST /api/sources/bulk-subscribe — follow multiple KOLs at once.
+ */
+export async function bulkSubscribeSources(sourceIds: number[]): Promise<BulkSubscribeResponse> {
+  await ensureSanctumCsrf();
+
+  const response = await fetch("/api/sources/bulk-subscribe", {
+    method: "POST",
+    headers: authFetchHeaders(),
+    credentials: "same-origin",
+    body: JSON.stringify({ source_ids: sourceIds }),
+  });
+
+  if (!response.ok) {
+    const message = await parseErrorMessage(response);
+    throw new SourceSubscriptionError(message, response.status);
+  }
+
+  const json = (await response.json()) as {
+    message?: string;
+    subscribed_count?: number;
+    total_count?: number;
+    limit?: number;
+    hit_limit?: boolean;
+    upgrade_required?: boolean;
+  };
+
+  return {
+    message: json.message ?? "Subscribed successfully",
+    subscribed_count: json.subscribed_count ?? 0,
+    total_count: json.total_count ?? 0,
+    limit: json.limit ?? 0,
+    hit_limit: json.hit_limit ?? false,
+    upgrade_required: json.upgrade_required ?? false,
+  };
 }
 
 /**
@@ -316,6 +402,7 @@ export async function getMySourcesStatsAPI(): Promise<MySourcesStatsResponse> {
 }
 
 export const sourceService = {
+  bulkSubscribeSources,
   createSource,
   getMySourcesAPI,
   getMySourcesStatsAPI,

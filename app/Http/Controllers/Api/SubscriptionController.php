@@ -7,6 +7,7 @@ use App\Models\MySourceSubscription;
 use App\Models\Source;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -14,19 +15,14 @@ use Illuminate\Support\Facades\DB;
 class SubscriptionController extends Controller
 {
     /**
-     * POST /api/sources/{id}/subscribe — Pro/Power: follow an active pool source (My KOLs).
+     * POST /api/sources/{id}/subscribe — follow an active pool source (My KOLs).
      */
-    public function subscribe(int $sourceId): JsonResponse
+    public function subscribe(Request $request, int $sourceId): JsonResponse
     {
-        $user = Auth::user();
-
-        if ($user->plan === 'free') {
-            return response()->json([
-                'message' => 'Subscription feature is only available for Pro and Power users. Please upgrade your plan.',
-            ], 403);
-        }
+        $user = $request->user() ?? Auth::user();
 
         $cap = match ($user->plan) {
+            'free' => 5,
             'pro' => 10,
             'power' => 50,
             default => 0,
@@ -40,15 +36,24 @@ class SubscriptionController extends Controller
                 ->count();
 
             if ($currentCount >= $cap) {
-                $upgradePlan = $user->plan === 'pro' ? 'Power' : null;
-                $message = $upgradePlan !== null
-                    ? "Subscription limit reached ({$cap} KOLs). Upgrade to {$upgradePlan} plan to follow more KOLs."
-                    : "Subscription limit reached ({$cap} KOLs).";
+                $upgradePlan = match ($user->plan) {
+                    'free' => 'Pro',
+                    'pro' => 'Power',
+                    default => null,
+                };
+                $message = "Subscription limit reached ({$cap} KOLs).";
+                if ($upgradePlan !== null) {
+                    $message = "Subscription limit reached ({$cap} KOLs). Upgrade to {$upgradePlan} plan to follow more KOLs.";
+                }
 
                 return response()->json([
+                    'error' => 'Subscription limit reached',
                     'message' => $message,
+                    'current' => $currentCount,
                     'current_count' => $currentCount,
                     'limit' => $cap,
+                    'upgrade_required' => in_array($user->plan, ['free', 'pro'], true),
+                    'upgrade_plan' => $user->plan === 'free' ? 'pro' : ($user->plan === 'pro' ? 'power' : null),
                 ], 400);
             }
 
@@ -74,8 +79,10 @@ class SubscriptionController extends Controller
 
             if ($exists) {
                 return response()->json([
-                    'message' => 'You are already subscribed to this source',
-                ], 409);
+                    'message' => 'Already subscribed',
+                    'current_count' => $currentCount,
+                    'limit' => $cap,
+                ], 200);
             }
 
             $tenantId = (int) ($user->tenant_id ?? 1);
@@ -95,6 +102,7 @@ class SubscriptionController extends Controller
             }
 
             return response()->json([
+                'message' => 'Subscribed successfully',
                 'data' => [
                     'source_id' => $source->id,
                     'handle' => $handle,
@@ -102,6 +110,117 @@ class SubscriptionController extends Controller
                     'subscribed_at' => $now->toIso8601String(),
                     'subscription_count' => $newCount,
                 ],
+                'current_count' => $newCount,
+                'limit' => $cap,
+                'upgrade_required' => $user->plan === 'free' && $newCount >= $cap,
+            ], 201);
+        });
+    }
+
+    /**
+     * POST /api/sources/bulk-subscribe — subscribe multiple sources with plan cap.
+     */
+    public function bulkSubscribe(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'source_ids' => 'required|array|max:50',
+            'source_ids.*' => 'integer|exists:sources,id',
+        ]);
+
+        $user = $request->user() ?? Auth::user();
+        $sourceIds = array_values(array_unique($validated['source_ids']));
+
+        $cap = match ($user->plan) {
+            'free' => 5,
+            'pro' => 10,
+            'power' => 50,
+            default => 0,
+        };
+
+        return DB::transaction(function () use ($user, $sourceIds, $cap): JsonResponse {
+            User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+
+            $currentCount = (int) MySourceSubscription::query()
+                ->where('user_id', $user->id)
+                ->count();
+
+            $remaining = $cap - $currentCount;
+            if ($remaining <= 0) {
+                return response()->json([
+                    'error' => 'Subscription limit reached',
+                    'message' => 'You have already reached your subscription limit',
+                    'limit' => $cap,
+                    'current' => $currentCount,
+                    'upgrade_required' => in_array($user->plan, ['free', 'pro'], true),
+                    'upgrade_plan' => $user->plan === 'free' ? 'pro' : ($user->plan === 'pro' ? 'power' : null),
+                ], 400);
+            }
+
+            $allowedSourceIds = array_slice($sourceIds, 0, $remaining);
+            if ($allowedSourceIds === []) {
+                return response()->json([
+                    'message' => 'No sources provided',
+                    'subscribed_count' => 0,
+                    'total_count' => $currentCount,
+                    'limit' => $cap,
+                    'hit_limit' => $currentCount >= $cap,
+                    'upgrade_required' => false,
+                ], 200);
+            }
+
+            $existingIds = MySourceSubscription::query()
+                ->where('user_id', $user->id)
+                ->whereIn('source_id', $allowedSourceIds)
+                ->pluck('source_id')
+                ->map(static fn ($id): int => (int) $id)
+                ->all();
+
+            $newSourceIds = array_values(array_diff($allowedSourceIds, $existingIds));
+            if ($newSourceIds === []) {
+                return response()->json([
+                    'message' => 'Already subscribed to all requested sources',
+                    'subscribed_count' => 0,
+                    'total_count' => $currentCount,
+                    'limit' => $cap,
+                    'hit_limit' => $currentCount >= $cap,
+                    'upgrade_required' => false,
+                ], 200);
+            }
+
+            $validSourceIds = Source::query()
+                ->whereIn('id', $newSourceIds)
+                ->where('status', 'active')
+                ->pluck('id')
+                ->map(static fn ($id): int => (int) $id)
+                ->all();
+
+            $tenantId = (int) ($user->tenant_id ?? 1);
+            $now = now();
+            $rows = [];
+            foreach ($validSourceIds as $sourceId) {
+                $rows[] = [
+                    'user_id' => $user->id,
+                    'source_id' => $sourceId,
+                    'tenant_id' => $tenantId,
+                    'created_at' => $now,
+                ];
+            }
+
+            if ($rows !== []) {
+                DB::table('my_source_subscriptions')->insert($rows);
+            }
+
+            $subscribedCount = count($validSourceIds);
+            $totalCount = $currentCount + $subscribedCount;
+            $hitLimit = $totalCount >= $cap;
+
+            return response()->json([
+                'message' => 'Subscribed successfully',
+                'subscribed_count' => $subscribedCount,
+                'total_count' => $totalCount,
+                'limit' => $cap,
+                'hit_limit' => $hitLimit,
+                'upgrade_required' => $hitLimit && $user->plan === 'free',
             ], 201);
         });
     }

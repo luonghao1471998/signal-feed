@@ -42,6 +42,7 @@ function AppRoutes() {
       </Route>
       <Route path="/onboarding" element={<OnboardingStep1 />} />
       <Route path="/onboarding/follow" element={<OnboardingStep2 />} />
+      <Route path="/onboarding/follow-kols" element={<OnboardingStep2 />} />
 
       <Route element={usePWALayout ? <PWALayout /> : <DesktopLayout />}>
         <Route path="/digest" element={<DigestPage />} />

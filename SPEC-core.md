@@ -125,11 +125,11 @@ SignalFeed aggregates signal from noise across 500+ curated tech/crypto/marketin
 | Daily digest web UI (mobile-first, card-based) | Native mobile app Phase 1 | 2.1 NFR #4 — PWA Phase 1, native app Phase 2 |
 | Twitter OAuth login only | Email/password, Google, GitHub auth | 2.1 NFR — OAuth X.com single provider |
 | Email digest delivery (Pro/Power) | Real-time Telegram alerts Phase 1 — defer to Phase 2 per 2.1 NFR. **Clarification:** "Real-time" in Strategy = misnomer. Pipeline runs **4×/day** → digest latency theo slot crawl + queue, không phải push tức thời. Phase 2 = "faster notification via Telegram". | Strategy Wedge Features — email Yes, Telegram defer per 2.1 |
-| English-only UI Phase 1 | Vietnamese, multi-language | 2.1 NFR #1 — i18n defer Phase 2 |
+| UI đa ngôn ngữ baseline en/vi Phase 1 | Mở rộng >2 ngôn ngữ ngay Phase 1 | CR 2026-04-14 — i18n foundation + language persistence |
 | UTC timezone hardcode (display Vietnam local) | User-selectable timezone Phase 1 | 2.1 NFR #2 — multi-timezone defer Phase 2 |
 | 3 plans: Free (3 digests/week), Pro ($9.9/mo), Power ($29.9/mo) | Enterprise plans, custom pricing | Strategy Pricing table |
 | Mon/Wed/Fri digest delivery for Free tier | Daily delivery Free tier, configurable schedule | 2.2d Constraint #9, Strategy Free tier design |
-| 30-day archive search (browse by date + category filter) | Full-text search, keyword search Phase 1 | 2.2a F20 — archive search = browse only Phase 1 |
+| Save + browse personal archive (date/category/search) | Full-text search semantic/keyword nâng cao Phase 1 | 2.2a F20 + CR 2026-04-14 (archive save/list) |
 | | Admin analytics dashboard Phase 1 | Strategy V1 MUST-NOT-HAVE #3 — feature không serve consumption/draft |
 | | Onboarding >3 steps | Strategy V1 MUST-NOT-HAVE #2 — keep 2 steps (category + optional KOL) |
 
@@ -145,7 +145,7 @@ SignalFeed aggregates signal from noise across 500+ curated tech/crypto/marketin
 
 | # | NFR Item | Decision | Impact | Phase |
 |---|----------|----------|--------|-------|
-| 1 | Internationalization (i18n) | DEFER Phase 2 (prep architecture) | +5% effort: message keys, i18n library setup, users.locale column | V1 prep, Phase 2 activate |
+| 1 | Internationalization (i18n) | Phase 1 baseline en/vi (foundation), mở rộng thêm locale ở Phase 2 | +8% effort: message keys, i18n provider setup, locale persistence | V1 active (en/vi), Phase 2 expand |
 | 2 | Multi-timezone | DEFER Phase 2 (prep architecture) | +5% effort: UTC storage mandatory, users.timezone column, display conversion helper | V1 prep, Phase 2 activate |
 | 3 | Multi-currency | NO (USD forever) | 0% effort: hardcode USD, no exchange rates | V1 |
 | 4 | Mobile app | DEFER Phase 2 (PWA Phase 1) | 0% effort: session-based OK. Optional: manifest.json (~2h) | V1 PWA, Phase 2 native |
@@ -505,6 +505,7 @@ Purpose: Domain spec for AI coding tools (Claude Code, Cursor, Antigravity)
 | SourceCategory | — | M:N junction | — | Links Source ↔ Category. 1 source can have multiple categories. | Section 3, F03 |
 | User | Platform | MySourceSubscriptions; Digests (view history) | 1:N | `plan` enum: `free`, `pro`, `power`. Has `my_categories` (array of category IDs at onboarding). Has `delivery_preferences` (json: email, telegram, web). | Section 3, Section 4, F01, F02 |
 | MySourceSubscription | User | — (junction) | M:N junction | Links User ↔ Source for personal watchlist. Pro max 10, Power max 50, Free = 0. Created via follow action. | Section 3, F06 |
+| UserArchivedSignal | User | — (junction) | M:N junction | Links User ↔ Signal for personal archive (save/unsave from digest). Unique `(user_id, signal_id)`; supports `/archive` list. | F20 + CR 2026-04-14 |
 | Tweet | Source | SignalSources (M:N) | N:1 (Source) → 1:N (Signals) | Raw tweet data from twitterapi.io. Fields: `tweet_id` (unique), text, timestamp, url; optional `tweet_kind`. Classification: `signal_score` (0–1), `is_signal` (boolean). Ingested on **scheduled crawl** (4×/day). | Section 3, F07, F08 |
 | Signal | Pipeline (system-generated) | SignalSources (M:N); DraftTweet | 1:N | `cluster_id` (unique), title, summary, `source_count`, `rank_score` (0–1), date. `categories` array (inferred from sources). `topic_tags` (1–3 AI tags). Phase 1: **shared** digest; per-user **supplement** = `user_personal_feed_entries` (Pro/Power, Sprint 2+). | Section 3, F09, F10, F11 |
 | UserPersonalFeedEntry | User | — | 1:1 per (user, date) | `SPEC-api` table `user_personal_feed_entries` — JSON `items` for Pro/Power when shared clusters miss My KOLs-only signal. Built **after** shared pipeline. | Amendment 2026-04-06 |
@@ -542,11 +543,11 @@ Phase 1: Signals are **shared**; Pro/Power **personal digest slice** is additive
 | F17 | Telegram Delivery | Digest, Signal, User (`delivery_preferences`, `plan='power'`) | — | ⚠ Partial — Telegram Bot API not detailed [based on assumption #21] |
 | F18 | Source Attribution | SignalSource (M:N Signal ↔ Tweet ↔ Source) | Flow 3 (attribution preserved), CRUD summary (signal detail view) | ✓ Covered |
 | F19 | Twitter Composer Link | DraftTweet, UserInteraction | Flow 5 (Open Twitter Composer) | ✓ Covered |
-| F20 | Signal Archive | Digest, Signal | — | ⚠ Partial — archive search not detailed; browse by date + filter only [based on assumption #22] |
+| F20 | Signal Archive | Digest, Signal, UserArchivedSignal | Flow 9 (Save/Unsave + List Archive) | ✓ Covered (save/list/filter). Full-text semantic search vẫn defer Phase 2 |
 | F21 | Source Management (Admin) | Source, SourceCategory | Flow 6 (Admin Reviews Source), CRUD summaries (add/edit default sources) | ✓ Covered |
 | F22 | Pipeline Monitor (Admin) | Tweet, Signal (metrics derived) | Flow 7 (Admin Monitors Pipeline) | ✓ Covered |
 
-Summary: 17 ✓ Covered, 5 ⚠ Partial. Partial features are integration-heavy (Stripe, email, Telegram, archive search) — deferred to implementation phase per Ideation Section 7 (Integration Points). Core domain logic fully covered.
+Summary: 18 ✓ Covered, 4 ⚠ Partial. Partial features còn lại chủ yếu là integration-heavy (Stripe, email, Telegram, nâng cao search archive) — deferred theo phase plan. Core domain logic fully covered.
 
 ---
 
@@ -559,6 +560,7 @@ Summary: 17 ✓ Covered, 5 ⚠ Partial. Partial features are integration-heavy (
 | SourceCategory | R (all 10) | R (all 10) | R (all 10) | R | Section 4, F03 |
 | Source | R (browse pool only) | R (browse + search pool), C (add new to pool, cap none [assumption #2]), assign (follow My Sources, cap 10) | R, C (add new), assign (cap 50) | C, R, U (edit categories), D (soft delete), approve (review user-added) | Section 4, Section 5 (Manage My Sources), F04, F05, F06 |
 | MySourceSubscription | — (none) | C (follow), D (unfollow) — cap 10 total | C, D — cap 50 total | R (view all users' lists) | Section 4, F06 |
+| UserArchivedSignal | C/R/D (self archive list) | C/R/D (self archive list) | C/R/D (self archive list) | R (for moderation/debug only) | F20 + CR 2026-04-14 |
 | Tweet | — | — | — | R (spot-check for accuracy) | Section 4, F22 |
 | Signal | R (3 digests/week, All Sources only, no topic filter [assumption #1]) | R (daily, filter category + topic + My Sources toggle) | R (daily + Telegram alerts) | R, U (manual rank override [assumption #3]) | Section 4, F13, F14, F17 |
 | DraftTweet | — (none) | R (view + copy) | R (view + copy) | R | Section 4, Section 5 (Daily Creation), F12, F19 |
@@ -608,6 +610,19 @@ Source: Section 5 (Manage My Sources), F06
 | Guards | Pro: subscription count &lt;10; Power: &lt;50; source exists; no duplicate follow |
 | Result | MySourceSubscription created; signals from source appear in My Sources digest filter |
 | Error Cases | Cap exceeded → upgrade prompt; already following → ignore or message; source soft-deleted → hide from browse, keep subscription [assumption #6] |
+
+Flow 2A: Onboarding Step 2 — Follow Suggested KOLs (or Skip)  
+Source: Screen #4 `/onboarding/sources`, Strategy onboarding 2-step
+
+| Field | Detail |
+|-------|--------|
+| Actor | Authenticated new user (sau khi hoàn tất category selection) |
+| Action | Xem danh sách KOL `status='active'` phù hợp `my_categories`, follow ngay hoặc skip |
+| Precondition | User đã có `my_categories` (1-3 category IDs) |
+| Steps | 1. Mở `/onboarding/sources` → 2. System lấy source list theo `my_categories` → 3. User click Follow (gọi Flow 2 subscribe API) cho từng KOL muốn theo dõi → 4. User chọn Continue/Skip → vào `/digest` |
+| Guards | Chỉ nguồn `active`; apply cap Pro/Power như Flow 2; skip luôn khả dụng để không chặn onboarding |
+| Result | User có thể có My KOLs subscriptions ngay từ onboarding, hoặc bỏ qua để vào digest |
+| Error Cases | 0 nguồn phù hợp → hiển thị empty state + nút skip; cap exceeded → show upgrade/unfollow message |
 
 Flow 3: Pipeline — Classify + Cluster + Summarize Cycle  
 Source: Section 3 (Pipeline), F07–F12
@@ -698,16 +713,43 @@ Source: 2026-04-06 sếp feedback — personal signals for My KOLs
   - "All Sources" → Show `type=0` (shared)
   - "My KOLs" → Show `type=1, user_id=X` (personal)
 
+Flow 9: User Saves Signal to Archive  
+Source: F20 + CR 2026-04-14 (Digest ↔ Archive sync)
+
+| Field | Detail |
+|-------|--------|
+| Actor | Authenticated user |
+| Action | Save/unsave signal from Digest card and view in Archive menu |
+| Precondition | Authenticated; signal exists in digest list/detail |
+| Steps | 1. User clicks Save (bookmark) on digest card → 2. API `POST /api/signals/{id}/archive` tạo UserArchivedSignal → 3. UI đổi trạng thái Saved (optimistic) → 4. User mở `/archive` → API `GET /api/archive/signals` trả list đã lưu (filter date/category/search) → 5. User unsave via `DELETE /api/signals/{id}/archive` |
+| Guards | Self-owned archive only; idempotent save/unsave; signal soft-deleted not returned in archive list |
+| Result | User có danh sách archive cá nhân đồng bộ từ digest |
+| Error Cases | Duplicate save → no-op (200/204); signal not found → 404; unauthenticated → 401 |
+
+Flow 10: User Updates Settings + Language  
+Source: Screen #12 + CR 2026-04-14 (settings persistence + i18n baseline)
+
+| Field | Detail |
+|-------|--------|
+| Actor | Authenticated user |
+| Action | Cập nhật profile/preferences/language trong Settings |
+| Precondition | Authenticated |
+| Steps | 1. Open `/settings` → 2. Load current settings `GET /api/settings` → 3. User cập nhật profile/digest preferences/my categories/language → 4. `PATCH /api/settings` persist → 5. UI apply locale ngay (en↔vi baseline) |
+| Guards | `plan` read-only (sync via Stripe webhook); locale allowlist (`en`, `vi` Phase 1) |
+| Result | Settings persisted and language preference reused after reload/login |
+| Error Cases | Invalid locale/category → 422; unauthenticated → 401 |
+
 ---
 
 CRUD Summaries (no full detail needed)
 
 User registration/login: OAuth X.com (2.1 NFR — single provider) + session/Sanctum; không dùng email+password làm primary Phase 1. CRUD summary F01 trước đây ghi email+password — **đã lệch** so với NFR + Sprint 1.1–1.3; coi OAuth là chuẩn triển khai.
 User selects categories (onboarding): Pick 1-3 from 10, saved to user.my_categories (F03, Section 5 Onboarding).
-User updates delivery preferences: Toggle email/telegram/web in settings (F02, Section 3).
+User updates delivery preferences + language: Toggle email/telegram/web + locale in settings (F02, Screen #12).
 User views Signal detail: Click signal → modal/page showing full summary, all sources with links, draft (F13, F18).
 User searches sources: Text search by name/@handle in Browse view (F06).
 User unfollows source: Delete MySourceSubscription (F06).
+User saves signal to archive: Save/unsave from digest card; archived list in `/archive` (F20).
 Admin adds default source: Create Source (type='default'), assign categories (F04, F21).
 Admin edits source categories: Update SourceCategory links (F21).
 System creates daily Digest: Cron job at midnight UTC, creates Digest(date=today) if not exists [based on assumption #18].
@@ -1023,6 +1065,22 @@ Validation:
 Unique constraint on (user_id, source_id).
 Cap enforcement per 2.2a Flow 2 Guards: Pro max 10, Power max 50, Free = 0.
 Per 2.2a Permission Matrix: Free users have no MySourceSubscription records.
+
+UserArchivedSignal (M:N junction — User ↔ Signal for Archive)  
+Lifecycle: Simple flag  
+Lifecycle Source: F20 + CR 2026-04-14 (archive save/list flow)
+
+| Field | Type | Required | Source | Validation | Notes |
+|-------|------|----------|--------|------------|-------|
+| id | identifier | yes | platform convention — PK standard | reference integrity | — |
+| user_id | relation → User | yes | archive save action | reference integrity | — |
+| signal_id | relation → Signal | yes | archive save action | reference integrity | — |
+| created_at | date-time | yes | audit metadata | — | timestamp saved to archive |
+
+Validation:
+
+Unique constraint on `(user_id, signal_id)`.
+Used by `GET /api/archive/signals` for personal archive listing.
 
 
 Tweet  

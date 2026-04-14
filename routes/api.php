@@ -28,6 +28,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/sources', [SourceController::class, 'store']);
     Route::post('/sources/{sourceId}/subscribe', [SubscriptionController::class, 'subscribe'])
         ->whereNumber('sourceId');
+    Route::post('/sources/bulk-subscribe', [SubscriptionController::class, 'bulkSubscribe']);
     Route::delete('/sources/{sourceId}/subscribe', [SubscriptionController::class, 'unsubscribe'])
         ->whereNumber('sourceId');
     Route::get('/my-sources', [MySourcesController::class, 'index']);

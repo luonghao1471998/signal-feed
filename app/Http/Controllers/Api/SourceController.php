@@ -22,8 +22,12 @@ class SourceController extends Controller
         $validated = $request->validate([
             'search' => 'nullable|string|max:100',
             'category_id' => 'nullable|integer|exists:categories,id',
+            'onboarding' => 'nullable|boolean',
+            'my_categories_only' => 'nullable|boolean',
+            'per_page' => 'nullable|integer|min:1|max:50',
         ]);
 
+        $authUser = Auth::guard('sanctum')->user() ?? $request->user();
         $query = Source::query()
             ->where('status', 'active')
             ->with('categories')
@@ -49,10 +53,32 @@ class SourceController extends Controller
             });
         }
 
+        $onboarding = filter_var($validated['onboarding'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $myCategoriesOnly = filter_var($validated['my_categories_only'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        if ($onboarding && $myCategoriesOnly && $authUser) {
+            $userCategoryIds = array_values(array_filter(
+                (array) ($authUser->my_categories ?? []),
+                static fn ($id): bool => is_int($id) || ctype_digit((string) $id)
+            ));
+
+            if ($userCategoryIds === []) {
+                $query->whereRaw('1 = 0');
+            } else {
+                $userCategoryIds = array_map(static fn ($id): int => (int) $id, $userCategoryIds);
+                $query->whereHas('categories', static function ($categoryQuery) use ($userCategoryIds): void {
+                    $categoryQuery->whereIn('categories.id', $userCategoryIds);
+                });
+            }
+        }
+
+        $perPage = (int) ($validated['per_page'] ?? 0);
+        if ($perPage > 0) {
+            $query->limit($perPage);
+        }
+
         $sources = $query->get();
 
         $subscribedIds = [];
-        $authUser = Auth::guard('sanctum')->user() ?? $request->user();
         if ($authUser) {
             $subscribedIds = MySourceSubscription::query()
                 ->where('user_id', $authUser->id)

@@ -1,9 +1,9 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-14 (Task 2.4.4 complete)
+**Last Updated:** 2026-04-14 (Task 1.3.4 complete)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 2 — My KOLs
-**Completed Task:** **2.4.4** — Build My KOLs Stats Screen #9 ✅ — 2026-04-14
+**Completed Task:** **1.3.4** — Enable subscribe API for onboarding follow step ✅ — 2026-04-14
 **Next Task:** **2.4.5** — Add My KOLs filter toggle to Digest View
 **Status:** Sprint 2; subscription APIs + Browse/Search + My KOLs list UI + stats dashboard ✅; next **2.4.5**
 
@@ -439,18 +439,32 @@ _(Roadmap tiếp: **2.4.5** digest filter toggle / **2.5.x** personal feed — `
 
 ### Phase 2: Auth + Data Seed (Tasks 1.3-1.5) — 8 tasks
 
-**Status:** 6/8 complete (75%)
+**Status:** 8/8 complete (100%)
 
 - [x] 1.3.1 - OAuth X.com redirect + callback flow ✅
 - [x] 1.3.2 - OAuth token exchange + user upsert (merged với 1.3.1) ✅
-- [ ] 1.3.3 - Onboarding Screen #3: Category selection
+- [x] 1.3.3 - Onboarding Screen #3: Category selection ✅
+- [x] 1.3.4 - Enable subscribe API for onboarding follow step ✅
+- [x] 1.3.5 - Onboarding Screen #4: `/onboarding/sources` filter by `my_categories` + follow/skip ✅
 - [x] 1.4.1 - Seed 10 categories migration ✅
 - [x] 1.4.2 - Implement GET /api/categories endpoint ✅
 - [x] 1.5.1 - Create source pool CSV seed data ✅
 - [x] 1.5.2 - Implement source pool seed script ✅
 - [x] 1.5.3 - Implement GET /api/sources endpoint ✅
 
-**Next Task:** **1.3.3** (onboarding polish) hoặc **1.11.3** (metadata) _( **1.10.1** ✅, **1.10.2** ✅, **1.11.1** ✅, **1.11.2** ✅ )._
+**Next Task:** **1.11.3** (metadata) hoặc **2.4.5** (My KOLs filter toggle) _( **1.10.1** ✅, **1.10.2** ✅, **1.11.1** ✅, **1.11.2** ✅ )._
+
+#### Task 1.3.4: Enable subscribe API for onboarding follow step
+**Status:** ✅ COMPLETED (2026-04-14)
+**Implementation:**
+- Subscribe API supports Free users (cap: 5 KOLs)
+- Bulk subscribe API created for "Follow all" button
+- Source filtering by my_categories implemented (server-side)
+- Plan enforcement: free=5, pro=10, power=50
+- Upgrade prompts when Free users hit cap
+- Manual testing completed (cURL + browser)
+**Files:** SubscriptionController.php, SourceController.php, OnboardingStep2.tsx, sourceService.ts
+**Testing:** Manual only (no automated tests, DB-safe)
 
 ### Phase 3: Tweet Crawling (Tasks 1.6) — 3 tasks
 
@@ -697,7 +711,7 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
 ### Phase Progress
 
 - ✅ Phase 1: Setup + Infrastructure (**8/8** — 100%)
-- ✅ Phase 2: Auth + Data Seed (**6/8** — 75%)
+- ✅ Phase 2: Auth + Data Seed (**8/8** — 100%)
 - ✅ Phase 3: Tweet Crawling (**3/3** — 100%)
 - ✅ **Phase 4: AI Pipeline** (**8/8** — **100%**)
   - ✅ Task 1.7.1: Signal Generator Service

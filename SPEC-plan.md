@@ -37,7 +37,7 @@
 | 3a | **Pipeline overlap / long run** (4× daily schedule: job duration may exceed slot) | With **4 runs/day**, overlap risk = same as before if one run exceeds time until next slot. Use **single-flight** lock (`Cache::lock` / `WithoutOverlapping`) on pipeline job; stagger source crawl inside run. | 2.2a Flow 3 (2026-04-06: **4× daily**). 2.2b Job/Queue Pattern. twitterapi stagger + `last_crawled_at`. |
 | 4 | **OAuth X.com flow end-to-end** (redirect → authorize → token exchange → user upsert → session create) | Auth boundary. Only auth method Phase 1 (2.1 NFR). Token refresh + revoke edge cases. Audit logging required (NFR #10). | 2.1 NFR OAuth X.com flow diagram. 2.2a CRUD summary (User registration/login). audit_logs table (2.2e schema). |
 | 5 | **Stripe webhook plan sync** (checkout.session.completed, subscription.updated, subscription.deleted, payment_failed) | Money boundary. Plan sync ONLY via webhook (2.2d Constraint #7). Idempotency critical (Constraint #2). Downgrade cleanup conflict unresolved (2.2b assumption #10). | 2.2d Phần 2 Stripe webhooks. 2.2e Stripe Webhook Handler. 2.2d Constraint #7 (plan sync webhook-only). 2.2b assumption #10 (downgrade cleanup strategy). |
-| 6 | **Category filter OR logic** (signal with categories ["AI", "Crypto"], user filters "AI" → signal shows) | User experience. Filter logic affects digest relevance (2.2b conflict #16 resolved as OR). Multi-category signals common per Ideation risk flag. **Cluster ID uniqueness:** Signal.cluster_id must be globally unique to prevent duplicate signals when same event spans multiple categories. | 2.2d Constraint #8 (category filter OR logic). 2.2a conflict #24 (filter behavior). 2.2e List Signals endpoint (Postgres array overlap operator). **Gap clarification:** Technical Review gap #1.3 — Cluster ID strategy = UUID or date_hash globally unique (implementation phase confirms). |
+| 6 | **Category filter OR logic** (signal with categories ["AI", "Crypto"], user filters "AI" → signal shows) | User experience. Filter logic affects digest relevance (2.2b conflict #16 resolved as OR). Multi-category signals common per Ideation risk flag. **Cluster ID uniqueness:** `cluster_id` cần unique trong scope (`type`,`user_id`,`date`) để tránh collision giữa shared/personal pipeline. | 2.2d Constraint #8 (category filter OR logic). 2.2a conflict #24 (filter behavior). 2.2e List Signals endpoint (Postgres array overlap operator). **Gap clarification:** Align với `SPEC-api` unique key `(type, user_id, cluster_id, date)`. |
 | 7 | **Free tier Mon/Wed/Fri restriction** (digest delivery job skips Tue/Thu/Sat/Sun for Free users) | Revenue protection. Free tier funnel (Strategy V1 Rule #5). Cron job logic + plan check. | 2.2d Constraint #9 (Free tier schedule). Strategy Pricing (Free: 3 digests/week). 2.2a assumption #1 (Mon/Wed/Fri schedule). |
 | 7a | **Draft usage tracking** (copy_draft action = proxy for "post" measurement) | Moat metric dependency. Strategy V1 Rule #1 "log mọi interaction". Phase 2 moat trigger = "draft usage >30%". **Clarification:** Cannot track actual Twitter post (external platform), use copy_draft action as proxy. Acceptable limitation — user copied = intent to use. | 2.2a Flow 5 (UserInteraction.action='copy_draft'). Strategy Moat Stack Phase 2 (draft usage >30% trigger). **Gap addressed:** Technical Review gap #3.2 — tracking = copy action, not external post verification. |
 | 8 | **External service contract validation** (twitterapi.io crawl, Anthropic API classify/summarize, Resend email, Telegram alerts) | Dependency risk. 6 external services (2.2d). 18 failure modes documented. Contract compliance = production reliability. | 2.2d Phần 2 (6 services, 23 endpoints). 2.2d Phần 4 (18 failure modes). Test mocks/stubs for contracts when blockers #1-7 resolved. |
@@ -252,7 +252,7 @@ signalfeed/                          -- [Laravel project root]
 | 1 | Landing Page | `/` | Unauthenticated (public) | N/A | N/A — static marketing page | Ideation Section 5 (User Flows — Onboarding) |
 | 2 | OAuth Callback | `/auth/twitter/callback` | Unauthenticated (OAuth flow) | User | N/A — redirect handler | 2.1 NFR OAuth X.com flow, 2.2e Auth endpoints |
 | 3 | Onboarding Step 1: Category Selection | `/onboarding/categories` | Authenticated (new user, no my_categories) | Category | N/A — CRUD only (Category static) | 2.2a CRUD summary (User selects categories), Strategy V1 Rule #2 (onboarding ≤3 steps) |
-| 4 | Onboarding Step 2: Optional KOL Follow | `/onboarding/sources` (optional step) | Authenticated (new user) | Source | source.status = 'active' (only show active sources) | 2.2a Flow 1 (Add Source — optional at onboarding), Strategy V1 Rule #2 |
+| 4 | Onboarding Step 2: Optional KOL Follow | `/onboarding/sources` (optional step) | Authenticated (new user) | Source | source.status = 'active' (only show active sources), list filtered by `my_categories`, actions: Follow or Skip | Flow 2A (onboarding follow/skip), Strategy V1 Rule #2 |
 | 5 | Digest View (All Sources) | `/digest` or `/digest/:date` | Authenticated (Free: Mon/Wed/Fri only, Pro/Power: daily) | Signal | N/A — CRUD only (signals shared, no user state) | 2.2a F13 (Digest Web — All), 2.2e List Signals endpoint, 2.2d Constraint #9 (Free tier schedule) |
 | 6 | Digest View (My KOLs Filter Toggle) | `/digest?my_sources_only=true` | Authenticated (Pro, Power only) | Signal + MySourceSubscription | N/A — filter state in query param | 2.2a F14 (Digest Web — My KOLs), Flow 4, 2.2e List Signals my_sources_only param |
 | 7 | Signal Detail Modal | `/digest` (modal overlay, not separate route) | Authenticated (all tiers) | Signal | N/A — CRUD only | 2.2a CRUD summary (User views Signal detail), 2.2e Get Signal Detail endpoint |
@@ -260,10 +260,11 @@ signalfeed/                          -- [Laravel project root]
 | 9 | My KOLs Stats | `/my-sources/stats` | Authenticated (Pro, Power only) | Signal + MySourceSubscription (computed stats) | N/A — computed fields | 2.2a F15 (My KOLs Stats), Flow 4, 2.2e My KOLs Stats endpoint |
 | 10 | Browse Source Pool | `/sources` | Authenticated (all tiers. Free: read-only, Pro/Power: can add/subscribe) | Source | source.status = 'active' (default filter), source.type = 'default'/'user' | 2.2a F06 (Browse pool), 2.2e List Sources endpoint, Permission Matrix (Free: read-only) |
 | 11 | Add Source Form | `/sources/add` (modal OR separate page) | Authenticated (Pro, Power only) | Source | Sau submit: **`status='pending_review'`** (`type='user'`, Option B — chờ admin duyệt trước crawl) | 2.2a Flow 1, SPEC-core Section 4 Option B, `POST /api/sources` (SPEC-api) |
-| 12 | User Settings | `/settings` | Authenticated (self-owned) | User | plan = 'free'/'pro'/'power' (read-only, plan sync via Stripe webhook) | 2.2a CRUD summary (User updates preferences), 2.2e Update User Preferences endpoint, 2.2d Constraint #7 |
+| 12 | User Settings | `/settings` | Authenticated (self-owned) | User | plan = 'free'/'pro'/'power' (read-only, plan sync via Stripe webhook); locale persisted (`en`/`vi` baseline) | 2.2a CRUD summary (User updates preferences), 2.2e `GET/PATCH /api/settings`, 2.2d Constraint #7 |
 | 13 | Admin: Source moderation queue | `/admin/sources?type=user&status=pending_review` (optional `?status=`) | Admin only | Source | Queue chính `pending_review`; action chính `approve` để chuyển `active`, ngoài ra spam/deleted/restore | 2.2a Flow 6 Option B, `GET/PATCH /api/admin/sources` (SPEC-api) |
 | 14 | Admin: Pipeline Monitor | `/admin/pipeline` | Admin only | N/A (system metrics) | N/A — derived metrics from logs/DB | 2.2a Flow 7 (Pipeline Monitor), 2.2e Pipeline Monitor Dashboard endpoint |
 | 15 | Privacy Policy | `/privacy` | Public | N/A | N/A — static page | 2.1 NFR #11 (GDPR — privacy policy required) |
+| 16 | Archive | `/archive` | Authenticated users | Signal + UserArchivedSignal | archived/non-archived toggle state per signal; list filters (date/category/search) | F20 + CR 2026-04-14, `GET /api/archive/signals`, `POST/DELETE /api/signals/{id}/archive` |
 
 **Notes:**
 - **SCREEN TÁCH RULE applied:** Screens 5 + 6 = SAME SCREEN (`/digest`) because same route pattern, same entity (Signal), same permissions (auth required). `my_sources_only` = filter toggle state, not separate screen.
@@ -271,6 +272,7 @@ signalfeed/                          -- [Laravel project root]
 - Screen 11 (Add Source) = modal OR separate page — implementation phase decides. Listed as separate screen because distinct flow (Flow 1) with guards. **Option B:** response hiển thị source đang **pending_review** sau khi thêm.
 - Screen 13 = queue duyệt `pending_review` (approve/spam/category/soft delete/restore) trước khi source được crawl.
 - Screens 2, 15 = functional pages (OAuth callback, privacy policy) — no interactive UI beyond redirect/display.
+- Screen 16 Archive là personal list; nguồn dữ liệu đến từ action Save/Unsave ở Digest cards.
 - Auth screens (login/register) NOT listed separately — OAuth X.com flow handled via Screen 2 callback. Login button on Screen 1 landing page redirects to X OAuth, callback to Screen 2, redirect to Screen 3 (onboarding) or Screen 5 (digest).
 
 ---
@@ -280,13 +282,13 @@ signalfeed/                          -- [Laravel project root]
 | Role | Screens Accessible | Source |
 |------|-------------------|--------|
 | **Unauthenticated** | #1 (Landing), #2 (OAuth callback), #15 (Privacy policy) | 2.2a Permission Matrix (Public = landing only) |
-| **Free User** | #3-7, #10, #12, #15 (NOT: #8, #9, #11 = Pro+ features) | 2.2a Permission Matrix (Free: no My KOLs, no drafts in detail, read-only browse), 2.2d Constraint #9 (digest 3x/week) |
-| **Pro User** | #3-12, #15 (all user screens except admin) | 2.2a Permission Matrix (Pro: My KOLs cap 10, daily digest, drafts) |
-| **Power User** | #3-12, #15 (same as Pro, cap difference = 50 My KOLs) | 2.2a Permission Matrix (Power: My KOLs cap 50, Telegram alerts Phase 2) |
-| **Admin** | #3-15 (all screens) | 2.2a Permission Matrix (Admin: source moderation queue + approve, pipeline monitor) |
+| **Free User** | #3-7, #10, #12, #15, #16 (NOT: #8, #9, #11 = Pro+ features) | 2.2a Permission Matrix + F20 Archive |
+| **Pro User** | #3-12, #15, #16 (all user screens except admin) | 2.2a Permission Matrix (Pro: My KOLs cap 10, daily digest, drafts) |
+| **Power User** | #3-12, #15, #16 (same as Pro, cap difference = 50 My KOLs) | 2.2a Permission Matrix (Power: My KOLs cap 50, Telegram alerts Phase 2) |
+| **Admin** | #3-16 (all screens) | 2.2a Permission Matrix (Admin: source moderation queue + approve, pipeline monitor) |
 
 **Cross-Check:**
-- Every screen (#1-15) accessible by at least 1 role ✓
+- Every screen (#1-16) accessible by at least 1 role ✓
 - Free users CANNOT access #8 (My KOLs List), #9 (Stats), #11 (Add Source) — enforced by 403 FORBIDDEN per 2.2e endpoint guards ✓
 - Admin-only screens (#13 moderation, #14 pipeline) — enforced by **`users.is_admin`** + middleware per `SPEC-api` ✓
 
@@ -311,11 +313,11 @@ signalfeed/                          -- [Laravel project root]
 
 | Sprint | Goal | Tag Distribution | Kill Gate |
 |--------|------|-----------------|-----------|
-| Sprint 1 | Deliver Wedge scope: crawl pipeline + AI processing + digest UI + drafts — sufficient to test kill checkpoint (founder dogfood + landing page signup + Reddit seeding) | 7 WEDGE + 5 SUPPORT | ✓ Kill Checkpoint |
+| Sprint 1 | Deliver Wedge scope: crawl pipeline + AI processing + digest UI + drafts + onboarding 2-step hoàn chỉnh — sufficient to test kill checkpoint (founder dogfood + landing page signup + Reddit seeding) | 7 WEDGE + 7 SUPPORT | ✓ Kill Checkpoint |
 | Sprint 2 | Add My KOLs subscription + stats + user-added sources — complete Pro tier value proposition | 4 POST-WEDGE + 0 SUPPORT | — |
 | Sprint 3 | Add plan enforcement + billing + Free tier restrictions + admin tools — production-ready multi-tier SaaS | 4 POST-WEDGE + 0 SUPPORT | — |
 
-**Đồng bộ số task (2026-04-14):** Chi tiết đánh số **`IMPLEMENTATION-ROADMAP.md`** — **59** task (Sprint 1: **34**; Sprint 2: **14** — thêm **2.1.3** API “my submissions”, **2.1.4** UI; Sprint 3: **11** — thêm **3.3.4** thông báo người gửi sau moderation). Nhóm admin **3.3.x** trong roadmap có thể lên lịch **song song / trước** Stripe nếu cần đóng vòng Option B — xem cột *Depends On* trong roadmap.
+**Đồng bộ số task (2026-04-15):** Chi tiết đánh số **`IMPLEMENTATION-ROADMAP.md`** — **69** task (Sprint 1: **36**; Sprint 2: **21**; Sprint 3: **14**). Bổ sung onboarding Step 2 hoàn chỉnh với task **1.3.4–1.3.5** (subscribe API sớm + UI `/onboarding/sources` filter theo `my_categories`, follow/skip). Nhóm admin **3.3.x** trong roadmap có thể lên lịch **song song / trước** Stripe nếu cần đóng vòng Option B — xem cột *Depends On* trong roadmap.
 
 ---
 
@@ -488,7 +490,7 @@ Theo **playbook 2.2h:** task-level roadmap **không** nằm trong SPEC / Section
 | 19 | Stripe Checkout integration details deferred to implementation (session creation, webhook handling, plan sync). Ideation Section 7 mentions Stripe but F02 doesn't detail flow. | Assumption | Integration complexity could exceed estimate. Webhook failures could desync plans. | Feature Coverage Check (F02 Partial) |
 | 20 | Email delivery mechanism (Resend/SendGrid API integration, template rendering, scheduling) deferred. Ideation F16 + Section 7 mention service but no flow detail. | Assumption | Integration complexity could exceed estimate. Deliverability issues could reduce email open rate. | Feature Coverage Check (F16 Partial) |
 | 21 | Telegram Bot API integration (bot setup, user chat_id mapping, real-time alert delivery) deferred. Ideation F17 + Section 7 mention but no flow detail. | Assumption | Real-time delivery might need webhook infra (not just polling). User must /start bot → onboarding friction. | Feature Coverage Check (F17 Partial) |
-| 22 | Archive search = browse by date + category/topic filter only (no full-text search Phase 1). Ideation F20 says "searchable" but no spec. Full-text search adds complexity (search index, query parsing). | Assumption | If users expect keyword search → feature gap. If browse-only sufficient → simpler implementation. | Feature Coverage Check (F20 Partial) |
+| 22 | Archive search scope Phase 1 = date/category/topic + basic text search; không full-text semantic. | Assumption | Nếu kỳ vọng semantic/full-text ranking ngay Phase 1 → feature gap; nếu browse + basic search đủ thì triển khai gọn hơn. | CR 2026-04-14 (`/api/archive/signals`) + Phase 2 search enhancement |
 | 23 | CONFLICT: Section 4 (Users & Roles) says Free users get "3 digests/tuần (All Sources view only)" but Section 9 (Phase 1 Boundaries) decisions table says Free users have "no My Sources" which is consistent. However, Section 5 (User Flows — Daily Consumption) describes "Pro user" flow only — no Free user consumption flow documented. | Conflict | Missing Free user consumption flow spec → implementation ambiguity. Need to clarify: can Free users filter by category? Can they click into signal details? Can they see sources? | Permission Matrix (Free User row — marked "All Sources view only"), Feature Coverage Check (F13 — Free tier access not detailed) |
 | 24 | CONFLICT: Ideation Section 11 (Technical Risk Flags) warns "Cross-category signal overlap — 1 event có sources từ nhiều categories → phải cluster thành 1 signal" BUT Section 3 (Domain Model) Signal entity says "categories: array, inferred từ sources" (plural). Pipeline flow says "cluster toàn bộ trước, gán categories sau" which is correct. However, F13/F14 filtering behavior not clear: if user selects category filter "AI & ML" and signal has categories ["AI & ML", "Crypto"], does it show? | Conflict | If filter = exact match → miss relevant signals. If filter = contains → correct but needs explicit spec. Affects user experience (signal visibility). | Flow 3 (categories assignment logic described but filter behavior not), Feature Coverage Check (F13 — filter logic not detailed) |
 
