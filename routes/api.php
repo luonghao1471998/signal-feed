@@ -27,6 +27,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/sources', [SourceController::class, 'store']);
     Route::post('/sources/{sourceId}/subscribe', [SubscriptionController::class, 'subscribe'])
         ->whereNumber('sourceId');
+    Route::delete('/sources/{sourceId}/subscribe', [SubscriptionController::class, 'unsubscribe'])
+        ->whereNumber('sourceId');
     Route::get('/signals', [SignalController::class, 'index']);
     Route::post('/signals/{id}/draft/copy', [DraftController::class, 'copy'])->whereNumber('id');
     Route::get('/signals/{id}', [SignalController::class, 'show'])->whereNumber('id');

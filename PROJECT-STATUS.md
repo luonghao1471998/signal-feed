@@ -1,11 +1,11 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-14 (Task 2.2.1 complete)
+**Last Updated:** 2026-04-14 (Task 2.2.2 complete)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 2 — My KOLs
-**Completed Task:** **2.2.1** — `POST /api/sources/{id}/subscribe` (cap, composite PK, transaction lock) ✅ — 2026-04-14
-**Next Task:** **2.2.2** — `DELETE /api/sources/{id}/subscribe` _(hoặc **2.1.3** my submissions / admin queue — tùy ưu tiên)_
-**Status:** Sprint 2; subscribe API ✅; next **2.2.2** unsubscribe + UI chain
+**Completed Task:** **2.2.2** — `DELETE /api/sources/{id}/subscribe` (idempotent unsubscribe, 204 No Content) ✅ — 2026-04-14
+**Next Task:** **2.2.3** — Follow/Unfollow buttons to Browse Source Pool UI _(hoặc **2.1.3** my submissions / admin queue — tùy ưu tiên)_
+**Status:** Sprint 2; subscribe + unsubscribe APIs ✅; next **2.2.3** UI integration
 
 ---
 
@@ -13,7 +13,7 @@
 
 **Đồng bộ roadmap 2026-04-14:** Sprint 2 = **14** task (thêm **2.1.3** / **2.1.4**); tổng dự án **59** task — xem `IMPLEMENTATION-ROADMAP.md`.
 
-**Progress (14 tasks):** **3 / 14** (~21%)
+**Progress (14 tasks):** **4 / 14** (~29%)
 
 ### ✅ Task 2.1.1: `POST /api/sources` — COMPLETED (2026-04-13)
 
@@ -59,7 +59,7 @@
 - ✅ Task 2.1.1: POST /api/sources endpoint (Option B) - Complete
 - ✅ Task 2.1.2: Add Source Form (pending_review queue) - Complete
 - ✅ Task 2.2.1: Implement POST /api/sources/{id}/subscribe endpoint — **COMPLETED 2026-04-14** (`SubscriptionController`, cap Pro≤10/Power≤50, `auth:sanctum`, manual tests 10/10)
-- ⏳ Task 2.2.2: Implement DELETE /api/sources/{id}/subscribe endpoint
+- ✅ Task 2.2.2: Implement DELETE /api/sources/{id}/subscribe endpoint — **COMPLETED 2026-04-14** (idempotent delete + `204 No Content`, source `404`, auth `401`)
 
 _(Roadmap tiếp: **2.2.3** Follow/Unfollow UI — `IMPLEMENTATION-ROADMAP.md`.)_
 
@@ -72,7 +72,7 @@ _(Roadmap tiếp: **2.2.3** Follow/Unfollow UI — `IMPLEMENTATION-ROADMAP.md`.)
 | Task | Status | Assignee | Notes |
 |------|--------|----------|-------|
 | 2.2.1 `POST /api/sources/{id}/subscribe` | ✅ COMPLETED | Dev Team | Cap enforcement (Pro≤10, Power≤50), composite PK handling, `DB::transaction` + `lockForUpdate()`, `DB::table` insert for junction row. Manual tests 10/10 (tinker + curl). Ready for **2.2.2**. |
-| 2.2.2 `DELETE /api/sources/{id}/subscribe` | ⏳ PENDING | — | Unsubscribe / inverse of 2.2.1 (`SPEC-api`, roadmap **2.2.2**) |
+| 2.2.2 `DELETE /api/sources/{id}/subscribe` | ✅ COMPLETED | Dev Team | Idempotent unsubscribe (`204`), source validation (`404`), `auth:sanctum` (`401` unauthenticated), self-owned delete via `WHERE user_id`. Manual tests 7/7 passed. |
 | 2.2.3 Follow/Unfollow UI (browse pool) | ⏳ PENDING | — | Screen #10 — roadmap **2.2.3** _(depends **2.2.1**, **2.2.2**)_ |
 
 **Ghi chú:** `GET /api/my-sources` = roadmap **2.4.1** (My KOLs list), không phải 2.2.3.
@@ -180,6 +180,7 @@ _(Roadmap tiếp: **2.2.3** Follow/Unfollow UI — `IMPLEMENTATION-ROADMAP.md`.)
 **Last Updated:** 2026-04-14
 
 **Recent Completions:**
+- ✅ Task 2.2.2: `DELETE /api/sources/{id}/subscribe` — idempotent unsubscribe, manual 7/7 (2026-04-14)
 - ✅ Task 2.2.1: `POST /api/sources/{id}/subscribe` — `SubscriptionController`, cap + transaction lock, manual 10/10 (2026-04-14)
 - ✅ Task 2.1.2: Add Source Form (Option B) — `AddSourceModal` + `pending_review` (2026-04-14)
 - ✅ Task 2.1.1: `POST /api/sources` — add user source + H1 + manual 9/9 (2026-04-13)

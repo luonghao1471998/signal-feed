@@ -1,5 +1,190 @@
 # Session Log - 20260406-001
 
+## 2026-04-14 - Task 2.2.2: `DELETE /api/sources/{id}/subscribe` — 📋 SPEC / IMPLEMENTATION PLAN
+
+**Status:** 📋 Documented — implementation pending  
+**Objective:** API endpoint cho phép Pro/Power users unsubscribe (unfollow) KOL sources khỏi My KOLs list.
+
+**Dependencies (đã thỏa):**
+- ✅ Task 2.2.1: `POST /api/sources/{id}/subscribe`
+- ✅ Task 1.2.3: `my_source_subscriptions` table
+
+### Scope — Core
+
+1. **`DELETE /api/sources/{id}/subscribe`**
+   - Delete `MySourceSubscription` record
+   - Self-owned only (`user_id` phải là user hiện tại)
+   - Return **204 No Content** khi thành công
+   - Idempotent: không có subscription vẫn trả **204**
+
+2. **Request:** `DELETE /api/sources/123/subscribe` — `Authorization: Bearer {token}`
+
+3. **Response 204 No Content:** _(empty body)_
+
+4. **Permission guards:**
+   - Authenticated users only (`auth:sanctum`)
+   - Chỉ xóa subscription của chính user hiện tại
+   - Free users vẫn được unsubscribe (không chặn theo plan)
+
+5. **Validation:**
+   - Source phải tồn tại (**404** nếu không có)
+   - Ownership check thông qua filter `(user_id, source_id)` khi delete
+
+### Implementation plan (gợi ý)
+
+| Bước | Nội dung |
+|------|----------|
+| 1 | Thêm method `unsubscribe(Request $request, int $sourceId)` vào `SubscriptionController` hiện có |
+| 2 | Check source tồn tại (`Source::findOrFail($sourceId)`) |
+| 3 | Delete theo `(user_id, source_id)` với query filter |
+| 4 | Return `response()->noContent()` (204) |
+| 5 | Thêm route `Route::delete('/sources/{sourceId}/subscribe', ...)` trong `auth:sanctum` |
+
+### Idempotency example
+
+```php
+MySourceSubscription::where('user_id', $user->id)
+    ->where('source_id', $sourceId)
+    ->delete();
+
+return response()->noContent();
+```
+
+### Testing strategy (checklist)
+
+1. User có subscription → unsubscribe → **204**, record bị xóa  
+2. User không có subscription → unsubscribe → **204** (idempotent)  
+3. Source ID không tồn tại → **404**  
+4. Unauthenticated user → **401**  
+5. Verify `subscription_count` giảm đúng  
+6. DB không còn record `(user_id, source_id)`  
+7. Unsubscribe 2 lần liên tiếp → đều **204**  
+8. Subscription của user khác không bị ảnh hưởng (nhờ filter `user_id`)  
+9. Pro user ở cap (10) unsubscribe xong có thể subscribe lại  
+10. Không có partial delete / side effect ngoài phạm vi record user hiện tại  
+
+**References:** `SPEC-api.md` (`DELETE /api/sources/{id}/subscribe`), `IMPLEMENTATION-ROADMAP.md` Task 2.2.2, `SPEC-core.md` CRUD (unfollow).
+
+---
+
+## Session: 2026-04-14 - Task 2.2.2: DELETE /api/sources/{id}/subscribe endpoint
+
+**Objective:** Implement API endpoint DELETE /api/sources/{id}/subscribe để users có thể unsubscribe (unfollow) khỏi KOL sources
+
+**Completed:**
+
+### Implementation
+1. ✅ Updated `app/Http/Controllers/Api/SubscriptionController.php`
+   - Added method `unsubscribe(int $sourceId): Response`
+   - Source validation: `Source::findOrFail($sourceId)` → 404 if not found
+   - Idempotent delete: `MySourceSubscription::where('user_id', $user->id)->where('source_id', $sourceId)->delete()`
+   - Return 204 No Content (empty response body)
+   - Security: User can only delete own subscriptions (implicit via WHERE user_id filter)
+
+2. ✅ Updated `routes/api.php`
+   - Added route: `Route::delete('/sources/{sourceId}/subscribe', [SubscriptionController::class, 'unsubscribe'])`
+   - Middleware: `auth:sanctum`
+   - Route constraint: `whereNumber('sourceId')`
+
+### Testing Results (Manual via Tinker + cURL)
+
+**Test Environment:**
+- User ID 2 (Pro plan) with 50 initial subscriptions
+- Test token generated via `createToken('test-unsubscribe')`
+- Target subscription: user_id=2, source_id=1
+
+**Test Cases Executed:**
+
+1. ✅ **Setup verification**
+   - Command: `MySourceSubscription::where('user_id', 2)->where('source_id', 1)->exists()`
+   - Result: `true` (subscription exists before test)
+
+2. ✅ **DELETE request lần 1 (valid unsubscribe)**
+   - Request: `DELETE /api/sources/1/subscribe` with Bearer token
+   - Response: **HTTP/1.1 204 No Content** (empty body)
+   - Behavior: Subscription deleted successfully
+
+3. ✅ **Database verification**
+   - Command: `MySourceSubscription::where('user_id', 2)->where('source_id', 1)->exists()`
+   - Result: `false` (record actually deleted)
+
+4. ✅ **Idempotency test (DELETE lần 2)**
+   - Request: Same DELETE request repeated
+   - Response: **HTTP/1.1 204 No Content** (no error, idempotent behavior)
+   - Behavior: Deleting non-existent subscription still returns 204
+
+5. ✅ **Invalid source ID**
+   - Request: `DELETE /api/sources/99999/subscribe`
+   - Response: **HTTP/1.1 404 Not Found**
+   - Message: "No query results for model [App\\Models\\Source] 99999"
+
+6. ✅ **Unauthenticated request**
+   - Request: DELETE without Authorization header
+   - Response: **HTTP/1.1 401 Unauthorized**
+   - Message: "Unauthenticated."
+
+7. ✅ **Subscription count verification**
+   - Command: `MySourceSubscription::where('user_id', 2)->count()`
+   - Result: `49` (decreased from 50 to 49 after unsubscribe)
+
+### API Contract Compliance
+
+Endpoint aligns with `SPEC-api.md` — Unsubscribe from Source:
+
+- Request: `DELETE /api/sources/{id}/subscribe` with Bearer token
+- Response: **204 No Content** with empty body
+- Error responses: 404 (source not found), 401 (unauthenticated)
+- Idempotent behavior: Multiple deletes return same 204 response
+- Security: User can only unsubscribe own subscriptions
+- No plan restriction: Free users can also unsubscribe (unlike subscribe which requires Pro/Power)
+
+### Key Implementation Details
+
+**Idempotent Delete Logic:**
+```php
+// Always return 204, even if subscription doesn't exist
+MySourceSubscription::where('user_id', $user->id)
+                    ->where('source_id', $sourceId)
+                    ->delete();
+
+return response()->noContent(); // 204
+```
+
+**Source Validation:**
+```php
+// Validates source exists before attempting delete
+// Returns 404 if source not found
+Source::findOrFail($sourceId);
+```
+
+**Security Model:**
+- Implicit security via WHERE clause filtering by authenticated user's ID
+- No explicit permission check needed
+- User cannot delete other users' subscriptions (filtered out by query)
+
+### References
+
+- `SPEC-api.md` — DELETE `/api/sources/{id}/subscribe`
+- `SPEC-core.md` — Flow 2 (Subscribe/Unsubscribe to Source)
+- `IMPLEMENTATION-ROADMAP.md` — Task 2.2.2
+- `API-CONTRACTS.md` — Subscription endpoint contract
+- `db_schema.sql` — `my_source_subscriptions` table schema
+
+### Time Spent
+
+- **Implementation:** ~30 minutes (method + route setup)
+- **Testing:** ~20 minutes (7 test cases via tinker + cURL)
+- **Total:** ~50 minutes
+
+### Next Steps
+
+Ready to proceed to:
+
+- **Task 2.2.3:** Add Follow/Unfollow buttons to Browse Source Pool UI
+- **Task 2.3.x:** Browse/Search Sources endpoints (if prioritized)
+
+---
+
 ## 2026-04-14 - Task 2.2.1: `POST /api/sources/{id}/subscribe` — ✅ COMPLETED
 
 **Status:** ✅ Completed — 2026-04-14 _(báo cáo đầy đủ: **## Session: 2026-04-14 — Task 2.2.1** ở cuối file)_  

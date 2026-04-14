@@ -7,6 +7,7 @@ use App\Models\MySourceSubscription;
 use App\Models\Source;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -103,5 +104,22 @@ class SubscriptionController extends Controller
                 ],
             ], 201);
         });
+    }
+
+    /**
+     * DELETE /api/sources/{id}/subscribe — remove source from My KOLs.
+     */
+    public function unsubscribe(int $sourceId): Response
+    {
+        $user = Auth::user();
+
+        Source::query()->findOrFail($sourceId);
+
+        MySourceSubscription::query()
+            ->where('user_id', $user->id)
+            ->where('source_id', $sourceId)
+            ->delete();
+
+        return response()->noContent();
     }
 }
