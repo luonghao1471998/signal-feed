@@ -80,6 +80,337 @@
 
 ---
 
+## Session: 2026-04-14 - Task 2.4.2: GET /api/my-sources/stats - Aggregate Stats API
+
+**Status:** ✅ COMPLETED
+
+**Objective:** Implement API endpoint GET /api/my-sources/stats để tính toán aggregate statistics cho toàn bộ My KOLs của user (dashboard overview stats).
+
+**Dependencies:**
+- ✅ Task 2.4.1: GET /api/my-sources endpoint
+- ✅ Task 2.2.1: MySourceSubscription records exist
+- ✅ Task 1.8.3: Signals created by pipeline
+
+---
+
+### Implementation Completed
+
+**Files Modified:**
+
+1. ✅ `app/Http/Controllers/Api/MySourcesController.php`
+   - Added `stats()` method - main endpoint handler
+   - Added private helper methods:
+     - `subscribedSourceIds()` - query user's subscribed source IDs once, reuse
+     - `totalSignalsToday()` - count signals hôm nay từ My KOLs
+     - `topActiveSources()` - top 3 KOLs active nhất (7 ngày) với aggregate query
+     - `trend7Day()` - signal count per day trong 7 ngày qua
+     - `categoryBreakdown()` - phân bố signals theo categories (7 ngày)
+     - `emptyTrend7Day()` - helper trả 7 ngày với count = 0 (empty state)
+
+2. ✅ `routes/api.php`
+   - Added route: `GET /api/my-sources/stats`
+   - Middleware: `auth:sanctum`
+   - Controller: `MySourcesController@stats`
+
+**Implementation Highlights:**
+
+- **Query optimization:** Query subscribed source IDs một lần, reuse trong tất cả metrics
+- **Aggregate queries:** Dùng SQL `COUNT(DISTINCT sig.id)`, `GROUP BY`, `ORDER BY` để tính stats
+- **Empty state handling:** User chưa subscribe KOL nào → trả về zeros/empty arrays
+- **7-day scope:** Tất cả metrics limit 7 ngày (không all-time) để performance tốt
+- **PostgreSQL native:** Dùng `unnest(sig.categories)` cho category breakdown
+
+---
+
+### API Response Structure
+
+**Endpoint:** `GET /api/my-sources/stats`
+
+**Success Response (200 OK):**
+```json
+{
+  "data": {
+    "total_signals_today": 0,
+    "top_active_sources": [
+      {
+        "source_id": 7,
+        "handle": "@sama",
+        "display_name": "Sam Altman",
+        "signal_count": 3
+      },
+      {
+        "source_id": 4,
+        "handle": "@AndrewYNg",
+        "display_name": "Andrew Ng",
+        "signal_count": 2
+      },
+      {
+        "source_id": 8,
+        "handle": "@gdb",
+        "display_name": "Greg Brockman",
+        "signal_count": 2
+      }
+    ],
+    "trend_7day": [
+      { "date": "2026-04-08", "count": 0 },
+      { "date": "2026-04-09", "count": 5 },
+      { "date": "2026-04-10", "count": 0 },
+      { "date": "2026-04-11", "count": 0 },
+      { "date": "2026-04-12", "count": 0 },
+      { "date": "2026-04-13", "count": 0 },
+      { "date": "2026-04-14", "count": 0 }
+    ],
+    "per_category_breakdown": [
+      { "category_id": 1, "name": "AI & ML", "signal_count": 4 },
+      { "category_id": 5, "name": "Tech News", "signal_count": 3 },
+      { "category_id": 6, "name": "Developer Tools", "signal_count": 1 }
+    ]
+  }
+}
+```
+
+**Empty Subscriptions Response:**
+```json
+{
+  "data": {
+    "total_signals_today": 0,
+    "top_active_sources": [],
+    "trend_7day": [
+      { "date": "2026-04-08", "count": 0 }
+    ],
+    "per_category_breakdown": []
+  }
+}
+```
+
+**Unauthenticated (401):**
+```json
+{
+  "message": "Unauthenticated."
+}
+```
+
+---
+
+### Testing Results - All Tests Passed ✅
+
+**Manual Testing Strategy:** Dùng Tinker + cURL + SQL queries (NO automated tests, NO data modification)
+
+**Test Coverage:**
+
+1. ✅ **Route registration**
+   - Route exists với controller `MySourcesController@stats`
+
+2. ✅ **Data verification**
+   - User 2: 43 subscriptions
+   - User 3: 10 subscriptions
+   - Signals: 7 trong 7 ngày qua
+
+3. ✅ **API call with subscriptions (User ID 2)**
+   - Response 200 OK
+   - `total_signals_today`: 0
+   - `top_active_sources`: Top 3 sorted DESC
+   - `trend_7day`: 7 entries
+   - `per_category_breakdown`: sorted DESC
+
+4. ✅ **SQL verification**
+   - Manual query top 3 sources khớp API response
+
+5. ✅ **Unauthenticated request**
+   - `401 Unauthorized`
+   - Message: `Unauthenticated.`
+
+6. ✅ **Empty subscriptions case**
+   - API response: zeros/empty arrays
+   - `trend_7day`: 7 entries với `count = 0`
+
+**Performance:** Response time < 100ms (acceptable)
+
+---
+
+### Database State (Post-Task)
+
+- **Signals:** 7 (created: 2026-04-09, in last 7 days)
+- **Users:** 4 total (User 2: 43 subscriptions, User 3: 10, User 4: 0)
+- **Sources:** 80 active sources
+- **Categories:** 10 categories
+- **No data modified** - All tests read-only ✓
+
+---
+
+### Key Learnings
+
+1. **Aggregate queries efficient:** PostgreSQL `COUNT(DISTINCT)` + `GROUP BY` performs well
+2. **Empty state important:** UX tốt khi chưa có subscriptions
+3. **SQL verification critical:** Manual queries confirm API accuracy
+4. **Date range matters:** 7-day scope balances usefulness vs performance
+
+---
+
+### References
+
+- **SPEC-api.md:** GET /api/my-sources/stats specification
+- **IMPLEMENTATION-ROADMAP.md:** Task 2.4.2 details
+- **API-CONTRACTS.md:** Response format contracts
+- **db_schema.sql:** tables `my_source_subscriptions`, `signals`, `signal_sources`, `categories`
+
+
+## 2026-04-14 - Task 2.4.2: Implement `GET /api/my-sources/stats` endpoint — 📋 SPEC / IMPLEMENTATION PLAN
+
+**Status:** 📋 Documented — implementation pending  
+**Objective:** API endpoint tính aggregate statistics cho toàn bộ My KOLs của user (dashboard overview stats).
+
+**Dependencies (đã thỏa):**
+- ✅ Task 2.4.1: `GET /api/my-sources` endpoint
+- ✅ Task 2.2.1: `my_source_subscriptions` records
+- ✅ Task 1.8.3: Signals created by pipeline
+
+### Scope — Core Functionality
+
+1. **Endpoint:** `GET /api/my-sources/stats`
+   - Trả về aggregate stats cho tất cả sources user đã subscribe
+   - `total_signals_today`
+   - `top_active_sources` (top 3 theo signal_count trong 7 ngày)
+   - `trend_7day` (signal count theo ngày)
+   - `per_category_breakdown`
+
+2. **Request**
+```http
+GET /api/my-sources/stats
+Authorization: Bearer {token}
+```
+
+3. **Response 200 (target shape)**
+```json
+{
+  "data": {
+    "total_signals_today": 42,
+    "top_active_sources": [
+      {
+        "source_id": 123,
+        "handle": "@karpathy",
+        "display_name": "Andrej Karpathy",
+        "signal_count": 15
+      }
+    ],
+    "trend_7day": [
+      { "date": "2026-04-08", "count": 5 },
+      { "date": "2026-04-09", "count": 8 },
+      { "date": "2026-04-10", "count": 12 },
+      { "date": "2026-04-11", "count": 7 },
+      { "date": "2026-04-12", "count": 10 },
+      { "date": "2026-04-13", "count": 9 },
+      { "date": "2026-04-14", "count": 15 }
+    ],
+    "per_category_breakdown": [
+      { "category_id": 1, "name": "AI & ML", "signal_count": 28 }
+    ]
+  }
+}
+```
+
+### Implementation Plan
+
+#### Step 1 — Add `stats()` to `MySourcesController`
+- Method: `stats(Request $request)`
+- Lấy `source_id` list từ `my_source_subscriptions` của user hiện tại
+- Tính toán aggregate theo 7-day window + today
+
+#### Step 2 — Total signals today
+```php
+$subscribedSourceIds = MySourceSubscription::query()
+    ->where('user_id', $user->id)
+    ->pluck('source_id');
+
+$totalToday = Signal::query()
+    ->whereHas('sources', function ($query) use ($subscribedSourceIds): void {
+        $query->whereIn('source_id', $subscribedSourceIds);
+    })
+    ->whereDate('created_at', today())
+    ->count();
+```
+
+#### Step 3 — Top 3 active sources (7 days)
+- Aggregate signal count theo `source_id`
+- Join source info (`x_handle`, `display_name`)
+- Sort desc và lấy top 3
+
+#### Step 4 — 7-day trend
+- Build mảng 7 ngày gần nhất (`Y-m-d`)
+- Count signals/day trên subscribed sources
+- Output 7 entries cố định (kể cả count = 0)
+
+#### Step 5 — Per-category breakdown
+- Lấy signals theo subscribed sources trong 7 ngày
+- Flatten categories rồi group theo category id
+- Map sang `{category_id, name, signal_count}`, sort desc
+
+#### Step 6 — Route
+- Add route trong `auth:sanctum` group:
+```php
+Route::get('/my-sources/stats', [MySourcesController::class, 'stats']);
+```
+
+### Expected Output
+
+- Stats object trả đúng 4 blocks:
+  - `total_signals_today`
+  - `top_active_sources`
+  - `trend_7day`
+  - `per_category_breakdown`
+- Top sources sorted đúng theo `signal_count DESC`
+- Trend luôn có 7 ngày
+- Category breakdown sorted desc
+
+### Testing Strategy (manual)
+
+1. User có subscriptions → trả stats hợp lệ
+2. Verify `total_signals_today`
+3. Verify `top_active_sources` sort desc, max 3
+4. Verify `trend_7day` có đúng 7 entries
+5. Verify `per_category_breakdown`
+6. User 0 subscriptions → zeros/empty arrays
+7. Unauthenticated → 401
+8. Date format nhất quán `Y-m-d`
+9. Category names mapping đúng
+10. Performance trong ngưỡng chấp nhận (<500ms)
+
+### Manual Commands (draft)
+
+```bash
+# Authenticated stats
+curl -H "Authorization: Bearer {token}" \
+  "http://localhost/api/my-sources/stats"
+
+# Check keys
+curl -H "Authorization: Bearer {token}" \
+  "http://localhost/api/my-sources/stats" | jq '.data | keys'
+
+# Unauthenticated
+curl "http://localhost/api/my-sources/stats"
+```
+
+```php
+// Tinker quick checks
+MySourceSubscription::where('user_id', 2)->count();
+Signal::whereDate('created_at', today())->count();
+```
+
+### Performance Notes
+
+- Query subscribed source IDs 1 lần rồi reuse
+- Ưu tiên aggregate query/batch xử lý thay vì loop từng source
+- 7-day window để tránh quét all-time
+- Nếu chậm: cân nhắc cache ngắn hạn (future optimization)
+
+### References
+
+- `SPEC-api.md` — `GET /api/my-sources/stats`
+- `IMPLEMENTATION-ROADMAP.md` — Task 2.4.2
+- `SPEC-core.md` — Flow stats calculation
+
+---
+
 ## Session: 2026-04-14 - Task 2.4.1: GET /api/my-sources endpoint - COMPLETED
 
 **Objective:** Implement API endpoint để fetch danh sách KOL sources mà user đã subscribe, kèm stats per source.
