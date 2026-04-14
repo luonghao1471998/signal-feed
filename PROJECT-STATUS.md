@@ -1,11 +1,11 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-14 (Task 2.3.2 complete)
+**Last Updated:** 2026-04-14 (Task 2.4.1 complete)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 2 — My KOLs
-**Completed Task:** **2.3.2** — Build Browse Source Pool Screen #10 ✅ — 2026-04-14 (fulfilled via 2.2.3 + 2.3.1)
-**Next Task:** **2.4.1** — Implement `GET /api/my-sources` _(hoặc **2.1.3** my submissions — tùy ưu tiên)_
-**Status:** Sprint 2; subscription APIs + Browse/Search UI + server-side search ✅; next **2.4.1**
+**Completed Task:** **2.4.1** — Implement `GET /api/my-sources` ✅ — 2026-04-14
+**Next Task:** **2.4.2** — Implement `GET /api/my-sources/stats` _(hoặc **2.4.3** My KOLs list UI — tùy ưu tiên)_
+**Status:** Sprint 2; subscription APIs + Browse/Search + My KOLs API list ✅; next **2.4.2** / **2.4.3**
 
 ---
 
@@ -13,7 +13,7 @@
 
 **Đồng bộ roadmap 2026-04-14:** Sprint 2 = **14** task (thêm **2.1.3** / **2.1.4**); tổng dự án **59** task — xem `IMPLEMENTATION-ROADMAP.md`.
 
-**Progress (14 tasks):** **7 / 14** (50%)
+**Progress (14 tasks):** **8 / 14** (~57%)
 
 ### Feature 2.2: Follow/Unfollow KOL Sources
 
@@ -29,6 +29,14 @@
 |--------|-----------|--------|----------------|
 | 2.3.1 | Add server-side search filter to GET /api/sources endpoint | ✅ COMPLETED | 2026-04-14 |
 | 2.3.2 | Build Browse Source Pool Screen #10 with search input | ✅ COMPLETED | 2026-04-14 |
+
+### Feature 2.4: My KOLs API + UI
+
+| Task # | Task Name | Status | Completed Date |
+|--------|-----------|--------|----------------|
+| 2.4.1 | Implement GET /api/my-sources endpoint | ✅ COMPLETED | 2026-04-14 |
+| 2.4.2 | Implement GET /api/my-sources/stats endpoint | ⏳ PENDING | — |
+| 2.4.3 | Build My KOLs List Screen #8 | ⏳ PENDING | — |
 
 ### ✅ Task 2.1.1: `POST /api/sources` — COMPLETED (2026-04-13)
 
@@ -63,7 +71,7 @@
 - ✅ No auto-subscription (verified in DB)
 - ✅ Free users restricted (button hidden)
 
-**Next Step:** Task **2.4.1** — `GET /api/my-sources`; hoặc **2.1.3** — API my submissions; admin approve = **3.3.x** trong `IMPLEMENTATION-ROADMAP.md`
+**Next Step:** Task **2.4.2** — `GET /api/my-sources/stats`; hoặc **2.4.3** — My KOLs list UI; hoặc **2.1.3** — API my submissions
 
 ---
 
@@ -76,7 +84,7 @@
 - ✅ Task 2.2.1: Implement POST /api/sources/{id}/subscribe endpoint — **COMPLETED 2026-04-14** (`SubscriptionController`, cap Pro≤10/Power≤50, `auth:sanctum`, manual tests 10/10)
 - ✅ Task 2.2.2: Implement DELETE /api/sources/{id}/subscribe endpoint — **COMPLETED 2026-04-14** (idempotent delete + `204 No Content`, source `404`, auth `401`)
 
-_(Roadmap tiếp: **2.4.1** my-sources / **2.4.2** stats — `IMPLEMENTATION-ROADMAP.md`.)_
+_(Roadmap tiếp: **2.4.2** stats / **2.4.3** My KOLs list UI — `IMPLEMENTATION-ROADMAP.md`.)_
 
 ---
 
@@ -181,20 +189,21 @@ _(Roadmap tiếp: **2.4.1** my-sources / **2.4.2** stats — `IMPLEMENTATION-ROA
 **Notes:** Intent base URL backend: `https://x.com/intent/post?text=`; CSRF stateful Sanctum cho POST.
 
 ### In Progress / Next (roadmap)
-- **Next (Sprint 2):** **2.4.1** `GET /api/my-sources` _(hoặc **2.1.3** my submissions)_ — sau **2.3.2** ✅
+- **Next (Sprint 2):** **2.4.2** `GET /api/my-sources/stats` _(hoặc **2.4.3** UI / **2.1.3** my submissions)_ — sau **2.4.1** ✅
 - **Backlog (ngoài bảng Sprint 2):** **1.11.3** — metadata digest (tùy ưu tiên)
 
 ### Statistics
 - **Sprint 1 (34 tasks, `IMPLEMENTATION-ROADMAP`):** 34 / 34 ✅
-- **Sprint 2 (14 tasks):** 7 / 14 (50%) — next **2.4.1** (my-sources) / **2.1.3** (my submissions)
+- **Sprint 2 (14 tasks):** 8 / 14 (~57%) — next **2.4.2** (stats) / **2.4.3** (UI) / **2.1.3** (my submissions)
 
 ### Progress Summary
 
-**Completed Tasks:** Sprint 1 **34/34** ✅; Sprint 2 **7/14** (2.1.1 ✅ 2026-04-13, 2.1.2 ✅ 2026-04-14, **2.2.1–2.2.3** ✅, **2.3.1–2.3.2** ✅ 2026-04-14)
-**Current phase:** Sprint 2 — My KOLs; next = **2.4.1** hoặc **2.1.3**
+**Completed Tasks:** Sprint 1 **34/34** ✅; Sprint 2 **8/14** (2.1.1 ✅ 2026-04-13, 2.1.2 ✅ 2026-04-14, **2.2.1–2.2.3** ✅, **2.3.1–2.3.2** ✅, **2.4.1** ✅ 2026-04-14)
+**Current phase:** Sprint 2 — My KOLs; next = **2.4.2** hoặc **2.4.3** hoặc **2.1.3**
 **Last Updated:** 2026-04-14
 
 **Recent Completions:**
+- ✅ Task 2.4.1: `GET /api/my-sources` — `MySourcesController@index`, eager loading, pagination, per-source stats batch computation, manual Tinker+cURL checks PASS (2026-04-14)
 - ✅ Task 2.3.2: Browse Source Pool Screen #10 — đã fulfilled bởi UI Browse tab (`/my-kols`) từ 2.2.3 + backend search 2.3.1 (2026-04-14)
 - ✅ Task 2.3.1: Server-side search filter on `GET /api/sources` — search `x_handle` + `display_name` (ILIKE), strip `@`, manual cURL checks PASS (2026-04-14)
 - ✅ Task 2.2.3: Follow/Unfollow buttons in Browse Source Pool UI — `is_subscribed`, `categoryService`, optimistic UI, plan caps, manual browser tests (2026-04-14)

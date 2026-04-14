@@ -80,6 +80,263 @@
 
 ---
 
+## Session: 2026-04-14 - Task 2.4.1: GET /api/my-sources endpoint - COMPLETED
+
+**Objective:** Implement API endpoint để fetch danh sách KOL sources mà user đã subscribe, kèm stats per source.
+
+**Completed:**
+
+### Implementation
+1. ✅ Created `app/Http/Controllers/Api/MySourcesController.php`
+   - Method `index(Request $request)` query subscriptions theo authenticated user
+   - Eager loading: `with(['source.categories'])` để tránh N+1 query ở source/categories
+   - Sorting: `created_at DESC` (newest subscription first)
+   - Pagination: mặc định 20 items/page, hỗ trợ `per_page` (max 100)
+   - Stats computation theo source:
+     - `signal_count`: số signal trong 7 ngày qua
+     - `last_active_date`: ngày signal gần nhất
+   - Batch stats computation (`buildSourceStats`) để tránh per-item query loop
+
+2. ✅ Route registration trong `routes/api.php`
+   - `GET /api/my-sources` trong group `auth:sanctum`
+   - Require Bearer token authentication
+
+3. ✅ Response structure
+```json
+{
+  "data": [
+    {
+      "id": 123,
+      "handle": "@karpathy",
+      "display_name": "Andrej Karpathy",
+      "account_url": "https://x.com/karpathy",
+      "categories": [{ "id": 1, "name": "AI & ML" }],
+      "subscribed_at": "2026-04-10T08:30:00Z",
+      "stats": {
+        "signal_count": 0,
+        "last_active_date": null
+      }
+    }
+  ],
+  "meta": {
+    "total": 10,
+    "current_page": 1,
+    "per_page": 20,
+    "last_page": 1
+  }
+}
+```
+
+### Testing Results (Manual - Credit-Safe)
+
+**Test method:** Tinker + cURL only (không chạy automated tests)
+
+| # | Test Case | Method | Status | Result |
+|---|-----------|--------|--------|--------|
+| 1 | Route registration | `php artisan route:list --path=my-sources` | ✅ PASS | `GET api/my-sources` mapped to `MySourcesController@index` |
+| 2 | Existing subscriptions count | Tinker | ✅ PASS | Total `my_source_subscriptions`: `53` |
+| 3 | Controller direct call | Tinker | ✅ PASS | `200`, `data_count=10`, meta keys: `total,current_page,per_page,last_page` |
+| 4 | Response item fields | Tinker | ✅ PASS | `handle` + `stats.signal_count` + `stats.last_active_date` có mặt |
+| 5 | Unauthenticated HTTP request | cURL | ✅ PASS | `401 Unauthenticated.` |
+| 6 | Lint/format health | IDE lints | ✅ PASS | Không có lint errors ở file mới/sửa |
+
+**Tinker outputs đã verify:**
+- `MySourceSubscription::count()` → `53`
+- Controller call summary → `200|10|total,current_page,per_page,last_page`
+- First item sample → `@karpathy|stats_ok|2026-04-09`
+
+### Manual Commands Used
+
+```bash
+# Route check
+php artisan route:list --path=my-sources
+
+# Unauthenticated HTTP check
+curl -s -o /tmp/my-sources-unauth.json -w "%{http_code}" \
+  -H "Accept: application/json" \
+  "http://127.0.0.1:8083/api/my-sources"
+```
+
+```php
+// Tinker checks
+\App\Models\MySourceSubscription::query()->count();
+
+$u=\App\Models\User::query()->whereIn('plan',['pro','power'])->first();
+$r=new \Illuminate\Http\Request();
+$r->setUserResolver(function () use ($u) { return $u; });
+$c=new \App\Http\Controllers\Api\MySourcesController();
+$resp=$c->index($r);
+```
+
+### Files Created/Modified
+
+**Created:**
+- `app/Http/Controllers/Api/MySourcesController.php`
+
+**Modified:**
+- `routes/api.php` (added `GET /my-sources`)
+
+**Credits Usage:** ZERO external API credits (no Twitter API / no Anthropic API calls)
+
+---
+
+## 2026-04-14 - Task 2.4.1: Implement `GET /api/my-sources` endpoint — 📋 SPEC / IMPLEMENTATION PLAN
+
+**Status:** 📋 Documented — implementation pending  
+**Objective:** API endpoint trả về danh sách KOL sources user đã subscribe (My KOLs list), kèm stats theo source.
+
+**Dependencies (đã thỏa):**
+- ✅ Task 2.2.1: `POST /api/sources/{id}/subscribe`
+- ✅ Task 1.2.3: bảng `my_source_subscriptions`
+- ✅ Task 1.5.3: `GET /api/sources` (reference structure)
+
+### Scope — Core Functionality
+
+1. **Endpoint:** `GET /api/my-sources` (`auth:sanctum`)
+   - Trả về danh sách source user đang subscribe
+   - Include source details (`handle`, `display_name`, `account_url`, `categories`, ...)
+   - Include stats theo source (`signal_count`, `last_active_date`)
+   - Sort theo `subscribed_at DESC` (mới nhất trước)
+   - Response paginated
+
+2. **Request**
+```http
+GET /api/my-sources
+Authorization: Bearer {token}
+```
+
+3. **Response 200 (target shape)**
+```json
+{
+  "data": [
+    {
+      "id": 123,
+      "handle": "@karpathy",
+      "display_name": "Andrej Karpathy",
+      "account_url": "https://x.com/karpathy",
+      "categories": [
+        { "id": 1, "name": "AI & ML" },
+        { "id": 5, "name": "Tech News" }
+      ],
+      "subscribed_at": "2026-04-10T08:30:00Z",
+      "stats": {
+        "signal_count": 15,
+        "last_active_date": "2026-04-14"
+      }
+    }
+  ],
+  "meta": {
+    "total": 10,
+    "current_page": 1,
+    "per_page": 20
+  }
+}
+```
+
+4. **Stats computation (on-demand)**
+   - `signal_count`: số signal của source trong 7 ngày gần nhất
+   - `last_active_date`: ngày signal gần nhất của source
+
+### Implementation Plan
+
+#### Step 1 — Route
+- Thêm `GET /api/my-sources` trong group `auth:sanctum`
+- Controller đề xuất: `MySourcesController@index`
+
+#### Step 2 — Controller
+- File: `app/Http/Controllers/Api/MySourcesController.php`
+- Query subscription theo `user_id` hiện tại
+- Eager load `source.categories`
+- Sort `created_at desc` + paginate
+
+#### Step 3 — Query skeleton
+```php
+$subscriptions = MySourceSubscription::query()
+    ->where('user_id', $user->id)
+    ->with(['source.categories'])
+    ->orderByDesc('created_at')
+    ->paginate($perPage);
+```
+
+#### Step 4 — Stats logic skeleton
+```php
+private function getSignalCount(int $sourceId): int
+{
+    return Signal::query()
+        ->whereHas('sources', function ($query) use ($sourceId): void {
+            $query->where('source_id', $sourceId);
+        })
+        ->where('created_at', '>=', now()->subDays(7))
+        ->count();
+}
+
+private function getLastActiveDate(int $sourceId): ?string
+{
+    $latestSignal = Signal::query()
+        ->whereHas('sources', function ($query) use ($sourceId): void {
+            $query->where('source_id', $sourceId);
+        })
+        ->latest('created_at')
+        ->first();
+
+    return $latestSignal?->created_at?->format('Y-m-d');
+}
+```
+
+#### Step 5 — Resource formatting
+- Tạo resource riêng cho my-sources payload
+- Chuẩn hóa date/time format + nested `stats`
+- Giữ envelope `data` + `meta`
+
+### Expected Output
+
+- API chỉ trả sources user đã subscribe
+- Có categories + stats cho từng source
+- Sort đúng newest-first
+- Pagination hoạt động đúng
+
+### Testing Strategy (manual)
+
+1. Pro user (10 subscriptions) → trả tối đa 10 sources
+2. Power user (50 subscriptions) → paginate đúng
+3. Free user (0 subscriptions) → `data: []`
+4. Unauthenticated → `401`
+5. `signal_count` (7 days) chính xác
+6. `last_active_date` khớp signal mới nhất
+7. Sort theo `subscribed_at DESC`
+8. Eager loading categories (tránh N+1)
+9. Pagination meta chính xác
+10. Performance/query count trong ngưỡng chấp nhận
+
+### Manual Commands (draft)
+
+```bash
+# Get my sources
+curl -H "Authorization: Bearer {token}" \
+  "http://localhost/api/my-sources"
+
+# Pagination
+curl -H "Authorization: Bearer {token}" \
+  "http://localhost/api/my-sources?page=2&per_page=20"
+
+# Unauthenticated
+curl "http://localhost/api/my-sources"
+```
+
+### Performance Notes
+
+- Eager load: `with(['source.categories'])`
+- Cân nhắc batch stats aggregation để giảm N+1
+- Nếu cần, cache stats ngắn hạn (future optimization)
+
+### References
+
+- `SPEC-api.md` — `GET /api/my-sources`
+- `IMPLEMENTATION-ROADMAP.md` — Task 2.4.1
+- `SPEC-core.md` — Flow My KOLs list
+
+---
+
 ## 2026-04-14 - Task 2.3.2: Build Browse Source Pool Screen #10 — ✅ ALREADY COMPLETE
 
 **Status:** ✅ COMPLETE (đã implement trong Task 2.2.3)  
