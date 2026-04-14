@@ -82,7 +82,7 @@
 
 ## 2026-04-14 - Task 2.2.2: `DELETE /api/sources/{id}/subscribe` — 📋 SPEC / IMPLEMENTATION PLAN
 
-**Status:** 📋 Documented — implementation pending  
+**Status:** ✅ Completed — 2026-04-14  
 **Objective:** API endpoint cho phép Pro/Power users unsubscribe (unfollow) KOL sources khỏi My KOLs list.
 
 **Dependencies (đã thỏa):**
@@ -5772,5 +5772,221 @@ git commit -m "docs: SESSION-LOG + PROJECT-STATUS — Task 2.2.3 complete (2026-
 ```
 
 **Tag (optional):** `task-2.2.3-complete`
+
+---
+
+## 2026-04-14 - Task 2.3.1: Add server-side search filter to `GET /api/sources` — 📋 SPEC / IMPLEMENTATION PLAN
+
+**Status:** 📋 Documented — implementation pending  
+**Objective:** Bổ sung server-side search vào `GET /api/sources` để hỗ trợ mở rộng source pool, giảm phụ thuộc filter client-side, và giữ khả năng kết hợp với filter/pagination.
+
+**Dependencies (đã thỏa):**
+- ✅ Task 1.5.3: `GET /api/sources` (browse pool endpoint)
+- ✅ Task 2.2.3: Browse UI đã có search bar client-side
+
+### Current State
+
+- ✅ Frontend: Search bar sẵn có trên Browse (`Search by @handle or name...`)
+- ✅ Frontend: Đang lọc local theo dữ liệu đã tải
+- ✅ Backend: Hỗ trợ query param `?search=`
+- ✅ Backend: Search đồng thời `x_handle` + `display_name` (ILIKE)
+
+### Scope — Core Functionality
+
+1. **Thêm `?search=` vào `GET /api/sources`**
+   - Nhận query param `search` (optional)
+   - Search theo OR trên `x_handle` và `display_name`
+   - Case-insensitive bằng PostgreSQL `ILIKE`
+   - Hỗ trợ input có `@` prefix (`@karpathy` → `karpathy`)
+
+2. **Kết hợp với filter hiện có**
+   - Giữ `status='active'`
+   - Kết hợp `category_id` (nếu có)
+   - Không thay đổi format response (`data`, `meta`, `is_subscribed`, ...)
+
+3. **Behavior**
+   - `search` rỗng / missing → bỏ qua filter
+   - Partial match: `ILIKE '%query%'`
+   - Query an toàn qua Query Builder (parameter binding)
+
+### Implementation Plan
+
+#### Step 1 — Update `SourceController@index`
+
+File: `app/Http/Controllers/Api/SourceController.php`
+
+```php
+// Existing filters
+$query = Source::query()->where('status', 'active');
+
+// Category filter (existing)
+if ($request->filled('category_id')) {
+    // ...
+}
+
+// NEW: Search filter
+if ($request->filled('search')) {
+    $searchTerm = ltrim((string) $request->input('search'), '@');
+
+    $query->where(function ($q) use ($searchTerm) {
+        $q->where('x_handle', 'ILIKE', "%{$searchTerm}%")
+          ->orWhere('display_name', 'ILIKE', "%{$searchTerm}%");
+    });
+}
+```
+
+#### Step 2 — Validation (optional nhưng khuyến nghị)
+
+```php
+$request->validate([
+    'search' => 'nullable|string|max:50',
+]);
+```
+
+#### Step 3 — Edge Cases
+
+- Empty search: `filled('search')` đã cover
+- Prefix `@`: `ltrim($search, '@')`
+- Case-insensitive: `ILIKE`
+- SQL injection: Query Builder handles bindings
+
+### Request Examples
+
+- `GET /api/sources?search=elon`  
+  → match `x_handle` hoặc `display_name` chứa `elon`
+- `GET /api/sources?search=@karpathy`  
+  → strip `@` trước khi query
+- `GET /api/sources?search=Andrej`  
+  → match theo `display_name`
+- `GET /api/sources?search=lex&category_id=1`  
+  → combine search + category
+
+### Expected Output
+
+- API support `?search=` ổn định
+- Search cả `x_handle` và `display_name`
+- Case-insensitive
+- Kết hợp được với category filter và pagination/meta hiện tại
+
+### Testing Strategy (manual)
+
+1. `GET /api/sources?search=elon`  
+2. `GET /api/sources?search=@karpathy`  
+3. `GET /api/sources?search=Andrej`  
+4. `GET /api/sources?search=AI`  
+5. `GET /api/sources?search=xyz123` (kỳ vọng mảng rỗng)  
+6. `GET /api/sources?search=` (kỳ vọng bỏ qua filter)  
+7. `GET /api/sources?search=elon&category_id=5`  
+8. Case test: `search=ELON` vs `search=elon`  
+9. Pagination test: `?search=test&page=2`  
+10. Injection-like input: `?search='; DROP--` (kỳ vọng safe)
+
+### Manual Commands (reference)
+
+```bash
+# Search by handle
+curl -H "Authorization: Bearer {token}" \
+  "http://localhost/api/sources?search=karpathy"
+
+# Search by display name
+curl -H "Authorization: Bearer {token}" \
+  "http://localhost/api/sources?search=Andrej"
+
+# Search with @ prefix
+curl -H "Authorization: Bearer {token}" \
+  "http://localhost/api/sources?search=@elon"
+
+# Combine with category filter
+curl -H "Authorization: Bearer {token}" \
+  "http://localhost/api/sources?search=AI&category_id=1"
+
+# Empty search
+curl -H "Authorization: Bearer {token}" \
+  "http://localhost/api/sources?search="
+```
+
+### References
+
+- `SPEC-api.md` — `GET /api/sources` (search param)
+- `IMPLEMENTATION-ROADMAP.md` — Task 2.3.1
+- `SESSION-LOG.md` — Task 2.2.3 (client-side search UI đã có)
+
+---
+
+## ✅ IMPLEMENTATION COMPLETED - April 14, 2026
+
+### Changes Made
+
+**File modified:** `app/Http/Controllers/Api/SourceController.php`
+
+**Code added to `index()` method (thực tế):**
+```php
+$validated = $request->validate([
+    'search' => 'nullable|string|max:100',
+    'category_id' => 'nullable|integer|exists:categories,id',
+]);
+
+if (is_string($search) && trim($search) !== '') {
+    $searchTerm = ltrim(trim($search), '@');
+
+    if ($searchTerm !== '') {
+        $query->where(static function ($subQuery) use ($searchTerm): void {
+            $pattern = '%' . $searchTerm . '%';
+            $subQuery->where('x_handle', 'ILIKE', $pattern)
+                ->orWhere('display_name', 'ILIKE', $pattern);
+        });
+    }
+}
+```
+
+### Implementation Details
+
+1. **Search Logic:**
+   - Strip `@` prefix: `ltrim(trim($search), '@')`
+   - Search fields: `x_handle` OR `display_name`
+   - Case-insensitive: PostgreSQL `ILIKE`
+   - Partial match: `%searchTerm%`
+
+2. **Query Structure:**
+   - Nested `where(...)` để group OR condition đúng
+   - Kết hợp được với category filter (`category_id`) qua `whereHas('categories', ...)`
+   - Giữ nguyên flow `is_subscribed` mapping sau khi query
+
+3. **Edge Cases Handled:**
+   - Empty search: bỏ qua filter
+   - Prefix `@`: tự động strip
+   - Input dài >100: trả `422` (validation)
+   - SQL injection-like input: query builder xử lý an toàn
+
+### Testing Results
+
+**Manual cURL testing - PASSED ✅**
+
+```bash
+search=karpathy               -> count=1 (sample: karpathy)
+search=Andrej                 -> count=1 (match display_name)
+search=@karpathy              -> count=1 (@ stripped)
+search=KARPATHY               -> count=1 (case-insensitive)
+search=xyz123nonexistent      -> count=0
+search=                       -> count=83 (ignored filter)
+search=karpathy&category_id=1 -> count=1 (combined filter)
+search=<101 chars>            -> HTTP 422 validation error
+```
+
+### Response Format
+
+Response format giữ nguyên như endpoint hiện tại (`SourceResource::collection(...)`), bao gồm `is_subscribed`.
+
+### Task Status: ✅ COMPLETED
+
+**Completion Date:** April 14, 2026
+
+**Verified by:**
+- [x] Manual cURL testing
+- [x] `@` prefix stripping
+- [x] Case-insensitive matching
+- [x] Combined search + category filter
+- [x] Validation for max length
+- [x] No database destructive operations
 
 ---

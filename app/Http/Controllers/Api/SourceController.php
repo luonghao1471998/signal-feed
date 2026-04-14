@@ -19,11 +19,37 @@ class SourceController extends Controller
      */
     public function index(Request $request): AnonymousResourceCollection
     {
-        $sources = Source::query()
+        $validated = $request->validate([
+            'search' => 'nullable|string|max:100',
+            'category_id' => 'nullable|integer|exists:categories,id',
+        ]);
+
+        $query = Source::query()
             ->where('status', 'active')
             ->with('categories')
-            ->orderBy('id')
-            ->get();
+            ->orderBy('id');
+
+        $search = $validated['search'] ?? null;
+        if (is_string($search) && trim($search) !== '') {
+            $searchTerm = ltrim(trim($search), '@');
+
+            if ($searchTerm !== '') {
+                $query->where(static function ($subQuery) use ($searchTerm): void {
+                    $pattern = '%' . $searchTerm . '%';
+                    $subQuery->where('x_handle', 'ILIKE', $pattern)
+                        ->orWhere('display_name', 'ILIKE', $pattern);
+                });
+            }
+        }
+
+        $categoryId = $validated['category_id'] ?? null;
+        if (is_int($categoryId)) {
+            $query->whereHas('categories', static function ($categoryQuery) use ($categoryId): void {
+                $categoryQuery->where('categories.id', $categoryId);
+            });
+        }
+
+        $sources = $query->get();
 
         $subscribedIds = [];
         $authUser = Auth::guard('sanctum')->user() ?? $request->user();

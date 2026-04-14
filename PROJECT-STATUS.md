@@ -1,11 +1,11 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-14 (Task 2.2.3 complete)
+**Last Updated:** 2026-04-14 (Task 2.3.1 complete)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 2 — My KOLs
-**Completed Task:** **2.2.3** — Add Follow/Unfollow buttons to Browse Source Pool UI ✅ — 2026-04-14
-**Next Task:** **2.3.1** — Add search filter to `GET /api/sources` _(hoặc **2.4.1** `GET /api/my-sources` — tùy ưu tiên)_
-**Status:** Sprint 2; subscribe + unsubscribe APIs + Browse Follow/Unfollow UI ✅; next **2.3.1** / **2.4.1**
+**Completed Task:** **2.3.1** — Add server-side search filter to `GET /api/sources` ✅ — 2026-04-14
+**Next Task:** **2.3.2** — Build Browse Source Pool Screen #10 with search input _(hoặc **2.4.1** `GET /api/my-sources` — tùy ưu tiên)_
+**Status:** Sprint 2; subscription APIs + Browse Follow/Unfollow + server-side search ✅; next **2.3.2** / **2.4.1**
 
 ---
 
@@ -13,7 +13,7 @@
 
 **Đồng bộ roadmap 2026-04-14:** Sprint 2 = **14** task (thêm **2.1.3** / **2.1.4**); tổng dự án **59** task — xem `IMPLEMENTATION-ROADMAP.md`.
 
-**Progress (14 tasks):** **5 / 14** (~36%)
+**Progress (14 tasks):** **6 / 14** (~43%)
 
 ### Feature 2.2: Follow/Unfollow KOL Sources
 
@@ -22,6 +22,13 @@
 | 2.2.1 | POST /api/sources/{id}/subscribe endpoint | ✅ COMPLETED | 2026-04-14 |
 | 2.2.2 | DELETE /api/sources/{id}/subscribe endpoint | ✅ COMPLETED | 2026-04-14 |
 | 2.2.3 | Add Follow/Unfollow buttons to Browse UI | ✅ COMPLETED | 2026-04-14 |
+
+### Feature 2.3: Browse/Search
+
+| Task # | Task Name | Status | Completed Date |
+|--------|-----------|--------|----------------|
+| 2.3.1 | Add server-side search filter to GET /api/sources endpoint | ✅ COMPLETED | 2026-04-14 |
+| 2.3.2 | Build Browse Source Pool Screen #10 with search input | ⏳ PENDING | — |
 
 ### ✅ Task 2.1.1: `POST /api/sources` — COMPLETED (2026-04-13)
 
@@ -174,20 +181,21 @@ _(Roadmap tiếp: **2.3.1** server-side search / **2.4.1** my-sources — `IMPLE
 **Notes:** Intent base URL backend: `https://x.com/intent/post?text=`; CSRF stateful Sanctum cho POST.
 
 ### In Progress / Next (roadmap)
-- **Next (Sprint 2):** **2.3.1** search on `GET /api/sources` _(hoặc **2.4.1** my-sources / **2.1.3** my submissions)_ — sau **2.2.3** ✅
+- **Next (Sprint 2):** **2.3.2** Browse/Search UI polish _(hoặc **2.4.1** my-sources / **2.1.3** my submissions)_ — sau **2.3.1** ✅
 - **Backlog (ngoài bảng Sprint 2):** **1.11.3** — metadata digest (tùy ưu tiên)
 
 ### Statistics
 - **Sprint 1 (34 tasks, `IMPLEMENTATION-ROADMAP`):** 34 / 34 ✅
-- **Sprint 2 (14 tasks):** 5 / 14 (~36%) — next **2.3.1** (search filter) / **2.4.1** (my-sources) / **2.1.3** (my submissions)
+- **Sprint 2 (14 tasks):** 6 / 14 (~43%) — next **2.3.2** (browse/search UI) / **2.4.1** (my-sources) / **2.1.3** (my submissions)
 
 ### Progress Summary
 
-**Completed Tasks:** Sprint 1 **34/34** ✅; Sprint 2 **5/14** (2.1.1 ✅ 2026-04-13, 2.1.2 ✅ 2026-04-14, **2.2.1–2.2.3** ✅ 2026-04-14)
-**Current phase:** Sprint 2 — My KOLs; next = **2.3.1** hoặc **2.4.1** hoặc **2.1.3**
+**Completed Tasks:** Sprint 1 **34/34** ✅; Sprint 2 **6/14** (2.1.1 ✅ 2026-04-13, 2.1.2 ✅ 2026-04-14, **2.2.1–2.2.3** ✅, **2.3.1** ✅ 2026-04-14)
+**Current phase:** Sprint 2 — My KOLs; next = **2.3.2** hoặc **2.4.1** hoặc **2.1.3**
 **Last Updated:** 2026-04-14
 
 **Recent Completions:**
+- ✅ Task 2.3.1: Server-side search filter on `GET /api/sources` — search `x_handle` + `display_name` (ILIKE), strip `@`, manual cURL checks PASS (2026-04-14)
 - ✅ Task 2.2.3: Follow/Unfollow buttons in Browse Source Pool UI — `is_subscribed`, `categoryService`, optimistic UI, plan caps, manual browser tests (2026-04-14)
 - ✅ Task 2.2.2: `DELETE /api/sources/{id}/subscribe` — idempotent unsubscribe, manual 7/7 (2026-04-14)
 - ✅ Task 2.2.1: `POST /api/sources/{id}/subscribe` — `SubscriptionController`, cap + transaction lock, manual 10/10 (2026-04-14)
@@ -277,10 +285,10 @@ _(Roadmap tiếp: **2.3.1** server-side search / **2.4.1** my-sources — `IMPLE
 
 ## Current Sprint Status
 
-**Completed Task:** Task **2.2.3** — Follow/Unfollow Browse UI ✅ (2026-04-14)  
-**Next Task:** Task **2.3.1** — search filter `GET /api/sources` — `IMPLEMENTATION-ROADMAP.md`  
-**Status:** Sprint 2; **2.2.1–2.2.3** subscribe + unsubscribe + Browse UI — SESSION-LOG 2026-04-14  
-**Previous:** Tasks 2.2.1–2.2.2 APIs ✅ (2026-04-14); Task 2.1.2 Add Source Form ✅ (2026-04-14); Task 2.1.1 ✅ (2026-04-13)
+**Completed Task:** Task **2.3.1** — Server-side search filter `GET /api/sources` ✅ (2026-04-14)  
+**Next Task:** Task **2.3.2** — Browse/Search UI Screen #10 — `IMPLEMENTATION-ROADMAP.md`  
+**Status:** Sprint 2; **2.2.1–2.2.3** + **2.3.1** complete — SESSION-LOG 2026-04-14  
+**Previous:** Task 2.2.3 Browse Follow/Unfollow ✅; Tasks 2.2.1–2.2.2 APIs ✅ (2026-04-14)
 
 **Recent Completions:**
 
@@ -541,8 +549,8 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
 
 ## 🎯 Current Focus
 
-**Completed Task:** Task **2.2.3** — Follow/Unfollow buttons in Browse Source Pool UI ✅ (April 14, 2026)  
-**Next Task:** Task **2.3.1** — Add search filter to `GET /api/sources` _(hoặc **2.4.1** `GET /api/my-sources`)_  
+**Completed Task:** Task **2.3.1** — Add server-side search filter to `GET /api/sources` ✅ (April 14, 2026)  
+**Next Task:** Task **2.3.2** — Build Browse Source Pool Screen #10 _(hoặc **2.4.1** `GET /api/my-sources`)_
 **Previous Task:** Tasks **2.2.1–2.2.2** — subscribe + unsubscribe APIs ✅ (April 14, 2026)
 
 ### Vừa Hoàn Thành
