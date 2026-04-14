@@ -111,9 +111,9 @@ export function SignalDetailModal({
     } catch (err) {
       const status =
         typeof err === "object" &&
-        err !== null &&
-        "status" in err &&
-        typeof (err as { status: unknown }).status === "number"
+          err !== null &&
+          "status" in err &&
+          typeof (err as { status: unknown }).status === "number"
           ? (err as { status: number }).status
           : undefined;
 

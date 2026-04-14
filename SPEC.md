@@ -11,9 +11,9 @@ Do tổng nội dung > 60.000 ký tự, spec được **chia 3 file** (theo rule
 | `SPEC-core.md` | 1–8 | Overview, NFR, Architecture, State/Error, Domain, Permissions, Flows, Data Model |
 | `SPEC-api.md` | 9–11 | DB Schema, External API Contracts, Internal REST API Specs |
 | `SPEC-plan.md` | 12–13 + Appendix A/B + Consistency Report | Delivery & Ops, **Sprint Plan** (Section 13); roadmap task → **`IMPLEMENTATION-ROADMAP.md`** riêng (playbook 2.2h) |
-| *(playbook)* | — | **`CLAUDE.md`** — rule ngắn cho agent; **`IMPLEMENTATION-ROADMAP.md`** — bảng task 1.x–3.x |
+| *(playbook)* | — | **`CLAUDE.md`** — rule ngắn cho agent; **`IMPLEMENTATION-ROADMAP.md`** — bảng task đánh số 1.x–3.x (**59** task tổng; Sprint 1: 34, Sprint 2: 14, Sprint 3: 11 — đối chiếu file roadmap) |
 
-**Chốt Phase 1 (đồng bộ 2026-04-03 — trả lời review workflow / “Gemini gap” về Source):** User thêm nguồn (`type=user`) → **`status='active'`** ngay, vào crawl pool; **không** happy-path `pending_review`. Admin xử lý sau (Flow 6): `GET/PATCH /api/admin/sources` theo SPEC-api; state machine `SPEC-core.md` Section 4; UI/sprint Screen **#11**, **#13** + tasks **3.3.x** trong `SPEC-plan.md`. Enum DB vẫn có `pending_review` cho **Option B** tương lai.
+**Change request (2026-04-13):** Chuyển workflow Source Phase 1 sang **Option B**. User thêm nguồn (`type=user`) tạo với **`status='pending_review'`**; chỉ vào crawl pool sau khi admin `approve` → `active`. Admin review queue qua `GET/PATCH /api/admin/sources`; state machine `SPEC-core.md` Section 4; UI/sprint Screen **#11**, **#13** + tasks **2.1.x**, **3.3.x** trong `SPEC-plan.md` / `IMPLEMENTATION-ROADMAP.md`.
 
 ---
 
@@ -26,7 +26,7 @@ Do tổng nội dung > 60.000 ký tự, spec được **chia 3 file** (theo rule
 **Người ký / reviewer:** HaoLuong  
 **Verdict:** PASS (baseline 2026-04-03); amendment 2026-04-06 **ghi nhận trong VALIDATION-LOG** (VR-6…VR-10) và các section đã nêu.
 
-**Điều kiện gate (tóm tắt):** Không còn BLOCKER mở cho lock; conflict workflow Source (2.2b #13) **đã chốt Option A**; Consistency Report trong `SPEC-plan.md` **8/8 PASS** tại thời điểm lock; human đã xác nhận đọc lại các section đã chỉnh (Source state machine, admin API, plan Screen #11 / #13 / tasks 3.3.x). **Sau amendment 2026-04-06:** các quyết định VR-6…VR-10 và đồng bộ POC twitterapi — **đối chiếu `SPEC-api.md`** làm nguồn truth cho hợp đồng API ngoài.
+**Điều kiện gate (tóm tắt):** Không còn BLOCKER mở cho lock; conflict workflow Source (2.2b #13) đã đổi sang **Option B** qua CR 2026-04-13; Consistency Report trong `SPEC-plan.md` **8/8 PASS** tại thời điểm lock; human đã xác nhận đọc lại các section đã chỉnh (Source state machine, admin API, plan Screen #11 / #13 / tasks 3.3.x). **Sau amendment 2026-04-06:** các quyết định VR-6…VR-10 và đồng bộ POC twitterapi — **đối chiếu `SPEC-api.md`** làm nguồn truth cho hợp đồng API ngoài.
 
 **Sau lock:** Mọi thay đổi spec = **change request** — bắt buộc ghi: mô tả, file + section (theo SPEC Section / Strategy Section), impact (schema, API, UI, sprint), người approve. Không sửa “ngầm” rồi bỏ trace.
 
@@ -36,8 +36,8 @@ Do tổng nội dung > 60.000 ký tự, spec được **chia 3 file** (theo rule
 
 | ID | Nội dung (rút gọn) | Lý do accept | Impact nếu assumption sai | Giảm rủi ro |
 |----|-------------------|--------------|---------------------------|------------|
-| VR-1 | Phase 1 **Option A**: user-added → `active`, vào crawl ngay; không approve trước crawl | Giảm friction onboarding; align chiến lược execute fast | Spam vào pool, tốn quota crawl | Flow 6 hậu kiểm; monitor spam rate; chuyển Option B nếu vượt ngưỡng đã chốt |
-| VR-2 | Giữ enum `pending_review` trong DB nhưng **không** dùng happy-path add | Chuẩn bị Option B, tránh migration gắt | Dev nhầm default state | Review code + test: `POST /api/sources` luôn gán đúng status Phase 1 |
+| VR-1 | Phase 1 **Option B**: user-added → `pending_review`; chỉ crawl sau admin approve (`active`) | Giảm spam/noise và quota waste trước khi nguồn được duyệt | User chờ duyệt, tăng friction add source | Queue admin theo `created_at`, SLA moderation, UI thông báo trạng thái chờ duyệt |
+| VR-2 | Dùng enum `pending_review` làm default happy-path cho user-added | Đồng bộ state machine + moderation queue | Queue phình to nếu admin chậm | Dashboard admin filter `status=pending_review`; theo dõi backlog và throughput duyệt |
 | VR-3 | Blocker tích hợp dịch vụ ngoài (2.2d) resolve **trước** code path pipeline | Spec đã liệt kê blocker; không chặn lock tài liệu | Trễ Sprint 1 nếu chưa verify API | Checklist verify doc/endpoint trước task crawl/classify (roadmap 1.6.x–1.8.x) |
 | VR-4 | Roadmap task chỉ trong **`IMPLEMENTATION-ROADMAP.md`**; `SPEC-plan.md` Section 13 = Sprint Plan + stub dẫn chiếu (playbook 2.2h) | Tránh nhúng trùng SPEC | Sửa roadmap mà quên file riêng | CR ghi rõ; `tools/build_spec.php` không nhúng roadmap vào plan |
 | VR-5 | Open questions còn lại (ví dụ: chỗ enforce Free tier API vs job; My KOLs toggle Sprint 1 vs 2; admin rank override vs immutability) | Impact chấp nhận được ≤ refactor nhỏ theo tiêu chí đã dùng khi triage | Đổi guard/cron hoặc thêm endpoint sau | Triage trong sprint planning; resolve trước khi đụng code path tương ứng |

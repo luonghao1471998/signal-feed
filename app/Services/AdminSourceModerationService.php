@@ -14,6 +14,12 @@ class AdminSourceModerationService
     {
         return DB::transaction(function () use ($source, $action, $categoryIds) {
             switch ($action) {
+                case 'approve':
+                    $source->status = 'active';
+                    $source->save();
+
+                    return $source->fresh(['categories']);
+
                 case 'flag_spam':
                     $source->status = 'spam';
                     $source->save();

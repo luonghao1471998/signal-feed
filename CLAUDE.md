@@ -131,7 +131,7 @@ SignalFeed aggregates signal from noise across 500+ curated tech/crypto/marketin
 
 **Kill (cuối Sprint 1 / PRODUCT-STRATEGY):** Landing <5% signup; <10 paying sau 4 tuần; Reddit 2 tuần không organic; founder không dogfood daily sau 1 tuần.
 
-**POST-WEDGE:** My KOLs đầy đủ, billing, admin nâng cao — Sprint 2–3; xem `SPEC-plan.md` Mục 13 + `IMPLEMENTATION-ROADMAP.md`. **Personal feed Pro/Power** — schema + REST đã lock trong **`SPEC-api`** (`user_personal_feed_entries`, job sau shared pipeline) — **Sprint 2+**, không nằm trong 56 task wedge; chi tiết task = CR/roadmap sau khi wedge ổn định.
+**POST-WEDGE:** My KOLs đầy đủ, billing, admin nâng cao — Sprint 2–3; xem `SPEC-plan.md` Mục 13 + `IMPLEMENTATION-ROADMAP.md`. **Personal feed Pro/Power** — schema + REST đã lock trong **`SPEC-api`** (`user_personal_feed_entries`, job sau shared pipeline) — **Sprint 2+**, không nằm trong **59 task** roadmap (`IMPLEMENTATION-ROADMAP.md`); chi tiết task = CR/roadmap sau khi wedge ổn định.
 
 ---
 
@@ -161,7 +161,7 @@ Các mục sau **vẫn mở** hoặc phụ thuộc môi trường; không tự �
 | **`last_crawled_at` + crawl loop** | **Cột trong `SPEC-api` §9**; logic trong Pipeline job (roadmap **1.6.2**) |
 | **Clustering** | **Phase 1 = prompt-based** (đã ghi `SPEC-api` changelog + Flow 3) — task **1.8.1** theo hướng đó |
 | **Admin guard** | **`users.is_admin`** trong schema `SPEC-api` §9 + middleware admin — xem REST `/api/admin/*` |
-| **Personal feed (Pro/Power)** | **Đã lock schema/API** (`user_personal_feed_entries`); triển khai job/UI **Sprint 2+**, ngoài 56 task wedge |
+| **Personal feed (Pro/Power)** | **Đã lock schema/API** (`user_personal_feed_entries`); triển khai job/UI **Sprint 2+**, ngoài **59 task** roadmap |
 
 ---
 

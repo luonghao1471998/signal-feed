@@ -59,7 +59,7 @@ class PipelineCrawlJob implements ShouldQueue
         ]);
 
         $sources = Source::query()
-            ->where('status', 'active')
+            ->forCrawl()
             ->orderBy('id')
             ->get();
 

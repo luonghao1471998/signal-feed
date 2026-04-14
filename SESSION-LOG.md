@@ -1,11 +1,66 @@
 # Session Log - 20260406-001
 
+## 2026-04-14 - Task 2.1.2: Add Source Form (Option B) - ✅ COMPLETED
+
+**Objective:** Implemented user-facing form to submit KOL sources for admin review (moderation queue).
+
+**Implementation Details:**
+
+**Backend Changes:**
+- Modified `SourceController::store()` to create sources with `status='pending_review'`
+- NO MySourceSubscription created on submit (is_subscribed always false)
+- Validation: handle regex `^@[A-Za-z0-9_]{1,15}$`; client-side display_name max 100 chars (server `display_name` rule per `SourceController` validation)
+
+**Frontend Implementation:**
+1. **sourceService.ts:**
+   - `createSource(handle, display_name?, category_ids)` (existing `createSource` + `sourceService` export)
+   - Response includes `status='pending_review'`
+
+2. **AddSourceModal.tsx:**
+   - Dialog component with form fields: @handle, display_name (optional), categories (multi-select)
+   - Client-side validation: handle starts with @, min 1 category, display_name max 100 chars
+   - Success flow: Toast "Source submitted for review" + Info toast explaining approval process
+   - Modal closes after submit, does NOT refresh source list
+   - Category checkboxes in 2-column grid, shows name + (slug)
+
+3. **MyKOLsPage.tsx:**
+   - "Add KOL" trigger button (Pro/Power only)
+   - Integrated AddSourceModal component
+   - No refresh of browse list on submit; no "Following" badge for pending-only flow
+
+**Option B Behavior:**
+- User submits → status='pending_review' (not 'active')
+- Source hidden from browse list until approved
+- No auto-subscription until admin approves
+- Success messaging: "Source submitted for review" + approval explanation
+- Cost control: Admin gate-keeps sources before crawl pipeline activation
+
+**Testing Completed:**
+- ✅ Pro/Power users can submit sources
+- ✅ Free users do NOT see button
+- ✅ Success toasts show correct Option B messaging
+- ✅ Backend creates source with pending_review status
+- ✅ No subscription record created
+- ✅ Form validation enforced (handle @, categories required)
+- ✅ Modal closes after successful submit
+- ✅ Source does NOT appear in browse list (pending hidden)
+
+**Files Changed:**
+- `app/Http/Controllers/Api/SourceController.php`
+- `resources/js/services/sourceService.ts`
+- `resources/js/components/AddSourceModal.tsx`
+- `resources/js/pages/MyKOLsPage.tsx`
+
+**Status:** ✅ Complete - Ready for Task 2.1.3 (Admin Approval Interface)
+
+---
+
 **Session ID:** SES-20260406-001
 **Date:** 2026-04-06
 **Phase:** Giai đoạn 3 - Implementation
 **Sprint:** Sprint 2 — My KOLs _(Sprint 1 wedge 34/34 complete)_  
-**Tasks Covered (đã làm):** 1.1.1 – 1.2.5, **1.3.1** (OAuth X.com), **1.4.1** (categories seed), **1.4.2** (`GET /api/categories`), **1.5.1** (source pool CSV 80 rows), **1.5.2** (source pool seeder), **1.10.1** (`GET /api/signals`), **1.10.2** (Digest View + real API), **1.11.1** (`GET /api/signals/{id}` detail), **1.11.2** (Signal Detail Modal), **1.12.1** (`POST /api/signals/{id}/draft/copy`), **1.12.2** (Event-driven `copy_draft` logging), **1.12.3** (Copy to X — `signalService.copyDraft` + dual-mode UX), **2.1.1** (`POST /api/sources` — add user source, Pro/Power, H1 cap)  
-**Next:** **2.1.2** — Build Add Source Form Screen #11 (React) — `IMPLEMENTATION-ROADMAP.md` (depends **2.1.1** ✅)
+**Tasks Covered (đã làm):** 1.1.1 – 1.2.5, **1.3.1** (OAuth X.com), **1.4.1** (categories seed), **1.4.2** (`GET /api/categories`), **1.5.1** (source pool CSV 80 rows), **1.5.2** (source pool seeder), **1.10.1** (`GET /api/signals`), **1.10.2** (Digest View + real API), **1.11.1** (`GET /api/signals/{id}` detail), **1.11.2** (Signal Detail Modal), **1.12.1** (`POST /api/signals/{id}/draft/copy`), **1.12.2** (Event-driven `copy_draft` logging), **1.12.3** (Copy to X — `signalService.copyDraft` + dual-mode UX), **2.1.1** (`POST /api/sources`), **2.1.2** (Add Source Form Screen #11 — Option B, `pending_review`)  
+**Next:** **2.2.1** — `POST /api/sources/{id}/subscribe` — `IMPLEMENTATION-ROADMAP.md` _(admin approval / moderation UI có thể tách task riêng hoặc backlog)_
 
 **Lưu ý cho agent / Claude:** Khi user chỉ nhắc `SESSION-LOG` + SPEC để **cập nhật log / context**, **không** tự implement code trừ khi user ghi rõ *Implement Feature* / *làm task X*. OAuth X.com (1.3.1) **đã có trong repo** (Socialite + `twitter-oauth-2`).
 
@@ -5090,6 +5145,21 @@ Tích hợp nút **Copy to X** trong `SignalDetailModal`, gọi `POST /api/signa
 - [x] Route `POST /sources`  
 - [x] Manual 9/9; verify SQL/tinker  
 
-### Next (`IMPLEMENTATION-ROADMAP.md`)
+### Next (`IMPLEMENTATION-ROADMAP.md`) — at time of 2.1.1 entry
 
-- **2.1.2** — Build Add Source Form Screen #11 (React modal or page)
+- **2.1.2** — Build Add Source Form Screen #11 — ✅ **Completed 2026-04-14** (canonical: mục **## 2026-04-14** đầu file).
+
+---
+
+## Task 2.1.2: Build Add Source Form Screen #11 (React modal) — Option B _(archive / draft 2026-04-13)_
+
+**Status:** ✅ Completed — 2026-04-14 (see đầu file: **## 2026-04-14 - Task 2.1.2**)
+
+**Depends On:** Task 2.1.1 ✅, Task 1.4.2 ✅
+
+**Objective (draft):** Form Pro/Power submit KOL vào moderation queue (`pending_review`).
+
+**Option B (confirmed in implementation):**
+- `status='pending_review'`; no auto-subscribe on submit; browse ẩn pending; toast + messaging theo SPEC.
+
+**References:** SPEC-core.md §4 Option B | `IMPLEMENTATION-ROADMAP.md` §2.1.2

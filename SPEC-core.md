@@ -352,39 +352,34 @@ Phân Loại Entities
 Full State Machine (có lifecycle phức tạp)
 1. Source
 Loại: Full state machine
-Source: Domain 2.2a Entity Relationship (Source soft delete), Flow 1 (add → pool), Flow 6 (admin **hậu kiểm**)
+Source: Domain 2.2a Entity Relationship (Source soft delete), Flow 1 (add → review queue), Flow 6 (admin review)
 
-**Chốt Phase 1 — Option A (2026-04-03):** Source `type='user'` được tạo với **`status='active'`** ngay; vào crawl pool; **lần chạy crawl tiếp theo** (theo lịch 4×/ngày) có thể fetch tweet. **Không** có bước chờ admin approve trước crawl. Flow 6 = moderation sau (spam / category / soft delete).
-
-Giá trị enum `pending_review` vẫn trong schema DB (`SPEC-api.md` §1.2) cho **Option B tương lai**; Phase 1 wedge **không** dùng làm trạng thái mặc định khi user add.
+**Chốt Phase 1 — Option B (CR 2026-04-13):** Source `type='user'` được tạo với **`status='pending_review'`**; chỉ vào crawl pool sau khi admin `approve` → `active`. Flow 6 dùng queue duyệt trước crawl.
 
 | State | Event | Next state | Side effects | Guards |
 |-------|-------|------------|--------------|--------|
-| — | User adds source (Flow 1) | **active** | Source `type='user'`; MySourceSubscription nếu under cap (H1); vào pool, crawl cycle tiếp theo | @handle hợp lệ, public, ≥1 tweet/30d, Pro/Power |
+| — | User adds source (Flow 1) | **pending_review** | Source `type='user'`; MySourceSubscription nếu under cap (H1); chờ admin duyệt | @handle hợp lệ, public, ≥1 tweet/30d, Pro/Power |
+| pending_review | Admin approves (Flow 6) | active | Vào browse pool + crawl cycle tiếp theo | Admin |
 | active | Admin flags spam (Flow 6) | spam | Ẩn browse, notify user thêm source | Admin; không hard delete nếu đã có signals |
 | active | Admin soft deletes | deleted | Ẩn browse; giữ MySourceSubscriptions | Admin |
 | active | Admin adjusts categories | active | Cập nhật SourceCategory | Admin; ≥1 category |
 | spam | Admin restores (manual) | active | Vào lại crawl pool | Admin [assumption #9] |
 | deleted | Admin restores (manual) | active | Hiện lại browse | Admin [assumption #9] |
 
-State diagram (Option A):
+State diagram (Option B):
 
 ```
-[User adds] ──→ active ←──────────────────┐
-                  │                     │
-     [Admin flag spam]                  │ [Admin restores]
-                  ↓                     │
-                spam ───────────────────┘
-                  │
-     [Admin soft delete]
-                  ↓
-              deleted ──→ [restore] ──→ active
+[User adds] ──→ pending_review ──→ [Admin approve] ──→ active
+                     │                                   │
+        [Admin flag spam/delete]                         │ [Admin flag spam]
+                     ↓                                   ↓
+                 spam/deleted ←────────────── [Admin restore]
 ```
 
 Notes:
 
 - `type='default'`: tạo thẳng **active** (admin seed).
-- `type='user'`: Phase 1 = **active** ngay (Option A). Conflict #13 (2.2a/2.2b) **đã chốt** — immediate pool + post-hoc review; nếu spam tăng → cân nhắc Option B sau.
+- `type='user'`: Phase 1 = **pending_review** (Option B). Nguồn chỉ được crawl khi đã `active`.
 - Soft delete giữ lịch sử (không hard delete nếu Source có Tweet/Signal).
 
 
@@ -596,7 +591,7 @@ Source: Section 5 (Manage My Sources), F05
 | Actor | Pro User, Power User |
 | Action | Add @handle to shared SourcePool |
 | Precondition | User authenticated, plan ∈ {pro, power}, @handle not already in pool |
-| Steps | 1. User inputs @handle in Add Source form → 2. System validates: (a) account exists on X, (b) public, (c) ≥1 tweet in last 30 days [assumption #5] → 3. User selects 1+ categories → 4. Creates Source (`type='user'`, `added_by=user_id`, **`status='active'`** — Option A, Section 4) → 5. SourceCategory links → 6. If My KOLs count &lt; plan cap (Pro &lt;10, Power &lt;50), create MySourceSubscription; if at cap, skip subscription — Source still enters pool (H1) → 7. **Next scheduled crawl** includes new source |
+| Steps | 1. User inputs @handle in Add Source form → 2. System validates: (a) account exists on X, (b) public, (c) ≥1 tweet in last 30 days [assumption #5] → 3. User selects 1+ categories → 4. Creates Source (`type='user'`, `added_by=user_id`, **`status='pending_review'`** — Option B, Section 4) → 5. SourceCategory links → 6. If My KOLs count &lt; plan cap (Pro &lt;10, Power &lt;50), create MySourceSubscription; if at cap, skip subscription (H1) → 7. Admin approve → `active` → **next scheduled crawl** includes source |
 | Guards | @handle format (alphanumeric + underscore, 1–15 chars); account public (API); ≥1 category; Pro/Power only; no cap on adding to pool; cap gates only optional subscribe in step 6 and Flow 2 [assumption #2, H1] |
 | Result | Source in pool for all users; My KOLs subscription at add only when under cap; at cap, user may Follow via Flow 2 after freeing a slot |
 | Error Cases | Account missing → "Account not found on X"; private → "Cannot add private accounts"; no tweets 30d → "Account appears inactive" [assumption #5]; already in pool → subscribe flow; no category → validation error |
@@ -653,15 +648,15 @@ Source: Section 5 (Daily Creation), F19
 | Result | UserInteraction logged; composer open |
 | Error Cases | Draft &gt;280 → truncate + log; user not logged into X → X prompts login |
 
-Flow 6: Admin Reviews User-Added Source (post-hoc moderation — Option A)  
+Flow 6: Admin Reviews User-Added Source (approve-first moderation — Option B)  
 Source: Section 5 (Admin Source Curation), F21
 
 | Field | Detail |
 |-------|--------|
 | Actor | Admin |
-| Action | **Hậu kiểm** source `type='user'` đã **active**: flag spam, chỉnh category, soft delete — **không** có bước “approve trước crawl” Phase 1 |
-| Precondition | Admin authenticated; có source `type='user'` (thường `status='active'`) cần xem xét |
-| Steps | 1. Source Management → 2. Filter `type=user` (gợi ý sort `created_at` desc cho mới thêm); **không** dùng queue `pending_review` làm mặc định Phase 1 → 3. Xem profile, tweet gần đây, signal/noise nếu &gt;7 ngày → 4. **Flag spam** → `status='spam'` (hoặc soft delete theo policy), notify user thêm source; **hoặc Adjust categories** → cập nhật SourceCategory; **hoặc Soft delete** → `deleted` — 5. Log admin audit [assumption #14] |
+| Action | Duyệt source `type='user'` trong queue `pending_review`: approve, flag spam, chỉnh category, soft delete |
+| Precondition | Admin authenticated; có source `type='user'` cần duyệt (ưu tiên `status='pending_review'`) |
+| Steps | 1. Source Management → 2. Filter `type=user&status=pending_review` (sort `created_at` desc) → 3. Xem profile, tweet gần đây (nếu có) và metadata → 4. **Approve** → `status='active'` (được crawl); **hoặc Flag spam** → `status='spam'`; **hoặc Adjust categories**; **hoặc Soft delete** → `deleted` — 5. Log admin audit [assumption #14] |
 | Guards | Admin-only; không hard-delete nếu đã có signals; chỉnh category phải ≥1 category |
 | Result | Trạng thái / category cập nhật; browse và crawl phản ánh sau khi ẩn nếu spam/deleted |
 | Error Cases | Đã có signals → không hard delete; soft-delete + subscriptions → ẩn browse, giữ follow đến khi user unfollow [assumption #6] |
@@ -954,7 +949,7 @@ Lifecycle Source: 2.2b Section 3 — Category classification, "Static lookup tab
 
 Source  
 Lifecycle: Full state machine  
-Lifecycle Source: 2.2b Section 3 — Source state machine; **Phase 1 Option A:** `type='user'` tạo với `status='active'` (vào pool + crawl ngay); `pending_review` giữ trong enum cho tương lai / Option B.
+Lifecycle Source: 2.2b Section 3 — Source state machine; **Phase 1 Option B:** `type='user'` tạo với `status='pending_review'`; cần admin approve để vào pool crawl.
 
 | Field | Type | Required | Source | Validation | Notes |
 |-------|------|----------|--------|------------|-------|
@@ -965,7 +960,7 @@ Lifecycle Source: 2.2b Section 3 — Source state machine; **Phase 1 Option A:**
 | display_name | string | no | system — 2.2a Flow 1 Step 2, twitterapi.io | — | From profile; may change |
 | is_public | boolean | yes | system — Flow 1 Step 2 | 2.2a Guard: account public | From twitterapi.io |
 | is_active | boolean | yes | system — Flow 1 Step 2 | ≥1 tweet in 30 days [assumption #5] | Avoid dead accounts |
-| status | enum | yes | state — Section 4 Source machine | `pending_review`, `active`, `spam`, `deleted` | Phase 1: `type='user'` mặc định **`active`** (Option A); `pending_review` không dùng happy-path add |
+| status | enum | yes | state — Section 4 Source machine | `pending_review`, `active`, `spam`, `deleted` | Phase 1: `type='user'` mặc định **`pending_review`** (Option B); `active` sau admin approve |
 | added_by | relation → User | yes (`type='user'`) | 2.2a Flow 1 Step 4 | reference integrity | NULL if `type='default'` |
 | last_crawled_at | date-time | no | Flow 3 crawl — `SPEC-api` 2026-04-06 | — | Per-source watermark for twitterapi loop |
 | created_at | date-time | yes | platform convention — 2.2b | — | — |

@@ -24,7 +24,7 @@ class UpdateCurrentUserController extends Controller
     private function userJson(User $user): JsonResponse
     {
         $plan = (string) $user->plan;
-        if (! in_array($plan, ['free', 'pro', 'power'], true)) {
+        if (!in_array($plan, ['free', 'pro', 'power'], true)) {
             $plan = 'free';
         }
 

@@ -77,7 +77,7 @@ CREATE TYPE source_type AS ENUM ('default', 'user');
 
 -- Source.status enum
 -- Source: 2.2b Source state machine — pending_review | active | spam | deleted
--- Phase 1 Option A (SPEC-core): user-added sources → status='active' immediately; pending_review reserved for Option B / future
+-- Phase 1 Option B (SPEC-core): user-added sources → status='pending_review' then admin approve -> active
 CREATE TYPE source_status AS ENUM ('pending_review', 'active', 'spam', 'deleted');
 
 -- User.plan enum
@@ -151,7 +151,7 @@ CREATE TABLE users (
 
 -- Table: sources
 -- Source: 2.2c Source entity
--- Lifecycle: Full state machine — 2.2b Section 3; Phase 1 Option A: happy-path add → active (post-hoc admin moderation)
+-- Lifecycle: Full state machine — 2.2b Section 3; Phase 1 Option B: happy-path add → pending_review (approve-first moderation)
 CREATE TABLE sources (
     id BIGSERIAL PRIMARY KEY,
     tenant_id INTEGER NOT NULL DEFAULT 1, -- NFR #5, #6: Phase 2 multi-tenant prep
@@ -161,14 +161,14 @@ CREATE TABLE sources (
     display_name TEXT, -- 2.2c Source.display_name — from Twitter profile, can change
     is_public BOOLEAN NOT NULL DEFAULT true, -- 2.2c Source.is_public — validated at add time (2.2a Flow 1)
     is_active BOOLEAN NOT NULL DEFAULT true, -- 2.2c Source.is_active — ≥1 tweet in last 30 days check [based on 2.2a assumption #5]
-    status source_status NOT NULL DEFAULT 'active', -- 2.2c Source.status — Option A: type='user' also created as active
+    status source_status NOT NULL DEFAULT 'active', -- 2.2c Source.status — type='default' active; user-added set pending_review at app layer
     added_by_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL, -- 2.2c Source.added_by — NULL for type='default', required for type='user'
     last_crawled_at TIMESTAMPTZ, -- 2026-04-06: last successful twitterapi fetch for this source (crawl loop / backoff / observability)
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ -- 2.2c Source.deleted_at — soft delete per 2.2b state machine
 );
--- Conflict #13 chốt Option A: type='user' created active; enum still includes pending_review for Option B
+-- CR 2026-04-13: type='user' created pending_review; admin approve -> active before crawl
 
 
 -- Table: source_categories (M:N junction)
@@ -479,7 +479,7 @@ CREATE INDEX idx_sources_status ON sources(status);
 -- Source: admin moderation filters (active/spam/deleted); pending_review if Option B enabled later
 
 CREATE INDEX idx_sources_type ON sources(type);
--- Source: 2.2a Flow 6 — filter type='user' for post-hoc moderation queue (Option A)
+-- Source: 2.2a Flow 6 — filter type='user' for moderation queue (Option B)
 
 CREATE INDEX idx_sources_added_by_user_id ON sources(added_by_user_id);
 -- Source: 2.2a Flow 1 — user views own added sources
@@ -883,7 +883,7 @@ ORDER BY date DESC, event_count DESC;
 | # | Endpoint | Method | Used By (flow/feature) | Request Schema | Response Schema | Key Error Codes | Rate Limit |
 |---|----------|--------|------------------------|----------------|-----------------|-----------------|------------|
 | 1 | `/messages` | POST | 2.2a Flow 3 Classify — classify tweet signal/noise | `{ model: string, max_tokens: int, messages: [{ role: "user", content: string }] }` [verify] | `{ content: [{ type: "text", text: string }], usage: { input_tokens: int, output_tokens: int } }` [verify] | `401`, `429`, `400`, `529` | Verify RPM/TPM |
-| 2 | `/messages` | POST | 2.2a Flow 3 Cluster — **CHỐT 2026-04-06: Option A prompt-based** via LLM (same `/messages` contract as classify). Embeddings-based clustering = **Phase 2** optional optimization. | Same as #1 — prompt asks model to group tweet IDs / themes | Same as #1 | Same as #1 | Verify RPM/TPM |
+| 2 | `/messages` | POST | 2.2a Flow 3 Cluster — **CHỐT 2026-04-06: prompt-based** via LLM (same `/messages` contract as classify). Embeddings-based clustering = **Phase 2** optional optimization. | Same as #1 — prompt asks model to group tweet IDs / themes | Same as #1 | Same as #1 | Verify RPM/TPM |
 | 3 | `/messages` | POST | 2.2a Flow 3 Summarize — generate title/summary/tags | Same as #1 | `{ content: [{ type: "text", text: string }], usage: {...} }` | Same as #1 | Same as #1 |
 | 4 | `/messages` | POST | 2.2a Flow 3 Draft — generate tweet draft | Same as #1 | Same as #3 | Same as #1 | Same as #1 |
 
@@ -1173,7 +1173,7 @@ ORDER BY date DESC, event_count DESC;
 | 6 | NFR audit logging scope: all services OR selective? | Dev effort (1-2 days if all), storage cost | NFR not provided. Assumed required for all. If NFR confirms NO → remove to save time. | Assumption #6 |
 | 7 | Free tier schedule: Mon/Wed/Fri locked OR configurable? | User expectation management, churn risk | Display clearly in signup. If high churn → consider configurable days Phase 2. | Assumption #7 |
 | 8 | My KOLs stats: cache strategy needed Phase 1? | Performance (if >2s load = UX hit) | Start on-demand, monitor Sprint 1. Add cache (Redis 1h TTL) if slow. | Assumption #8 |
-| 9 | Source review workflow: immediate pool entry OR review queue? | Spam control vs user friction | 2.2a/2.2b conflict #13. Recommend immediate entry (trust users) + post-hoc admin review. Switch to queue if spam >10%. | 2.2a conflict #13, 2.2b conflict #13 |
+| 9 | Source review workflow | Spam control vs user friction | **Đã chốt Option B (CR 2026-04-13):** review queue `pending_review` + admin `approve` trước crawl. | 2.2a conflict #13, 2.2b conflict #13 |
 | 10 | Category filter: OR confirmed OR needs founder decision? | Digest relevance, user satisfaction | 2.2a/2.2b conflict #24. Recommend OR logic (show if ANY match). Document as Hard Constraint #8. | 2.2a conflict #24, 2.2b conflict #16, Constraint #8 |
 
 ---
@@ -1406,7 +1406,7 @@ ORDER BY date DESC, event_count DESC;
 
 **Notes:**
 - Default filter: `status='active'` (hide spam/deleted/pending_review from non-admin browse)
-- Admin-only: `?type=user` (+ optional `?status=`) để **hậu kiểm** (Flow 6 Option A); không bắt buộc `pending_review` — nguồn user mới đã `active`
+- Admin-only: `?type=user` (+ optional `?status=`) để duyệt queue; mặc định ưu tiên `pending_review` (Flow 6 Option B)
 
 ---
 
@@ -1436,7 +1436,7 @@ ORDER BY date DESC, event_count DESC;
 **Notes:**
 - Calls twitterapi.io `/users/{username}` to validate account (2.2d endpoint #2)
 - Creates Source + SourceCategory in one transaction; creates `MySourceSubscription` only when user's subscription count < plan cap (H1). If at cap, response `is_subscribed: false` — user may `POST /api/sources/{id}/subscribe` after freeing a slot (Flow 2)
-- **Phase 1 Option A:** `Source.status` luôn **`'active'`** khi tạo (`type='user'`); vào crawl pool theo chu kỳ tiếp theo; không chờ admin approve
+- **Phase 1 Option B:** `Source.status` mặc định **`'pending_review'`** khi tạo (`type='user'`); chỉ vào crawl pool sau admin `approve` → `active`
 - No cap on adding new Sources to pool per 2.2a assumption #2 + H1 (cap applies to My KOLs subscriptions, not pool size)
 
 ---
@@ -1653,8 +1653,8 @@ ORDER BY date DESC, event_count DESC;
 
 #### Admin Endpoints
 
-##### List Sources (Admin — post-hoc moderation)
-**Source:** 2.2a Flow 6 (Admin Reviews User-Added Source — Option A), F21  
+##### List Sources (Admin — moderation queue)
+**Source:** 2.2a Flow 6 (Admin Reviews User-Added Source — Option B), F21  
 **Accommodates:** N/A
 
 | Field | Detail |
@@ -1663,7 +1663,7 @@ ORDER BY date DESC, event_count DESC;
 | Actor | Admin only |
 | Auth | Sanctum token + **`users.is_admin = true`** (2026-04-06) |
 | Permission Guard | Admin middleware checks `is_admin` (2.2a Permission Matrix) |
-| Request | Query params: `?type=user` (khuyến nghị Flow 6), optional `?status=active|spam|deleted|pending_review` (lọc theo trạng thái; `pending_review` chỉ khi bật Option B) |
+| Request | Query params: `?type=user` (khuyến nghị Flow 6), optional `?status=active|spam|deleted|pending_review` (lọc theo trạng thái; queue chính = `pending_review`) |
 | Success Response | `200 OK` — `{ data: [{ id, handle, display_name, account_url, type, status, added_by_user: {id, email}, categories, created_at, signal_count, noise_ratio? }], meta: {...} }` — paginated |
 | Error Responses | See table below |
 
@@ -1673,12 +1673,12 @@ ORDER BY date DESC, event_count DESC;
 
 **Notes:**
 - noise_ratio computed if source >7 days old per 2.2a Flow 6 Step 3 (% of tweets classified as noise)
-- Option A: danh sách mặc định thường là `type=user` + sort `created_at` desc (sources mới cần hậu kiểm)
+- Option B: danh sách mặc định thường là `type=user&status=pending_review` + sort `created_at` desc (sources mới cần duyệt)
 
 ---
 
 ##### Moderate Source (Admin Action)
-**Source:** 2.2a Flow 6 (Admin Reviews Source — Option A), F21  
+**Source:** 2.2a Flow 6 (Admin Reviews Source — Option B), F21  
 **Accommodates:** N/A
 
 | Field | Detail |
@@ -1687,7 +1687,7 @@ ORDER BY date DESC, event_count DESC;
 | Actor | Admin only |
 | Auth | Sanctum token + **`users.is_admin = true`** |
 | Permission Guard | Admin middleware checks `is_admin` |
-| Request | `{ action: 'flag_spam' | 'adjust_categories' | 'soft_delete' | 'restore', category_ids?: array<int> }` — `category_ids` bắt buộc khi `action='adjust_categories'` (≥1) |
+| Request | `{ action: 'approve' | 'flag_spam' | 'adjust_categories' | 'soft_delete' | 'restore', category_ids?: array<int> }` — `category_ids` bắt buộc khi `action='adjust_categories'` (≥1) |
 | Success Response | `200 OK` — `{ data: { id, status, categories, updated_at } }` |
 | Error Responses | See table below |
 
@@ -1698,11 +1698,11 @@ ORDER BY date DESC, event_count DESC;
 | 422 | VALIDATION_ERROR | `adjust_categories` mà `category_ids` thiếu/rỗng/invalid | 2.2a Flow 6 Guard |
 
 **Notes:**
-- **Phase 1 Option A:** không có bước approve trước crawl; `flag_spam`: `active` → `spam` (soft delete semantics, notify user), ẩn browse
+- **Phase 1 Option B:** có bước approve trước crawl; `approve`: `pending_review` → `active` (vào crawl pool)
 - `adjust_categories`: giữ `status`, thay SourceCategory (Flow 6 Step 4)
 - `soft_delete`: `active` → `deleted` (theo policy Section 4)
 - `restore`: `spam` hoặc `deleted` → `active` (assumption #9)
-- **Option B (tương lai):** có thể thêm `action: 'approve'` (`pending_review` → `active`); Phase 1 có thể trả `400` nếu gọi khi không có workflow review
+- `flag_spam`: `active|pending_review` → `spam` (ẩn browse)
 - Side effect: log admin action in audit trail per 2.2a assumption #14 [not in current spec — flag for infrastructure table if needed]
 
 ---

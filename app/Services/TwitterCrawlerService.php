@@ -16,6 +16,7 @@ class TwitterCrawlerService
 {
     /**
      * Crawl tweets for one source (by handle only; does not populate {@see Source::$x_user_id}).
+     * Callers should load the source via {@see Source::scopeForCrawl} (only `status = active`).
      *
      * @return array{success: bool, tweets_count: int, new_tweets_count: int, message: string, affected_tweet_ids: list<int>}
      */

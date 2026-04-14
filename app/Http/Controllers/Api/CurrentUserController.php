@@ -22,7 +22,7 @@ class CurrentUserController extends Controller
         }
 
         $plan = (string) $user->plan;
-        if (! in_array($plan, ['free', 'pro', 'power'], true)) {
+        if (!in_array($plan, ['free', 'pro', 'power'], true)) {
             $plan = 'free';
         }
 

@@ -27,12 +27,12 @@ class AdminModerationSourceResource extends JsonResource
             'status' => $this->status,
             'added_by_user' => $this->when(
                 $this->relationLoaded('addedByUser'),
-                fn () => $this->addedByUser === null
-                    ? null
-                    : [
-                        'id' => $this->addedByUser->id,
-                        'email' => null,
-                    ]
+                fn() => $this->addedByUser === null
+                ? null
+                : [
+                    'id' => $this->addedByUser->id,
+                    'email' => null,
+                ]
             ),
             'categories' => CategoryResource::collection($this->whenLoaded('categories')),
             'created_at' => $this->created_at?->utc()->toIso8601String(),

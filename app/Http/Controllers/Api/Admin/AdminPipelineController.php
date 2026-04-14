@@ -12,7 +12,8 @@ class AdminPipelineController extends Controller
 {
     public function __construct(
         private readonly AdminPipelineMetricsService $metricsService
-    ) {}
+    ) {
+    }
 
     /**
      * GET /api/admin/pipeline/status

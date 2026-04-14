@@ -1,17 +1,19 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-13 (Task 2.1.1 complete)
+**Last Updated:** 2026-04-14 (Task 2.1.2 complete)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 2 — My KOLs
-**Completed Task:** **2.1.1** — `POST /api/sources` (add user source, Pro/Power, H1 cap) ✅ — 2026-04-13
-**Next Task:** **2.1.2** — Build Add Source Form Screen #11 (React) — `IMPLEMENTATION-ROADMAP.md` Task 2.1.2 (depends **2.1.1** ✅)
-**Status:** Sprint 2; API thêm nguồn user ✅; next **2.1.2** UI
+**Completed Task:** **2.1.2** — Add Source Form (Option B, `pending_review`) ✅ — 2026-04-14
+**Next Task:** **2.1.3** — GET user-submitted sources (my submissions) _(hoặc **2.2.1** subscribe — admin moderation = **3.3.x** Sprint 3, xem roadmap)_
+**Status:** Sprint 2; Add Source form ✅; next **2.1.3–2.1.4** hoặc subscribe API
 
 ---
 
 ## Sprint 2 — My KOLs (`IMPLEMENTATION-ROADMAP.md`)
 
-**Progress (12 tasks):** **1 / 12**
+**Đồng bộ roadmap 2026-04-14:** Sprint 2 = **14** task (thêm **2.1.3** / **2.1.4**); tổng dự án **59** task — xem `IMPLEMENTATION-ROADMAP.md`.
+
+**Progress (14 tasks):** **2 / 14**
 
 ### ✅ Task 2.1.1: `POST /api/sources` — COMPLETED (2026-04-13)
 
@@ -21,9 +23,45 @@
 - **Tests:** Manual **9/9** (tinker + curl); không automated tests (DATABASE SAFETY RULES).
 - **DB (phiên test):** vd. sources id 81–82, subscription + pivot như SESSION-LOG — không truncate pool.
 
-### Next
+### Task 2.1.2: Build Add Source Form Screen - ✅ COMPLETED (2026-04-14)
 
-- **2.1.2** — Build Add Source Form Screen #11 (React modal or page)
+**Status:** ✅ Complete
+
+**Implementation:**
+- Frontend form allowing Pro/Power users to submit KOL sources
+- Sources created with `status='pending_review'` (Option B)
+- NO auto-subscribe until admin approval
+- Success messaging explains review process
+- Free users excluded (no button visibility)
+
+**Components Delivered:**
+- `AddSourceModal.tsx` - Modal form component
+- `sourceService.createSource()` - API call layer
+- Integration in MyKOLsPage with trigger button
+- Backend creates sources with pending_review status (`app/Http/Controllers/Api/SourceController.php`)
+
+**Testing:**
+- ✅ Form submission successful (Pro/Power users)
+- ✅ Validation working (handle @, categories, display_name)
+- ✅ Success toasts show correct Option B messaging
+- ✅ Backend creates pending_review sources (verified)
+- ✅ No auto-subscription (verified in DB)
+- ✅ Free users restricted (button hidden)
+
+**Next Step:** Task **2.1.3** — API danh sách nguồn user đã gửi (my submissions); admin approve = **3.3.x** trong `IMPLEMENTATION-ROADMAP.md`
+
+---
+
+## Phase 2.1: Source Management (Option B - Moderation Queue)
+
+**Status:** In Progress (2/4 complete)
+
+- ✅ Task 2.1.1: POST /api/sources endpoint (Option B) - Complete
+- ✅ Task 2.1.2: Add Source Form (pending_review queue) - Complete
+- ⏳ Task 2.2.1: Implement POST /api/sources/{id}/subscribe endpoint
+- ⏳ Task 2.2.2: Implement DELETE /api/sources/{id}/subscribe endpoint
+
+_(Roadmap tiếp: **2.2.3** Follow/Unfollow UI — `IMPLEMENTATION-ROADMAP.md`.)_
 
 ---
 
@@ -114,20 +152,21 @@
 **Notes:** Intent base URL backend: `https://x.com/intent/post?text=`; CSRF stateful Sanctum cho POST.
 
 ### In Progress / Next (roadmap)
-- **Next (Sprint 2):** **2.1.2** — Build Add Source Form Screen #11 — sau **2.1.1** ✅
+- **Next (Sprint 2):** **2.1.3** admin approval _(hoặc **2.2.1** subscribe API)_ — sau **2.1.2** ✅
 - **Backlog (ngoài bảng Sprint 2):** **1.11.3** — metadata digest (tùy ưu tiên)
 
 ### Statistics
 - **Sprint 1 (34 tasks, `IMPLEMENTATION-ROADMAP`):** 34 / 34 ✅
-- **Sprint 2 (12 tasks):** 1 / 12 — next **2.1.2**
+- **Sprint 2 (14 tasks):** 2 / 14 — next **2.1.3** (my submissions API) / **2.2.1** (tùy ưu tiên)
 
 ### Progress Summary
 
-**Completed Tasks:** Sprint 1 **34/34** ✅; Sprint 2 **1/12** (2.1.1 ✅, 2026-04-13)
-**Current phase:** Sprint 2 — My KOLs; next = **2.1.2**
-**Last Updated:** 2026-04-13
+**Completed Tasks:** Sprint 1 **34/34** ✅; Sprint 2 **2/14** (2.1.1 ✅ 2026-04-13, 2.1.2 ✅ 2026-04-14)
+**Current phase:** Sprint 2 — My KOLs; next = **2.2.1** hoặc **2.1.3**
+**Last Updated:** 2026-04-14
 
 **Recent Completions:**
+- ✅ Task 2.1.2: Add Source Form (Option B) — `AddSourceModal` + `pending_review` (2026-04-14)
 - ✅ Task 2.1.1: `POST /api/sources` — add user source + H1 + manual 9/9 (2026-04-13)
 - ✅ Task 1.12.3: Copy to X UI — dual-mode + CSRF (2026-04-13)
 - ✅ Task 1.12.2: Event-driven logging + duplicate listener fix (2026-04-13)
@@ -209,14 +248,14 @@
 - **Created:** `TweetClassifierService`, `config/signalfeed.php`, migration `signal_score` unclassified; tests unit/feature bổ sung
 - **Modified:** `PipelineCrawlJob` (refactor orchestration), `docs/prompts/v1/classify.md`, `routes/console.php` (scheduler 4×/day), `.env.example`, `TwitterCrawlerService`, `LLMClient`, `FakeLLMClient`
 
-**Next (block Task 1.7.2 lịch sử):** theo roadmap hiện tại → **2.1.2** (Sprint 2); backlog **1.11.3**.
+**Next (block Task 1.7.2 lịch sử):** theo roadmap hiện tại → **2.2.1** (Sprint 2); backlog **1.11.3**.
 
 ## Current Sprint Status
 
-**Completed Task:** Task **2.1.1** — `POST /api/sources` (add user source) ✅ (2026-04-13)  
-**Next Task:** Task **2.1.2** — Build Add Source Form Screen #11 (React) — `IMPLEMENTATION-ROADMAP.md`  
-**Status:** Sprint 2; `SourceController::store` + `User::sourceSubscriptions` + manual 9/9 (SESSION-LOG)  
-**Previous:** Sprint 1 wedge + Task 1.12.3 Copy to X ✅
+**Completed Task:** Task **2.1.2** — Add Source Form (Option B) ✅ (2026-04-14)  
+**Next Task:** Task **2.1.3** admin approval _(hoặc **2.2.1** subscribe)_ — `IMPLEMENTATION-ROADMAP.md`  
+**Status:** Sprint 2; Add Source UI + `Api\SourceController::store` (`pending_review`, no auto-subscribe) — SESSION-LOG 2026-04-14  
+**Previous:** Task 2.1.1 `POST /api/sources` ✅ (2026-04-13)
 
 **Recent Completions:**
 
@@ -474,9 +513,9 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
 
 ## 🎯 Current Focus
 
-**Completed Task:** Task **2.1.1** — `POST /api/sources` ✅ (April 13, 2026)  
-**Next Task:** Task **2.1.2** — Build Add Source Form Screen #11 (React)  
-**Previous Task:** Task 1.12.3 — Copy to X (dual-mode UX) ✅ (April 13, 2026)
+**Completed Task:** Task **2.1.2** — Add Source Form Screen #11 (Option B) ✅ (April 14, 2026)  
+**Next Task:** Task **2.1.3** Admin approval UI _(hoặc **2.2.1** subscribe API)_  
+**Previous Task:** Task **2.1.1** — `POST /api/sources` ✅ (April 13, 2026)
 
 ### Vừa Hoàn Thành
 
@@ -627,9 +666,9 @@ Không có
 
 ### Task Tiếp Theo (`IMPLEMENTATION-ROADMAP.md`)
 
-🔜 **Task 2.1.2** — Build Add Source Form Screen #11 (React modal or page) — depends **2.1.1** ✅
+🔜 **Task 2.2.1** — `POST /api/sources/{id}/subscribe` — depends **2.1.1** ✅; **2.1.2** ✅
 
-- **Sprint 2 tiếp:** **2.2.1** → **2.2.2** → **2.2.3** → … (subscribe/unsubscribe + browse UI)
+- **Sprint 2 tiếp:** **2.2.1** → **2.2.2** → **2.2.3** → … (subscribe/unsubscribe + browse UI); **2.1.3** admin approval nếu tách task
 - **Digest:** **1.10.x–1.12.x** ✅; backlog **1.11.3** metadata nếu cần.
 - **Pipeline wedge:** Task **1.9.3** ✅ — `PipelineCrawlJob` Step 5–6.
 
@@ -682,7 +721,7 @@ _(Removed: API credits depleted — resolved via top-up hoặc không chặn dev
 ## Next Session Plan
 
 ### Target
-- **Task 2.1.2** — Add Source Form UI (Screen #11); tiếp theo roadmap Sprint 2: **2.2.1** / **2.2.2**. _(Backlog: **1.11.3** metadata, **1.3.3** onboarding polish.)_
+- **Task 2.2.1** / **2.1.3** — Subscribe API hoặc Admin approval UI; tiếp theo roadmap Sprint 2: **2.2.2** / **2.2.3**. _(Backlog: **1.11.3** metadata, **1.3.3** onboarding polish.)_
 
 ### Pre-requisites
 - [x] WSL / dev environment
@@ -703,7 +742,7 @@ _(Removed: API credits depleted — resolved via top-up hoặc không chặn dev
 - [x] Rank + draft trong pipeline job (1.9.3)
 
 ### Expected Duration
-Tuỳ scope **2.1.2** + nối API; polish 1.11.3 / 1.3.3 tách khỏi chuỗi Sprint 2
+Tuỳ scope **2.2.1** (subscribe) hoặc **2.1.3** (admin); polish 1.11.3 / 1.3.3 tách khỏi chuỗi Sprint 2
 
 ---
 
@@ -725,7 +764,7 @@ Tuỳ scope **2.1.2** + nối API; polish 1.11.3 / 1.3.3 tách khỏi chuỗi Sp
 - [ ] **Task 1.11.3:** Render metadata (categories, tags, date) _(backlog)_
 - [x] **Tasks 1.12.1–1.12.3:** Draft copy API + logging + Copy to X UI ✅ (2026-04-13)
 - [x] **Task 2.1.1:** `POST /api/sources` (add user source) ✅ (2026-04-13)
-- [ ] **Task 2.1.2:** Add Source Form Screen #11 (React)
+- [x] **Task 2.1.2:** Add Source Form Screen #11 (React, Option B) ✅ (2026-04-14)
 
 ---
 

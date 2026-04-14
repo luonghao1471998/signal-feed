@@ -18,7 +18,7 @@ class DraftController extends Controller
         $user = $request->user();
         $plan = (string) $user->plan;
 
-        if (! in_array($plan, ['pro', 'power'], true)) {
+        if (!in_array($plan, ['pro', 'power'], true)) {
             return response()->json([
                 'message' => 'Draft access is available for Pro/Power users only. Upgrade to access this feature.',
             ], 403);
@@ -41,7 +41,7 @@ class DraftController extends Controller
 
         $text = $draft->text;
         // x.com/intent/post matches the current compose flow better than /intent/tweet (prefill race on X SPA).
-        $twitterIntentUrl = 'https://x.com/intent/post?text='.rawurlencode($text);
+        $twitterIntentUrl = 'https://x.com/intent/post?text=' . rawurlencode($text);
 
         event(new DraftCopied($user, $signal, $draft));
 

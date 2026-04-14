@@ -36,8 +36,7 @@ class CrawlTweetsCommand extends Command
         }
 
         $handleFilter = $this->option('source');
-        $query = Source::query()
-            ->where('status', 'active');
+        $query = Source::query()->forCrawl();
 
         if ($handleFilter !== null && $handleFilter !== '') {
             $normalizedHandle = ltrim(trim((string) $handleFilter), '@');

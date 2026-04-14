@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\SourceResource;
-use App\Models\MySourceSubscription;
 use App\Models\Source;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,7 +27,7 @@ class SourceController extends Controller
     }
 
     /**
-     * POST /api/sources — Pro/Power: add user-generated source (Option A: active immediately).
+     * POST /api/sources — Pro/Power: add user-generated source (Option B: pending admin review).
      */
     public function store(Request $request): JsonResponse
     {
@@ -50,7 +49,7 @@ class SourceController extends Controller
         ]);
 
         $user = $request->user();
-        if (! in_array($user->plan, ['pro', 'power'], true)) {
+        if (!in_array($user->plan, ['pro', 'power'], true)) {
             return response()->json([
                 'message' => 'This feature requires Pro or Power plan',
             ], 403);
@@ -60,14 +59,13 @@ class SourceController extends Controller
         $displayName = $validated['display_name'] ?? $xHandle;
         $categoryIds = array_values(array_unique($validated['category_ids']));
         $tenantId = (int) ($user->tenant_id ?? 1);
-        $cap = $user->plan === 'power' ? 50 : 10;
 
-        $payload = DB::transaction(function () use ($user, $xHandle, $displayName, $categoryIds, $tenantId, $cap) {
-            $accountUrl = 'https://x.com/'.$xHandle;
+        $source = DB::transaction(function () use ($user, $xHandle, $displayName, $categoryIds, $tenantId) {
+            $accountUrl = 'https://x.com/' . $xHandle;
 
             $source = Source::create([
                 'type' => 'user',
-                'status' => 'active',
+                'status' => 'pending_review',
                 'x_handle' => $xHandle,
                 'x_user_id' => null,
                 'display_name' => $displayName,
@@ -86,38 +84,24 @@ class SourceController extends Controller
             }
             $source->categories()->attach($attach);
 
-            $currentSubscriptions = $user->sourceSubscriptions()->count();
-            $isSubscribed = false;
-            if ($currentSubscriptions < $cap) {
-                MySourceSubscription::create([
-                    'user_id' => $user->id,
-                    'source_id' => $source->id,
-                    'tenant_id' => $tenantId,
-                ]);
-                $isSubscribed = true;
-            }
-
             $source->load('categories');
 
-            return [$source, $isSubscribed];
+            return $source;
         });
-
-        /** @var Source $source */
-        [$source, $isSubscribed] = $payload;
 
         return response()->json([
             'data' => [
                 'id' => $source->id,
-                'handle' => '@'.$source->x_handle,
+                'handle' => '@' . $source->x_handle,
                 'display_name' => $source->display_name,
                 'account_url' => $source->account_url,
                 'type' => $source->type,
                 'status' => $source->status,
-                'categories' => $source->categories->map(static fn ($cat) => [
+                'categories' => $source->categories->map(static fn($cat) => [
                     'id' => $cat->id,
                     'name' => $cat->name,
                 ])->values()->all(),
-                'is_subscribed' => $isSubscribed,
+                'is_subscribed' => false,
             ],
         ], 201);
     }

@@ -17,5 +17,6 @@ class DraftCopied
         public User $user,
         public Signal $signal,
         public DraftTweet $draft
-    ) {}
+    ) {
+    }
 }

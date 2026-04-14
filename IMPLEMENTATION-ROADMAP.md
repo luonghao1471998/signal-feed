@@ -5,7 +5,9 @@
 **Tóm tắt cho agent:** `CLAUDE.md` (rule ngắn + OQ); chi tiết schema/API/UI = `SPEC-core.md` / `SPEC-api.md` / `SPEC-plan.md`. Hợp đồng vendor crawl: **`SPEC-api.md` Section 10** (canonical).  
 **Sprint Plan:** 3 sprints  
 **Wedge scope:** Crawl pipeline + AI classify/cluster/summarize/rank + Digest web UI + Source attribution + Draft generation — delivers kill checkpoint test capability  
-**Playbook 2.2h:** File này là **Output 2** của 2.2g — **không** embed trong `SPEC-plan.md` Section 13. Đồng bộ task admin Source (Option A) 2026-04-03.
+**Playbook 2.2h:** File này là **Output 2** của 2.2g — **không** embed trong `SPEC-plan.md` Section 13. Đồng bộ task admin Source (Option B) 2026-04-13.
+
+**Option B — đóng vòng (SPEC.md CR 2026-04-13, `SPEC-core` §4):** User add → `pending_review` → **admin** `PATCH` approve (`active`) hoặc từ chối/dọn spam (`flag_spam`, `soft_delete`, …) — **`GET/PATCH /api/admin/sources`** (nhóm **3.3.x**), UI Screen **#13**. **Không** có giá trị crawl/browse công khai cho nguồn user cho đến khi **approve** (crawl chỉ `status=active`, `Source::forCrawl`). Bổ sung roadmap **2.1.3–2.1.4** (user xem trạng thái submission) + **3.3.4** (thông báo khi admin xử lý); có thể **lên lịch 3.3.x trước 3.1.x (Stripe)** nếu cần dogfood moderation sớm — xem cột *Depends On* Sprint 3.
 
 **Đối chiếu review kỹ thuật (2026-04-06):** Roadmap đã **ăn khớp** `SPEC-api` / `SPEC-core` sau amendment (twitterapi **`advanced_search`**, **`last_crawled_at`**, lịch **4×/ngày**, **`TweetFetchProviderInterface`**, clustering **prompt-based**). Mục *Ghi chú đồng bộ* bên dưới phản ánh trạng thái hiện tại.
 
@@ -56,8 +58,10 @@
 
 | Task # | Task Name | Feature | Tag | Output | Depends On | Verify Method | Source |
 |--------|-----------|---------|-----|--------|------------|---------------|--------|
-| 2.1.1 | Implement POST /api/sources (add source) endpoint | 2.1 | [POST-WEDGE] | API validates @handle; creates Source + SourceCategory với **`status='active'`** (`type='user'`, Option A); MySourceSubscription only if under cap (H1); `is_subscribed` in response | Sprint 1 complete | POST /api/sources → 201, `status: active` + `is_subscribed` per cap | SPEC-api POST /api/sources, SPEC-core Section 4 Option A |
-| 2.1.2 | Build Add Source Form Screen #11 (React modal or page) | 2.1 | [POST-WEDGE] | Form @handle + categories; success = source **đã active** (không “chờ duyệt”) | 2.1.1 | Submit → 201 → source hiện trong browse/pool như active | 2.2f UI Skeleton Screen #11, 2.2a F05 |
+| 2.1.1 | Implement POST /api/sources (add source) endpoint | 2.1 | [POST-WEDGE] | API validates @handle; creates Source + SourceCategory với **`status='pending_review'`** (`type='user'`, Option B); **không** tạo `MySourceSubscription` tại submit (subscribe sau khi `active` + Flow 2); response `is_subscribed: false` | Sprint 1 complete | POST /api/sources → 201, `status: pending_review`, `is_subscribed: false` | SPEC-api POST /api/sources, SPEC-core Section 4 Option B |
+| 2.1.2 | Build Add Source Form Screen #11 (React modal or page) | 2.1 | [POST-WEDGE] | Form @handle + categories; success = source **chờ duyệt** (`pending_review`) | 2.1.1 | Submit → 201 → hiển thị message chờ admin duyệt; browse chỉ thấy source sau khi approve | 2.2f UI Skeleton Screen #11, 2.2a F05 |
+| 2.1.3 | Implement GET user-submitted sources (my submissions) endpoint | 2.1 | [POST-WEDGE] | API trả các Source `type=user` do user hiện tại thêm (`added_by_user_id`), kèm **`status`** (`pending_review` \| `active` \| `spam` \| `deleted`) + metadata hiển thị — để user theo dõi queue **không** phụ thuộc admin UI | 2.1.1 | GET (path theo SPEC-api / quy ước REST) → danh sách submission + status đúng | SPEC-core Flow 1 (feedback cho user), VR-1 SPEC.md |
+| 2.1.4 | Build “My submissions” / status UI (Screen #11 bổ sung hoặc section My KOLs) | 2.1 | [POST-WEDGE] | React: hiển thị các KOL đã gửi + badge trạng thái (pending / approved / rejected\*); \*“từ chối” map từ `spam` hoặc `deleted` theo copy sản phẩm | 2.1.3 | User thấy submission pending; sau admin xử lý, status cập nhật (sau 3.3.4 có thể kèm toast/email) | SPEC-plan VR-1 (UI trạng thái chờ duyệt) |
 | 2.2.1 | Implement POST /api/sources/{id}/subscribe endpoint | 2.2 | [POST-WEDGE] | API checks cap (Pro ≤10, Power ≤50), creates MySourceSubscription record | 2.1.1 | POST /api/sources/{id}/subscribe as Pro user → subscription created, count ≤10 enforced | 2.2e POST /api/sources/{id}/subscribe spec, 2.2a Flow 2 (Subscribe) |
 | 2.2.2 | Implement DELETE /api/sources/{id}/subscribe endpoint | 2.2 | [POST-WEDGE] | API deletes MySourceSubscription record (self-owned only) | 2.2.1 | DELETE /api/sources/{id}/subscribe → 204 No Content, subscription deleted | 2.2e DELETE /api/sources/{id}/subscribe spec, 2.2a CRUD (unfollow) |
 | 2.2.3 | Add Follow/Unfollow buttons to Browse Source Pool UI | 2.2 | [POST-WEDGE] | Buttons in source pool browse screen (Screen #10), calls subscribe/unsubscribe APIs, updates button state (Follow → Following) | 2.2.1, 2.2.2, 1.5.3 | Browse sources → click Follow → button changes to Following, MySourceSubscription created | 2.2f UI Skeleton Screen #10, 2.2a F06 |
@@ -80,9 +84,10 @@
 | 3.1.3 | Implement plan downgrade cleanup logic | 3.1 | [POST-WEDGE] | When subscription.deleted event received → auto-unsubscribe My KOLs (keep first 10 by created_at ASC for Pro downgrade, or all if Free downgrade) | 3.1.2 | Stripe webhook downgrade event → MySourceSubscriptions pruned to cap | 2.2e assumption #17 (downgrade cleanup), 2.2b assumption #10 |
 | 3.2.1 | Add Free tier Mon/Wed/Fri restriction to digest delivery job | 3.2 | [POST-WEDGE] | Cron job checks User.plan + current day-of-week, skips digest delivery for Free users on Tue/Thu/Sat/Sun | 3.1.2 | Free user on Tuesday → digest not generated/delivered, Mon/Wed/Fri → delivered | 2.2d Constraint #9 (Free tier schedule), 2.2a assumption #1 (Mon/Wed/Fri) |
 | 3.2.2 | Add plan-based feature gates to API endpoints | 3.2 | [POST-WEDGE] | Middleware checks User.plan, returns 403 FORBIDDEN for Free users accessing Pro/Power endpoints (My KOLs, drafts, stats) | 3.1.2 | Free user calls GET /api/my-sources → 403 FORBIDDEN | 2.2e Permission Guards (plan checks), 2.2a Permission Matrix |
-| 3.3.1 | Implement GET /api/admin/sources (moderation list) endpoint | 3.3 | [POST-WEDGE] | API: filter **`type=user`** (+ optional `status=`); added_by_user, signal_count, noise_ratio — **không** queue `pending_review` mặc định | 3.1.2 | GET /api/admin/sources?type=user → user-added (thường active) để hậu kiểm | SPEC-api GET /api/admin/sources, SPEC-core Flow 6 Option A |
-| 3.3.2 | Implement PATCH /api/admin/sources/{id} (moderate) endpoint | 3.3 | [POST-WEDGE] | `action` ∈ `flag_spam` \| `adjust_categories` \| `soft_delete` \| `restore` (+ `category_ids` khi adjust); admin-only | 3.3.1 | PATCH hợp lệ → status/category cập nhật | SPEC-api PATCH /api/admin/sources/{id} |
-| 3.3.3 | Build Admin Source Moderation Screen #13 (React) | 3.3 | [POST-WEDGE] | UI `type=user`, sort `created_at` desc; Flag spam, Adjust categories, Soft delete, Restore — **không** Approve Phase 1 | 3.3.2 | `/admin/sources?type=user` → flag spam → ẩn browse | 2.2f UI Skeleton Screen #13, SPEC-core Flow 6 Option A |
+| 3.3.1 | Implement GET /api/admin/sources (moderation list) endpoint | 3.3 | [POST-WEDGE] | API: filter **`type=user`** (+ optional `status=`); added_by_user, signal_count, noise_ratio — queue mặc định `pending_review` | Sprint 1 complete + admin guard (`users.is_admin`) — **không** bắt buộc Stripe | GET /api/admin/sources?type=user&status=pending_review → nguồn chờ duyệt | SPEC-api GET /api/admin/sources, SPEC-core Flow 6 Option B |
+| 3.3.2 | Implement PATCH /api/admin/sources/{id} (moderate) endpoint | 3.3 | [POST-WEDGE] | `action` ∈ `approve` \| `flag_spam` \| `adjust_categories` \| `soft_delete` \| `restore` (+ `category_ids` khi adjust); admin-only; **“Từ chối”** sản phẩm = `flag_spam` hoặc `soft_delete` (không có enum `rejected` riêng) | 3.3.1 | PATCH `approve` → `pending_review` → `active`; PATCH từ chối/spam → status tương ứng + audit | SPEC-api PATCH /api/admin/sources/{id} |
+| 3.3.3 | Build Admin Source Moderation Screen #13 (React) | 3.3 | [POST-WEDGE] | UI `type=user`, sort `created_at` desc; Approve, Flag spam, Adjust categories, Soft delete, Restore | 3.3.2 | `/admin/sources?type=user&status=pending_review` → approve → source được crawl/browse | 2.2f UI Skeleton Screen #13, SPEC-core Flow 6 Option B |
+| 3.3.4 | Notify submitter when moderation completes (approve / reject / spam) | 3.3 | [POST-WEDGE] | Sau PATCH admin thành công: gửi thông báo tới `added_by_user_id` — **Phase 1 tối thiểu:** email (Resend) **hoặc** in-app (poll `2.1.3` + banner); log product/audit (`admin.source.reviewed`, `source.flagged_spam`, … per SPEC-api §9). Tuỳ chọn: Telegram (Power) = backlog | 3.3.2 | User nhận được thông báo đúng hành động admin; không im lặng sau duyệt | SPEC-core §4 (notify khi spam), SPEC.md VR-1, Open Q email Sprint 2+ |
 | 3.4.1 | Implement GET /api/admin/pipeline endpoint | 3.4 | [POST-WEDGE] | API returns pipeline metrics: crawl_status, last_run_at, total_tweets_today, total_signals_today, classify_accuracy_sample (spot-check), error_rate, per_category_signal_volume | 3.3.1 | GET /api/admin/pipeline → 200 OK with metrics object | 2.2e GET /api/admin/pipeline spec, 2.2a Flow 7 (Admin Monitors Pipeline) |
 | 3.4.2 | Build Admin Pipeline Monitor Screen #14 (React) | 3.4 | [POST-WEDGE] | Screen fetches pipeline metrics API, renders dashboard (crawl status, signal volume chart, error log) | 3.4.1 | Navigate to /admin/pipeline → shows metrics dashboard | 2.2f UI Skeleton Screen #14, 2.2a F22 |
 
@@ -115,13 +120,14 @@ Parallel Paths: 1.3.x (Auth), 1.4.x (Categories) can run parallel with 1.5-1.6
 ### Sprint 2:
 
 ```
-Sprint 1 Complete → 2.1.1 (Add Source API) → 2.1.2 (Add Source UI)
+Sprint 1 Complete → 2.1.1 (Add Source API) → 2.1.2 (Add Source UI) → 2.1.3 (My submissions API) → 2.1.4 (My submissions UI)
                   → 2.2.1 (Subscribe API), 2.2.2 (Unsubscribe API) → 2.2.3 (Follow Buttons)
                                                                    → 2.3.1 (Search Filter) → 2.3.2 (Browse UI)
                                                                    → 2.4.1 (My KOLs API), 2.4.2 (Stats API) → 2.4.3 (My KOLs List UI), 2.4.4 (Stats UI), 2.4.5 (Filter Toggle)
 
 Critical Path: Sprint 1 → 2.1.1 → 2.2.1 → 2.4.1 → 2.4.5 (My KOLs complete)
-Parallel Paths: 2.3.x (Browse/Search) can run parallel with 2.4.x
+Parallel Paths: 2.3.x (Browse/Search) can run parallel with 2.4.x; 2.1.3–2.1.4 song song 2.2.x
+Option B closure: moderation **3.3.1–3.3.4** (Sprint 3) có thể bắt đầu sớm — không cần chờ Stripe — xem Sprint 3
 ```
 
 ### Sprint 3:
@@ -129,11 +135,13 @@ Parallel Paths: 2.3.x (Browse/Search) can run parallel with 2.4.x
 ```
 Sprint 2 Complete → 3.1.1 (Stripe Checkout) → 3.1.2 (Stripe Webhook) → 3.1.3 (Downgrade Cleanup)
                                                                       → 3.2.1 (Free Tier Job), 3.2.2 (Feature Gates)
-                                                                      → 3.3.1 (Admin Sources API) → 3.3.2 (Moderate API) → 3.3.3 (Moderation UI #13)
-                                                                      → 3.4.1 (Pipeline Metrics API) → 3.4.2 (Pipeline Monitor UI)
 
-Critical Path: Sprint 2 → 3.1.2 → 3.2.2 (plan enforcement complete)
-Parallel Paths: 3.3.x (Admin Sources), 3.4.x (Admin Pipeline) can run parallel
+Parallel (Option B / admin — có thể lịch trước hoặc xen 3.1.x):
+  3.3.1 (Admin Sources API) → 3.3.2 (Moderate API) → 3.3.3 (Moderation UI #13) → 3.3.4 (Notify submitter on outcome)
+  3.4.1 (Pipeline Metrics API) → 3.4.2 (Pipeline Monitor UI)
+
+Critical Path (billing): Sprint 2 → 3.1.2 → 3.2.2 (plan enforcement complete)
+Parallel Paths: 3.3.x (Admin Sources + notify), 3.4.x (Admin Pipeline) — parallel với 3.1.x nếu cần
 ```
 
 ---
@@ -146,19 +154,19 @@ Parallel Paths: 3.3.x (Admin Sources), 3.4.x (Admin Pipeline) can run parallel
 3. Pipeline Core: Tasks 1.6.1 - 1.9.3 (11 tasks) — Crawl → Classify → Cluster → Summarize → Rank → Draft
 4. Digest UI: Tasks 1.10.1 - 1.12.3 (7 tasks) — Digest view + detail + draft copy
 
-**Sprint 2 — My KOLs (4 feature groups → 12 tasks):**
-1. Add Source: Tasks 2.1.1 - 2.1.2 (2 tasks)
+**Sprint 2 — My KOLs (4 feature groups → 14 tasks):**
+1. Add Source: Tasks 2.1.1 - 2.1.4 (4 tasks — API + form + **my submissions** visibility)
 2. Subscribe/Unsubscribe: Tasks 2.2.1 - 2.2.3 (3 tasks)
 3. Browse/Search: Tasks 2.3.1 - 2.3.2 (2 tasks)
 4. My KOLs UI + Stats: Tasks 2.4.1 - 2.4.5 (5 tasks)
 
-**Sprint 3 — Billing + Admin (4 feature groups → 10 tasks):**
+**Sprint 3 — Billing + Admin (4 feature groups → 11 tasks):**
 1. Stripe Integration: Tasks 3.1.1 - 3.1.3 (3 tasks)
 2. Free Tier Enforcement: Tasks 3.2.1 - 3.2.2 (2 tasks)
-3. Admin Source Moderation: Tasks 3.3.1 - 3.3.3 (3 tasks)
+3. Admin Source Moderation: Tasks 3.3.1 - 3.3.4 (4 tasks — list + PATCH + UI **+ notify submitter**)
 4. Admin Pipeline Monitor: Tasks 3.4.1 - 3.4.2 (2 tasks)
 
-**Total: 56 tasks across 3 sprints** (đếm trực tiếp từ các bảng Task Table phía trên)
+**Total: 59 tasks across 3 sprints** (đếm trực tiếp từ các bảng Task Table phía trên)
 
 ---
 
@@ -173,7 +181,7 @@ Bảng này mô tả **trạng thái sau amendment**; mọi thay đổi tiếp t
 | **Crawl loop** | Mô tả trong **`SPEC-api` Phần 2** + Flow 3 | Task **1.6.2** |
 | **Lịch scheduler** | **4×/ngày** — `SPEC-core`, `SPEC-plan` | Task **1.6.3**; đổi lịch = CR |
 | **Tweet fetch abstraction** | **`SPEC-core` §3.2 LOCK** + **`SPEC-api` Section 10 §0** | Interface + DI; swap vendor không đụng `PipelineService` logic |
-| **Personal feed** | Bảng **`user_personal_feed_entries`** + endpoint trong `SPEC-api` — **Sprint 2+** | Ngoài 56 task wedge; xem backlog / CR task sau |
+| **Personal feed** | Bảng **`user_personal_feed_entries`** + endpoint trong `SPEC-api` — **Sprint 2+** | Ngoài 59 task roadmap hiện tại; xem backlog / CR task sau |
 | **Clustering** | **Prompt-based** Phase 1 — changelog `SPEC-api` + Flow 3 | Task **1.8.1** theo hướng này |
 
 ---
@@ -197,7 +205,7 @@ Bảng này mô tả **trạng thái sau amendment**; mọi thay đổi tiếp t
 | 13 | **“Flag as Noise” user feedback (Appendix A #17).** Phase 1 (Digest UI) vs Phase 2 — không có task roadmap. | Question | Nếu Phase 1 → thêm task UI + API/log tương ứng; nếu Phase 2 → giữ ngoài scope. | SPEC-plan Appendix A #17 |
 | 14 | **Clustering: prompt-based vs embeddings.** | **Đã chốt:** Phase 1 **prompt-based** (`SPEC-api` changelog 2026-04-06). | Embeddings = backlog / CR nếu sau này đổi chiến lược. | Task 1.8.1 |
 | 15 | **Admin role** | **Đã có:** `users.is_admin` trong `SPEC-api` §9 + middleware admin. | Seed / manual gán admin. | Tasks 3.3.x, 3.4.x |
-| 16 | **Personal feed Pro/Power** | **Schema/API đã lock** trong `SPEC-api`; triển khai job/UI **sau wedge**. | Không nằm trong 56 task hiện tại. | Sprint 2+ backlog |
+| 16 | **Personal feed Pro/Power** | **Schema/API đã lock** trong `SPEC-api`; triển khai job/UI **sau wedge**. | Không nằm trong 59 task roadmap hiện tại. | Sprint 2+ backlog |
 
 ---
 

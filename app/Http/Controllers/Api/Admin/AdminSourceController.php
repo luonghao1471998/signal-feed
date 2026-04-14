@@ -16,7 +16,8 @@ class AdminSourceController extends Controller
 {
     public function __construct(
         private readonly AdminSourceModerationService $moderationService
-    ) {}
+    ) {
+    }
 
     /**
      * GET /api/admin/sources
@@ -54,7 +55,7 @@ SQL;
             ->selectRaw(
                 '(SELECT COUNT(DISTINCT ss.signal_id) FROM signal_sources ss WHERE ss.source_id = sources.id) as signal_count'
             )
-            ->selectRaw($noiseSql.' as noise_ratio')
+            ->selectRaw($noiseSql . ' as noise_ratio')
             ->with(['categories', 'addedByUser'])
             ->orderByDesc('sources.created_at');
 
@@ -94,7 +95,7 @@ SQL;
             ], 400);
         }
 
-        if ($action === 'restore' && ! in_array($source->status, ['spam', 'deleted'], true)) {
+        if ($action === 'restore' && !in_array($source->status, ['spam', 'deleted'], true)) {
             return response()->json([
                 'message' => 'restore is only valid when source status is spam or deleted.',
             ], 400);

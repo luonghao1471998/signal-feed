@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -58,5 +59,14 @@ class Source extends Model
     public function signals(): BelongsToMany
     {
         return $this->belongsToMany(Signal::class, 'signal_sources');
+    }
+
+    /**
+     * Tweet crawl ({@see \App\Jobs\PipelineCrawlJob}, {@see \App\Console\Commands\CrawlTweetsCommand})
+     * must only process pool sources that are active (excludes pending_review, spam, deleted).
+     */
+    public function scopeForCrawl(Builder $query): Builder
+    {
+        return $query->where('status', 'active');
     }
 }
