@@ -193,6 +193,17 @@ export async function fetchBrowseSources(params?: {
 }
 
 /**
+ * GET /api/sources onboarding mode — sources filtered by user categories.
+ */
+export async function getOnboardingKOLs(): Promise<BrowseSource[]> {
+  return fetchBrowseSources({
+    onboarding: true,
+    my_categories_only: true,
+    per_page: 10,
+  });
+}
+
+/**
  * POST /api/sources — Pro/Power; Sanctum CSRF + Bearer.
  */
 export async function createSource(payload: CreateSourceRequest): Promise<CreatedSourcePayload> {
@@ -377,6 +388,14 @@ export async function getMySourcesAPI(page = 1): Promise<MySourcesResponse> {
 }
 
 /**
+ * GET /api/my-sources — current subscriptions total count.
+ */
+export async function getCurrentSubscriptionCount(): Promise<number> {
+  const response = await getMySourcesAPI(1);
+  return response.total ?? 0;
+}
+
+/**
  * GET /api/my-sources/stats — aggregate stats for subscribed sources.
  */
 export async function getMySourcesStatsAPI(): Promise<MySourcesStatsResponse> {
@@ -404,6 +423,8 @@ export async function getMySourcesStatsAPI(): Promise<MySourcesStatsResponse> {
 export const sourceService = {
   bulkSubscribeSources,
   createSource,
+  getCurrentSubscriptionCount,
+  getOnboardingKOLs,
   getMySourcesAPI,
   getMySourcesStatsAPI,
   subscribeToSource,

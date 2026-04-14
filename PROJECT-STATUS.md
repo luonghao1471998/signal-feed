@@ -445,7 +445,7 @@ _(Roadmap tiếp: **2.4.5** digest filter toggle / **2.5.x** personal feed — `
 - [x] 1.3.2 - OAuth token exchange + user upsert (merged với 1.3.1) ✅
 - [x] 1.3.3 - Onboarding Screen #3: Category selection ✅
 - [x] 1.3.4 - Enable subscribe API for onboarding follow step ✅
-- [x] 1.3.5 - Onboarding Screen #4: `/onboarding/sources` filter by `my_categories` + follow/skip ✅
+- [x] 1.3.5 - Onboarding Screen #4: Real API integration (follow/unfollow KOLs filtered by my_categories) ✅
 - [x] 1.4.1 - Seed 10 categories migration ✅
 - [x] 1.4.2 - Implement GET /api/categories endpoint ✅
 - [x] 1.5.1 - Create source pool CSV seed data ✅
@@ -465,6 +465,21 @@ _(Roadmap tiếp: **2.4.5** digest filter toggle / **2.5.x** personal feed — `
 - Manual testing completed (cURL + browser)
 **Files:** SubscriptionController.php, SourceController.php, OnboardingStep2.tsx, sourceService.ts
 **Testing:** Manual only (no automated tests, DB-safe)
+
+#### Task 1.3.5: Onboarding Step 2 - Real API Integration
+**Status:** ✅ COMPLETED (2026-04-14)
+**Implementation:**
+- Frontend integrated with real APIs (getOnboardingKOLs, subscribe/unsubscribe)
+- KOLs filtered by user's my_categories (stored in users.my_categories int4[] field)
+- Follow/Unfollow toggle functionality (no upgrade popup)
+- Dynamic counter: X/5 (Free), X/10 (Pro), X/50 (Power)
+- "Follow all" bulk subscribe with remaining slot count
+- Cap enforcement: disable buttons when full (clean UX)
+- Empty state handling when no KOLs match categories
+- State persistence across refresh
+**Files:** OnboardingStep2.tsx, sourceService.ts
+**Testing:** Manual browser testing (10 test cases passed)
+**Data:** User 2 test data - my_categories [1,3,5], 62 matching sources
 
 ### Phase 3: Tweet Crawling (Tasks 1.6) — 3 tasks
 

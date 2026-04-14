@@ -7,11 +7,13 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   bulkSubscribeSources,
-  fetchBrowseSources,
+  getCurrentSubscriptionCount,
   getMySourcesAPI,
+  getOnboardingKOLs,
   subscribeToSource,
   type BrowseSource,
   SourceSubscriptionError,
+  unsubscribeFromSource,
 } from "@/services/sourceService";
 
 const FREE_CAP = 5;
@@ -33,7 +35,6 @@ const OnboardingStep2: React.FC = () => {
   const [followingIds, setFollowingIds] = useState<Set<number>>(new Set());
   const [subscribingId, setSubscribingId] = useState<number | null>(null);
   const [bulkLoading, setBulkLoading] = useState(false);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [currentCount, setCurrentCount] = useState(0);
 
   const userLimit = user?.plan === "free" ? FREE_CAP : user?.plan === "pro" ? 10 : 50;
@@ -51,13 +52,10 @@ const OnboardingStep2: React.FC = () => {
     let canceled = false;
     void (async () => {
       try {
-        const [browseSources, mySources] = await Promise.all([
-          fetchBrowseSources({
-            onboarding: true,
-            my_categories_only: true,
-            per_page: ONBOARDING_RECOMMENDED_LIMIT,
-          }),
+        const [browseSources, mySources, initialCount] = await Promise.all([
+          getOnboardingKOLs(),
           getMySourcesAPI(1),
+          getCurrentSubscriptionCount(),
         ]);
         if (canceled) {
           return;
@@ -66,7 +64,7 @@ const OnboardingStep2: React.FC = () => {
         setKols(browseSources);
         const ids = mySources.data.map((item) => item.id);
         setFollowingIds(new Set(ids));
-        setCurrentCount(mySources.total ?? ids.length);
+        setCurrentCount(initialCount ?? mySources.total ?? ids.length);
       } catch (error) {
         if (!canceled) {
           toast.error("Failed to load recommended KOLs");
@@ -84,31 +82,35 @@ const OnboardingStep2: React.FC = () => {
   }, [authReady, navigate, user]);
 
   const handleFollow = async (sourceId: number) => {
-    if (followingIds.has(sourceId)) {
-      toast.info("Already following this KOL");
-      return;
-    }
-    if (hasReachedCap) {
-      setShowUpgradeModal(true);
+    const isFollowingNow = followingIds.has(sourceId);
+
+    if (!isFollowingNow && hasReachedCap) {
       return;
     }
 
     setSubscribingId(sourceId);
     try {
+      if (isFollowingNow) {
+        await unsubscribeFromSource(sourceId);
+        setFollowingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(sourceId);
+          return next;
+        });
+        setCurrentCount((prev) => Math.max(0, prev - 1));
+        toast.success("Unfollowed");
+        return;
+      }
+
       const response = await subscribeToSource(sourceId);
       setFollowingIds((prev) => new Set([...prev, sourceId]));
       setCurrentCount(response.current_count);
       toast.success("Following!");
-
-      if (response.upgrade_required) {
-        setShowUpgradeModal(true);
-      }
     } catch (error) {
       if (error instanceof SourceSubscriptionError && error.status === 400) {
         toast.error("Subscription limit reached");
-        setShowUpgradeModal(true);
       } else {
-        toast.error("Failed to follow KOL");
+        toast.error(isFollowingNow ? "Failed to unfollow KOL" : "Failed to follow KOL");
       }
     } finally {
       setSubscribingId(null);
@@ -122,7 +124,6 @@ const OnboardingStep2: React.FC = () => {
       return;
     }
     if (hasReachedCap) {
-      setShowUpgradeModal(true);
       return;
     }
 
@@ -134,13 +135,9 @@ const OnboardingStep2: React.FC = () => {
       setFollowingIds((prev) => new Set([...prev, ...newIds]));
       setCurrentCount(response.total_count);
       toast.success(`Following ${response.subscribed_count} KOLs!`);
-      if (response.hit_limit && response.upgrade_required) {
-        setShowUpgradeModal(true);
-      }
     } catch (error) {
       if (error instanceof SourceSubscriptionError && error.status === 400) {
         toast.error("Subscription limit reached");
-        setShowUpgradeModal(true);
       } else {
         toast.error("Failed to follow KOLs");
       }
@@ -176,10 +173,10 @@ const OnboardingStep2: React.FC = () => {
           <button
             type="button"
             onClick={() => void handleFollowAll()}
-            disabled={bulkLoading || hasReachedCap}
+            disabled={bulkLoading || hasReachedCap || kols.length === 0}
             className="text-xs text-blue-500 underline font-medium disabled:text-slate-300"
           >
-            {bulkLoading ? "Following..." : "Follow all"}
+            {bulkLoading ? "Following..." : `Follow all (${Math.min(userLimit - currentCount, kols.filter((item) => !followingIds.has(item.id)).length)})`}
           </button>
         </div>
       </div>
@@ -194,11 +191,23 @@ const OnboardingStep2: React.FC = () => {
         </div>
 
         {/* KOL grid */}
-        <div
-          className="px-6 mt-6 border-t border-slate-100"
-          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}
-        >
-          {kols.map((kol) => {
+        {kols.length === 0 ? (
+          <div className="px-6 mt-6 border-t border-slate-100 pt-8 text-center">
+            <p className="text-sm text-slate-600">No KOLs found in your selected categories.</p>
+            <button
+              type="button"
+              onClick={finish}
+              className="mt-3 text-sm font-medium text-blue-600 underline"
+            >
+              Skip to your digest
+            </button>
+          </div>
+        ) : (
+          <div
+            className="px-6 mt-6 border-t border-slate-100"
+            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}
+          >
+            {kols.map((kol) => {
             const isFollowing = followingIds.has(kol.id);
             const isSubscribing = subscribingId === kol.id;
             const isDisabled = isSubscribing || (!isFollowing && hasReachedCap);
@@ -259,7 +268,7 @@ const OnboardingStep2: React.FC = () => {
                       type="button"
                       onClick={() => void handleFollow(kol.id)}
                       style={{ whiteSpace: "nowrap" }}
-                      disabled={isDisabled || isFollowing}
+                      disabled={isDisabled}
                       className={cn(
                         "rounded-full px-4 py-1.5 text-sm font-bold min-h-[36px] transition-colors",
                         isDisabled ? "opacity-50 cursor-not-allowed" : "",
@@ -281,16 +290,15 @@ const OnboardingStep2: React.FC = () => {
                 </div>
               </div>
             );
-          })}
-        </div>
-
-        {currentCount > 0 ? (
-          <div className="px-6 mt-3">
-            <p className="text-xs text-slate-500">
-              {currentCount}/{userLimit} KOLs ({user?.plan ?? "free"} plan)
-            </p>
+            })}
           </div>
-        ) : null}
+        )}
+
+        <div className="px-6 mt-3">
+          <p className="text-xs text-slate-500">
+            {currentCount}/{userLimit} KOLs ({user?.plan ?? "free"} plan)
+          </p>
+        </div>
 
         {/* CTA */}
         <div className="px-6 pb-6 pt-4 mt-auto border-t border-slate-100 md:border-t-0">
@@ -308,32 +316,6 @@ const OnboardingStep2: React.FC = () => {
         </div>
       </div>
 
-      {showUpgradeModal ? (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-xl">
-            <h3 className="text-xl font-bold text-slate-900">Unlock More KOLs</h3>
-            <p className="text-sm text-slate-600 mt-2">
-              You reached your free limit. Upgrade to Pro to follow up to 10 KOLs and unlock personalized feed.
-            </p>
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => navigate("/settings")}
-                className="rounded-lg bg-slate-900 text-white py-2.5 font-semibold hover:bg-slate-800"
-              >
-                Upgrade
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowUpgradeModal(false)}
-                className="rounded-lg bg-slate-100 text-slate-700 py-2.5 font-semibold hover:bg-slate-200"
-              >
-                Maybe later
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 };
