@@ -1,11 +1,11 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-14 (Task 2.4.3 complete)
+**Last Updated:** 2026-04-14 (Task 2.4.4 complete)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 2 — My KOLs
-**Completed Task:** **2.4.3** — Build My KOLs List Screen #8 ✅ — 2026-04-14
-**Next Task:** **2.4.4** — Build My KOLs Stats Screen #9 _(hoặc **2.1.3** my submissions — tùy ưu tiên)_
-**Status:** Sprint 2; subscription APIs + Browse/Search + My KOLs list UI ✅; next **2.4.4**
+**Completed Task:** **2.4.4** — Build My KOLs Stats Screen #9 ✅ — 2026-04-14
+**Next Task:** **2.4.5** — Add My KOLs filter toggle to Digest View
+**Status:** Sprint 2; subscription APIs + Browse/Search + My KOLs list UI + stats dashboard ✅; next **2.4.5**
 
 ---
 
@@ -13,7 +13,7 @@
 
 **Đồng bộ roadmap 2026-04-14:** Sprint 2 = **14** task (thêm **2.1.3** / **2.1.4**); tổng dự án **59** task — xem `IMPLEMENTATION-ROADMAP.md`.
 
-**Progress (14 tasks):** **10 / 14** (~71%)
+**Progress (14 tasks):** **11 / 14** (~79%)
 
 ### Feature 2.2: Follow/Unfollow KOL Sources
 
@@ -37,6 +37,7 @@
 | 2.4.1 | Implement GET /api/my-sources endpoint | ✅ COMPLETED | 2026-04-14 |
 | 2.4.2 | Implement GET /api/my-sources/stats endpoint | ✅ COMPLETE | 2026-04-14 |
 | 2.4.3 | Build My KOLs List Screen #8 | ✅ DONE | 2026-04-14 |
+| 2.4.4 | Build My KOLs Stats Screen #9 (React) | ✅ DONE | 2026-04-14 |
 
 ### ✅ Task 2.1.1: `POST /api/sources` — COMPLETED (2026-04-13)
 
@@ -71,7 +72,7 @@
 - ✅ No auto-subscription (verified in DB)
 - ✅ Free users restricted (button hidden)
 
-**Next Step:** Task **2.4.4** — My KOLs stats UI; hoặc **2.1.3** — API my submissions
+**Next Step:** Task **2.4.5** — My KOLs filter toggle on Digest; hoặc **2.1.3** — API my submissions
 
 ---
 
@@ -84,7 +85,7 @@
 - ✅ Task 2.2.1: Implement POST /api/sources/{id}/subscribe endpoint — **COMPLETED 2026-04-14** (`SubscriptionController`, cap Pro≤10/Power≤50, `auth:sanctum`, manual tests 10/10)
 - ✅ Task 2.2.2: Implement DELETE /api/sources/{id}/subscribe endpoint — **COMPLETED 2026-04-14** (idempotent delete + `204 No Content`, source `404`, auth `401`)
 
-_(Roadmap tiếp: **2.4.4** stats screen / **2.5.x** personal feed — `IMPLEMENTATION-ROADMAP.md`.)_
+_(Roadmap tiếp: **2.4.5** digest filter toggle / **2.5.x** personal feed — `IMPLEMENTATION-ROADMAP.md`.)_
 
 ---
 
@@ -189,20 +190,21 @@ _(Roadmap tiếp: **2.4.4** stats screen / **2.5.x** personal feed — `IMPLEMEN
 **Notes:** Intent base URL backend: `https://x.com/intent/post?text=`; CSRF stateful Sanctum cho POST.
 
 ### In Progress / Next (roadmap)
-- **Next (Sprint 2):** **2.4.4** My KOLs stats UI _(hoặc **2.1.3** my submissions)_ — sau **2.4.3** ✅
+- **Next (Sprint 2):** **2.4.5** My KOLs filter toggle _(hoặc **2.1.3** my submissions)_ — sau **2.4.4** ✅
 - **Backlog (ngoài bảng Sprint 2):** **1.11.3** — metadata digest (tùy ưu tiên)
 
 ### Statistics
 - **Sprint 1 (34 tasks, `IMPLEMENTATION-ROADMAP`):** 34 / 34 ✅
-- **Sprint 2 (14 tasks):** 10 / 14 (~71%) — next **2.4.4** (stats UI) / **2.1.3** (my submissions)
+- **Sprint 2 (14 tasks):** 11 / 14 (~79%) — next **2.4.5** (digest filter) / **2.1.3** (my submissions)
 
 ### Progress Summary
 
-**Completed Tasks:** Sprint 1 **34/34** ✅; Sprint 2 **10/14** (2.1.1 ✅ 2026-04-13, 2.1.2 ✅ 2026-04-14, **2.2.1–2.2.3** ✅, **2.3.1–2.3.2** ✅, **2.4.1–2.4.3** ✅ 2026-04-14)
-**Current phase:** Sprint 2 — My KOLs; next = **2.4.4** hoặc **2.1.3**
+**Completed Tasks:** Sprint 1 **34/34** ✅; Sprint 2 **11/14** (2.1.1 ✅ 2026-04-13, 2.1.2 ✅ 2026-04-14, **2.2.1–2.2.3** ✅, **2.3.1–2.3.2** ✅, **2.4.1–2.4.4** ✅ 2026-04-14)
+**Current phase:** Sprint 2 — My KOLs; next = **2.4.5** hoặc **2.1.3**
 **Last Updated:** 2026-04-14
 
 **Recent Completions:**
+- ✅ Task 2.4.4: Stats dashboard UI — 4 metric cards (Total Today, Top Sources, 7-Day Trend chart, Category Breakdown), API integration + loading/error/empty states, responsive layout (2026-04-14)
 - ✅ Task 2.4.3: My KOLs Following Tab UI — list from `GET /api/my-sources`, unfollow with optimistic rollback, pagination, empty state, manual browser tests PASS (2026-04-14)
 - ✅ Task 2.4.2: `GET /api/my-sources/stats` — 4 metrics (total today, top 3, trend 7d, category breakdown), auth + empty-state handled, SQL-verified aggregate logic (2026-04-14)
 - ✅ Task 2.4.1: `GET /api/my-sources` — `MySourcesController@index`, eager loading, pagination, per-source stats batch computation, manual Tinker+cURL checks PASS (2026-04-14)

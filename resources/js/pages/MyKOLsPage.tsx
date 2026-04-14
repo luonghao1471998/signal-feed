@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, Loader2, Plus, Search, UserPlus, Users } from "lucide-react";
+import { AlertCircle, BarChart3, Check, Loader2, Plus, RefreshCw, Search, TrendingUp, UserPlus, Users } from "lucide-react";
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from "recharts";
 import { cn } from "@/lib/utils";
 import { Av, avatarUrlForHandle } from "@/components/Avatar";
 import { Button } from "@/components/ui/button";
@@ -19,8 +20,10 @@ import { getCategories, type Category } from "@/services/categoryService";
 import {
   fetchBrowseSources,
   getMySourcesAPI,
+  getMySourcesStatsAPI,
   type MySource,
   type MySourcesResponse,
+  type MySourcesStats,
   SourceSubscriptionError,
   subscribeToSource,
   type BrowseSource,
@@ -41,11 +44,23 @@ const formatSubscribedDate = (value: string): string => {
   }).format(date);
 };
 
+const formatShortDate = (value: string): string => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+  }).format(date);
+};
+
 const MyKOLsPage = () => {
   const { user, authReady } = useAuth();
   const canAddSource = Boolean(user && (user.plan === "pro" || user.plan === "power"));
 
-  const [tab, setTab] = useState<"browse" | "following">("browse");
+  const [tab, setTab] = useState<"browse" | "following" | "stats">("browse");
   const [search, setSearch] = useState("");
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [apiSources, setApiSources] = useState<BrowseSource[]>([]);
@@ -62,6 +77,9 @@ const MyKOLsPage = () => {
   const [followingPage, setFollowingPage] = useState(1);
   const [followingHasMore, setFollowingHasMore] = useState(false);
   const [followingBusySourceId, setFollowingBusySourceId] = useState<number | null>(null);
+  const [statsData, setStatsData] = useState<MySourcesStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [statsError, setStatsError] = useState<string | null>(null);
 
   const loadBrowseSources = useCallback(async () => {
     setApiLoading(true);
@@ -202,6 +220,29 @@ const MyKOLsPage = () => {
     }
   };
 
+  const loadStatsData = useCallback(async () => {
+    setStatsLoading(true);
+    setStatsError(null);
+    try {
+      const response = await getMySourcesStatsAPI();
+      setStatsData(response.data);
+    } catch (error) {
+      setStatsError(error instanceof Error ? error.message : "Failed to load stats. Please try again.");
+    } finally {
+      setStatsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (tab !== "stats") {
+      return;
+    }
+
+    if (!statsData && !statsLoading) {
+      void loadStatsData();
+    }
+  }, [tab, statsData, statsLoading, loadStatsData]);
+
   const handleToggleSubscription = async (source: BrowseSource) => {
     const sourceHandle = `@${source.x_handle}`;
     const isSubscribed = source.is_subscribed;
@@ -286,7 +327,7 @@ const MyKOLsPage = () => {
         </div>
 
         <div className="mb-4 flex gap-6 border-b border-[#eff3f4]">
-          {(["browse", "following"] as const).map((t) => (
+          {(["browse", "following", "stats"] as const).map((t) => (
             <button
               key={t}
               type="button"
@@ -296,7 +337,7 @@ const MyKOLsPage = () => {
                 tab === t ? "border-b-2 border-[#0f1419] text-[#0f1419]" : "text-[#536471] hover:text-[#0f1419]",
               )}
             >
-              {t === "browse" ? "Browse" : "Following"}
+              {t === "browse" ? "Browse" : t === "following" ? "Following" : "Stats"}
             </button>
           ))}
         </div>
@@ -568,6 +609,165 @@ const MyKOLsPage = () => {
                 >
                   {followingLoading ? "Loading..." : "Load More"}
                 </Button>
+              </div>
+            ) : null}
+          </div>
+        )}
+
+        {tab === "stats" && (
+          <div>
+            {statsLoading ? (
+              <div className="space-y-4">
+                <div className="h-28 animate-pulse rounded-xl bg-[#f2f4f5]" />
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="h-72 animate-pulse rounded-xl bg-[#f2f4f5]" />
+                  <div className="h-72 animate-pulse rounded-xl bg-[#f2f4f5]" />
+                </div>
+              </div>
+            ) : null}
+
+            {!statsLoading && statsError ? (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-8 text-center">
+                <AlertCircle className="mx-auto mb-2 h-6 w-6 text-red-500" />
+                <p className="text-sm text-red-700">{statsError}</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-4 rounded-full"
+                  onClick={() => void loadStatsData()}
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Retry
+                </Button>
+              </div>
+            ) : null}
+
+            {!statsLoading &&
+            !statsError &&
+            (!statsData ||
+              (statsData.total_signals_today === 0 &&
+                statsData.top_active_sources.length === 0 &&
+                statsData.per_category_breakdown.length === 0)) ? (
+              <div className="rounded-xl border border-dashed border-[#dbe2e8] px-4 py-10 text-center">
+                <BarChart3 className="mx-auto mb-3 h-10 w-10 text-[#536471]" />
+                <h3 className="text-base font-bold text-[#0f1419]">No stats available yet</h3>
+                <p className="mt-2 text-sm text-[#536471]">
+                  Follow KOLs to see your personalized stats dashboard with signal trends and insights.
+                </p>
+                <Button type="button" className="mt-4 rounded-full px-5" onClick={() => setTab("browse")}>
+                  Browse KOLs
+                </Button>
+              </div>
+            ) : null}
+
+            {!statsLoading && !statsError && statsData ? (
+              <div className="space-y-4">
+                <div className="rounded-xl border border-[#eff3f4] bg-white p-4">
+                  <div className="mb-2 flex items-center gap-2 text-sm font-medium text-[#536471]">
+                    <TrendingUp className="h-4 w-4 text-[#1d9bf0]" />
+                    Signals Today
+                  </div>
+                  <div className="text-4xl font-bold text-[#0f1419]">
+                    {statsData.total_signals_today.toLocaleString()}
+                  </div>
+                  <p className="mt-1 text-sm text-[#536471]">from your followed KOLs</p>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-xl border border-[#eff3f4] bg-white p-4">
+                    <h3 className="mb-3 text-sm font-semibold text-[#0f1419]">Top Active Sources (7 days)</h3>
+                    {statsData.top_active_sources.length === 0 ? (
+                      <p className="text-sm text-[#536471]">No active sources this week.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {statsData.top_active_sources.slice(0, 3).map((source, index) => {
+                          const sourceName = source.display_name?.trim() || source.handle.replace(/^@/, "");
+                          return (
+                            <div key={source.source_id} className="flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium text-[#0f1419]">
+                                  #{index + 1} {sourceName}
+                                </p>
+                                <p className="truncate text-xs text-[#536471]">{source.handle}</p>
+                              </div>
+                              <span className="shrink-0 rounded-full bg-[#e8f5fd] px-2.5 py-0.5 text-xs font-medium text-[#1d9bf0]">
+                                {source.signal_count} signals
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-xl border border-[#eff3f4] bg-white p-4">
+                    <h3 className="mb-3 text-sm font-semibold text-[#0f1419]">Signals by Category (7 days)</h3>
+                    {statsData.per_category_breakdown.length === 0 ? (
+                      <p className="text-sm text-[#536471]">No category data available.</p>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {[...statsData.per_category_breakdown]
+                          .sort((a, b) => b.signal_count - a.signal_count)
+                          .slice(0, 5)
+                          .map((category) => {
+                            const totalSignals = statsData.per_category_breakdown.reduce(
+                              (sum, item) => sum + item.signal_count,
+                              0,
+                            );
+                            const percentage =
+                              totalSignals > 0 ? Math.round((category.signal_count / totalSignals) * 100) : 0;
+                            return (
+                              <div key={category.category_id}>
+                                <div className="mb-1 flex items-center justify-between text-xs">
+                                  <span className="font-medium text-[#0f1419]">{category.name}</span>
+                                  <span className="text-[#536471]">
+                                    {category.signal_count} ({percentage}%)
+                                  </span>
+                                </div>
+                                <div className="h-2 rounded-full bg-[#eff3f4]">
+                                  <div
+                                    className="h-2 rounded-full bg-[#1d9bf0]"
+                                    style={{ width: `${Math.min(100, percentage)}%` }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-[#eff3f4] bg-white p-4">
+                  <h3 className="mb-3 text-sm font-semibold text-[#0f1419]">7-Day Signal Trend</h3>
+                  <div className="h-64 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart
+                        data={statsData.trend_7day.map((point) => ({
+                          ...point,
+                          display_date: formatShortDate(point.date),
+                        }))}
+                        margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#eff3f4" />
+                        <XAxis dataKey="display_date" tick={{ fontSize: 12, fill: "#536471" }} />
+                        <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: "#536471" }} />
+                        <RechartsTooltip
+                          formatter={(value: number) => [`${value} signals`, "Count"]}
+                          labelFormatter={(label) => `Date: ${label}`}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="count"
+                          stroke="#1d9bf0"
+                          strokeWidth={2}
+                          dot={{ r: 3 }}
+                          activeDot={{ r: 5 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
               </div>
             ) : null}
           </div>

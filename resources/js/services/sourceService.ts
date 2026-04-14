@@ -36,6 +36,35 @@ export interface MySourcesResponse {
   per_page: number;
 }
 
+export interface MySourcesTopActiveSource {
+  source_id: number;
+  handle: string;
+  display_name: string | null;
+  signal_count: number;
+}
+
+export interface MySourcesTrendPoint {
+  date: string;
+  count: number;
+}
+
+export interface MySourcesCategoryBreakdown {
+  category_id: number;
+  name: string;
+  signal_count: number;
+}
+
+export interface MySourcesStats {
+  total_signals_today: number;
+  top_active_sources: MySourcesTopActiveSource[];
+  trend_7day: MySourcesTrendPoint[];
+  per_category_breakdown: MySourcesCategoryBreakdown[];
+}
+
+export interface MySourcesStatsResponse {
+  data: MySourcesStats;
+}
+
 export interface CreateSourceRequest {
   handle: string;
   display_name?: string;
@@ -261,9 +290,35 @@ export async function getMySourcesAPI(page = 1): Promise<MySourcesResponse> {
   };
 }
 
+/**
+ * GET /api/my-sources/stats — aggregate stats for subscribed sources.
+ */
+export async function getMySourcesStatsAPI(): Promise<MySourcesStatsResponse> {
+  const response = await fetch("/api/my-sources/stats", {
+    method: "GET",
+    headers: authFetchHeaders(),
+    credentials: "same-origin",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch My KOLs stats");
+  }
+
+  const json = (await response.json()) as MySourcesStatsResponse;
+  return {
+    data: {
+      total_signals_today: json.data?.total_signals_today ?? 0,
+      top_active_sources: json.data?.top_active_sources ?? [],
+      trend_7day: json.data?.trend_7day ?? [],
+      per_category_breakdown: json.data?.per_category_breakdown ?? [],
+    },
+  };
+}
+
 export const sourceService = {
   createSource,
   getMySourcesAPI,
+  getMySourcesStatsAPI,
   subscribeToSource,
   unsubscribeFromSource,
 };

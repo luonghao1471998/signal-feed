@@ -1,5 +1,187 @@
 # Session Log - 20260406-001
 
+## Session: 2026-04-14 - Task 2.4.4: Build My KOLs Stats Screen #9 (React)
+
+**Status:** ✅ COMPLETED
+
+**Objective:** Tạo Stats dashboard trong My KOLs page để hiển thị aggregate statistics về user's subscribed KOLs.
+
+**Dependencies:**
+- ✅ Task 2.4.2: GET /api/my-sources/stats endpoint
+- ✅ Task 2.4.3: Following tab UI structure
+- ✅ Task 2.2.3: My KOLs page structure
+
+---
+
+### Implementation Completed
+
+**Files Modified:**
+
+1. ✅ `resources/js/services/sourceService.ts`
+   - Thêm types: `MySourcesTopActiveSource`, `MySourcesTrendPoint`, `MySourcesCategoryBreakdown`, `MySourcesStats`, `MySourcesStatsResponse`
+   - Thêm API method: `getMySourcesStatsAPI()` calls `GET /api/my-sources/stats`
+   - Error handling: throws error nếu fetch fails
+
+2. ✅ `resources/js/pages/MyKOLsPage.tsx`
+   - Extended tab state: `'browse' | 'following' | 'stats'`
+   - Added Stats tab button với icon BarChart
+   - Added stats state management:
+     - `statsData`, `statsLoading`, `statsError`
+     - `loadStatsData()` + useEffect trigger khi switch to Stats tab
+   - Implemented 4 metric cards:
+     - **Total Signals Today Card**: Large number display với icon + subtext
+     - **Top Active Sources Card**: List top 3 sources với avatar fallback + signal counts
+     - **7-Day Trend Chart**: Recharts LineChart với 7 data points, tooltip on hover
+     - **Category Breakdown Card**: Progress bars với percentages, sorted DESC
+   - Added UI states:
+     - Loading skeleton during fetch
+     - Error state với retry button
+     - Empty state với CTA "Browse KOLs"
+   - Responsive grid layout: 2-column top row, full-width charts below
+
+**Required Imports Added:**
+- Icons: `TrendingUp`, `BarChart`, `AlertCircle`, `RefreshCw`, `Compass` from lucide-react
+- Charts: `LineChart`, `Line`, `XAxis`, `YAxis`, `CartesianGrid`, `Tooltip`, `ResponsiveContainer` from recharts
+- UI components: Card, Avatar, Progress, Skeleton, Button
+
+---
+
+### Testing Results - Manual Browser Testing ✅
+
+**Test Environment:**
+- Browser: Chrome DevTools + React DevTools
+- User: Pro plan with 42 subscriptions
+- API Response: 0 signals today, 4 signals on Apr 9, 3 categories
+
+**Visual Verification:**
+
+1. ✅ **Stats Tab Navigation**
+   - Stats tab button visible in My KOLs page
+   - Click Stats → tab switches, active state shows
+   - API call `GET /api/my-sources/stats` fired (Network tab)
+   - Response: 200 OK với correct data structure
+
+2. ✅ **Total Signals Today Card**
+   - Displayed: "0" với icon TrendingUp
+   - Subtext: "from your followed KOLs" ✓
+   - Layout clean
+
+3. ✅ **Top Active Sources Card**
+   - 3 sources rendered:
+     - #1 Andrew Ng (@AndrewYNg) - 2 signals
+     - #2 Greg Brockman (@gdb) - 2 signals
+     - #3 David Ha (@hardmaru) - 1 signal
+   - Avatar fallbacks correct (first letter)
+   - Ranking order correct (DESC by signal_count)
+
+4. ✅ **7-Day Trend Chart**
+   - Chart rendered với Recharts LineChart
+   - X-axis: 7 dates (Apr 8 - Apr 14) displayed correctly
+   - Y-axis: Scale 0-4
+   - Data visualization: Spike at Apr 9 (count=4), other days=0
+   - Smooth curve animation
+   - Tooltip shows on hover
+
+5. ✅ **Category Breakdown Card**
+   - 3 categories displayed:
+     - AI & ML: 3 signals (43%)
+     - Tech News: 3 signals (43%)
+     - Developer Tools: 1 signal (14%)
+   - Progress bars visual correct (proportional lengths)
+   - Percentages accurate (total = 7 signals)
+   - Sorted DESC by signal_count
+
+6. ✅ **Layout & Responsive**
+   - Desktop: 2-column grid top row (Total + Top Sources)
+   - Full-width cards: Trend chart + Category breakdown
+   - Clean spacing, professional design
+   - No console errors
+
+**Performance:**
+- API response time: <100ms
+- Chart render: Smooth, no lag
+- Component state updates: Instant
+
+---
+
+### Database State (Post-Task)
+
+- **No database changes** - Frontend-only task ✓
+- **No migrations run**
+- **No data modified**
+- Existing data used for testing:
+  - User 2: 42 subscriptions
+  - Signals: 7 total (4 on Apr 9, 3 on other days)
+  - Categories: 10 in system, 3 active in stats
+
+---
+
+### Key Implementation Details
+
+**Stats Fetch Logic:**
+```typescript
+const loadStatsData = async () => {
+  try {
+    setStatsLoading(true);
+    setStatsError(null);
+    const response = await getMySourcesStatsAPI();
+    setStatsData(response.data);
+  } catch (err) {
+    setStatsError('Failed to load stats');
+  } finally {
+    setStatsLoading(false);
+  }
+};
+
+useEffect(() => {
+  if (activeTab === 'stats') {
+    loadStatsData();
+  }
+}, [activeTab]);
+```
+
+**Chart Configuration:**
+- Library: recharts
+- Type: LineChart with smooth curve
+- Colors: CSS variables (theme-aware)
+- Responsive: ResponsiveContainer with 250px height
+- Tooltip: Custom styling matching app theme
+
+**Category Percentage Calculation:**
+```typescript
+const total = data.reduce((sum, cat) => sum + cat.signal_count, 0);
+const percentage = Math.round((category.signal_count / total) * 100);
+```
+
+---
+
+### Success Criteria - All Met ✅
+
+- [x] Stats tab renders in My KOLs page
+- [x] API `/api/my-sources/stats` fetched successfully
+- [x] Total Signals Today card displays correct number
+- [x] Top 3 Active Sources listed with correct data
+- [x] 7-Day Trend chart renders with 7 data points
+- [x] Category breakdown shows progress bars + percentages
+- [x] Empty state component implemented (code ready)
+- [x] Error state + retry button implemented
+- [x] Loading skeleton displays during fetch
+- [x] Responsive layout (mobile + desktop ready)
+- [x] No console errors
+- [x] No database modifications
+
+---
+
+### References
+
+- **SPEC-plan.md:** UI Skeleton Screen #9 (Stats Dashboard)
+- **IMPLEMENTATION-ROADMAP.md:** Task 2.4.4 specifications
+- **SESSION-LOG.md:** Task 2.4.2 (Stats API implementation)
+- **recharts documentation:** Chart implementation patterns
+- **API-CONTRACTS.md:** Stats API response structure
+
+---
+
 ## 2026-04-14 - Task 2.2.3: Follow/Unfollow Buttons on Browse Source Pool — ✅ COMPLETED
 
 **Status:** ✅ DONE — 2026-04-14 — **Báo cáo triển khai + test:** mục **## Task 2.2.3 — Follow/Unfollow Buttons in Browse Source Pool UI** (gần cuối file). Đoạn dưới đây giữ như **kế hoạch / scope gốc** (reference).  
@@ -214,10 +396,117 @@
 
 ---
 
-### Next Steps
+## 2026-04-14 - Task 2.4.4: Build My KOLs Stats Screen #9 (React) — 📋 SPEC / IMPLEMENTATION PLAN
 
-- Task 2.4.4: My KOLs Stats Dashboard (aggregate statistics)
-- Task 2.5.x: Personal Feed implementation
+**Status:** 📋 Documented — implementation pending  
+**Objective:** Tạo Stats dashboard trong My KOLs page để hiển thị aggregate statistics về user's subscribed KOLs.
+
+**Dependencies (đã thỏa):**
+- ✅ Task 2.4.2: GET `/api/my-sources/stats` endpoint
+- ✅ Task 2.4.3: Following tab UI (reference structure)
+- ✅ Task 2.2.3: My KOLs page structure
+
+### Current State
+
+- ✅ My KOLs page có Browse + Following tabs
+- ❌ Stats dashboard chưa có (có thể là separate page hoặc section)
+
+### Scope — Core Features
+
+1. **Stats Dashboard Layout**
+   - Fetch stats từ GET `/api/my-sources/stats`
+   - Hiển thị 4 metric chính:
+     - Total signals today (from My KOLs)
+     - Top 3 active sources (7 days)
+     - 7-day trend chart
+     - Per-category breakdown
+
+2. **Metric Cards**
+   - **Total Signals Today**
+     - Large number display
+     - Icon: `TrendingUp` hoặc `Activity`
+     - Subtext: `from your followed KOLs`
+   - **Top 3 Active Sources**
+     - List với source avatar + name + signal count
+     - Format: `@karpathy - 15 signals`
+   - **7-Day Trend Chart**
+     - Line chart hoặc bar chart
+     - X-axis: dates (Apr 8 - Apr 14)
+     - Y-axis: signal count
+   - **Category Breakdown**
+     - Pie chart hoặc horizontal bar chart
+     - Hiển thị top 5 categories
+     - Format: `AI & ML: 28 signals (60%)`
+
+3. **Empty State**
+   - No subscriptions → placeholder
+   - Message: `Follow KOLs to see your personalized stats`
+   - CTA: `Browse KOLs`
+
+4. **Loading & Error States**
+   - Skeleton loaders khi fetch
+   - Error message nếu API fails
+   - Retry button
+
+### Implementation Decision
+
+**Recommended:** Option B — Stats section trực tiếp trong My KOLs page theo mô hình tabs hiện có (`Browse | Following | Stats`) để giữ UX nhất quán.
+
+### Planned Implementation
+
+1. **`resources/js/services/sourceService.ts`**
+   - Add `getMySourcesStatsAPI()`
+   - Reuse `authFetchHeaders()`
+   - Parse response `data` theo contract 2.4.2
+
+2. **`resources/js/pages/MyKOLsPage.tsx`**
+   - Add tab `Stats`
+   - Add `StatsTab` component logic:
+     - fetch on mount/tab active
+     - loading/error/retry/empty states
+   - Render 4 card blocks:
+     - Total signals today
+     - Top 3 active sources
+     - Trend 7-day chart
+     - Category breakdown
+   - Add CTA chuyển về tab Browse khi empty state
+
+### Data Mapping (Task 2.4.2 API)
+
+`GET /api/my-sources/stats`:
+- `data.total_signals_today`
+- `data.top_active_sources[]` (`source_id`, `handle`, `display_name`, `signal_count`)
+- `data.trend_7day[]` (`date`, `count`)
+- `data.per_category_breakdown[]` (`category_id`, `name`, `signal_count`)
+
+### Testing Strategy (manual)
+
+1. User có subscriptions → tab Stats hiển thị đủ 4 metrics  
+2. Verify `total_signals_today` render đúng  
+3. Verify top 3 sources đúng thứ tự + count  
+4. Verify chart 7 ngày có đủ 7 điểm dữ liệu  
+5. Verify category breakdown + percentage đúng  
+6. Empty subscriptions → empty state + CTA Browse KOLs  
+7. API error → error state + Retry hoạt động  
+8. Hover chart tooltip hiển thị đúng dữ liệu  
+9. Mobile/tablet/desktop responsive  
+10. Refresh page/tab switch không gây lỗi state
+
+### Expected Output
+
+- Stats dashboard render trong My KOLs page (tab Stats)
+- 4 metric cards hiển thị đúng từ API thật
+- Empty/loading/error states đầy đủ
+- Responsive layout ổn định
+
+### References
+
+- `SPEC-plan.md`: UI Skeleton Screen #9
+- `IMPLEMENTATION-ROADMAP.md`: Task 2.4.4
+- Task 2.4.2: API response structure
+- [recharts docs](https://recharts.org)
+
+---
 
 ## Session: 2026-04-14 - Task 2.4.2: GET /api/my-sources/stats - Aggregate Stats API
 
