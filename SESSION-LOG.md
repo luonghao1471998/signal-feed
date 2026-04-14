@@ -1,5 +1,76 @@
 # Session Log - 20260406-001
 
+## 2026-04-14 - Task 2.2.1: `POST /api/sources/{id}/subscribe` — ✅ COMPLETED
+
+**Status:** ✅ Completed — 2026-04-14 _(báo cáo đầy đủ: **## Session: 2026-04-14 — Task 2.2.1** ở cuối file)_  
+**Objective:** API endpoint cho phép Pro/Power users subscribe (follow) KOL sources vào My KOLs personal list.
+
+**Dependencies (đã thỏa):**
+- ✅ Task 2.1.1: `POST /api/sources`
+- ✅ Task 1.2.3: `my_source_subscriptions` table
+- ✅ Task 1.5.3: `GET /api/sources` (browse pool)
+
+### Scope — Core
+
+1. **`POST /api/sources/{id}/subscribe`**
+   - Check user plan (Pro/Power only)
+   - Check subscription cap (Pro ≤10, Power ≤50)
+   - Check source exists và `status='active'`
+   - Tạo `MySourceSubscription`
+   - Response **201 Created**
+
+2. **Request:** `POST /api/sources/123/subscribe` — `Authorization: Bearer {token}`
+
+3. **Response 201 Created (ví dụ):**
+```json
+{
+  "data": {
+    "source_id": 123,
+    "handle": "@karpathy",
+    "display_name": "Andrej Karpathy",
+    "subscribed_at": "2026-04-14T10:30:00Z",
+    "subscription_count": 5
+  }
+}
+```
+
+4. **Permission / caps:**
+   - Free → **403** FORBIDDEN
+   - Pro: max **10** subscriptions
+   - Power: max **50** subscriptions
+   - Vượt cap → **400** BAD_REQUEST + message upgrade
+
+5. **Validation:**
+   - Source phải tồn tại
+   - Source phải **active** (không pending/spam/deleted)
+   - Không subscribe trùng (duplicate → **409**)
+
+### Implementation plan (gợi ý)
+
+| Bước | Nội dung |
+|------|----------|
+| 1 | `php artisan make:controller Api/SubscriptionController` — method `subscribe(Request $request, int $sourceId)` |
+| 2 | Logic: plan Free → 403; đếm subscription hiện tại; cap theo plan; load source + kiểm tra active; duplicate → 409; tạo bản ghi |
+| 3 | Cap: `match ($user->plan) { 'pro' => 10, 'power' => 50, default => 0 }`; nếu `$count >= $cap` → 400 + message limit |
+| 4 | Route: `Route::post('/sources/{sourceId}/subscribe', ...)` — middleware `auth:sanctum` |
+
+### Testing strategy (checklist)
+
+1. Pro, 5 subs → subscribe → **201**, `subscription_count`=6  
+2. Pro, 10 subs → subscribe → **400** cap  
+3. Free → **403**  
+4. Subscribe twice → **409** duplicate  
+5. Source ID không tồn tại → **404**  
+6. Source pending/spam → **400** (không subscribe)  
+7. Power cap **50**  
+8. `subscription_count` tăng đúng  
+9. `subscribed_at` / `created_at` hợp lệ  
+10. Composite key `(user_id, source_id)` không trùng  
+
+**References:** `SPEC-api.md` (`POST /api/sources/{id}/subscribe`), `IMPLEMENTATION-ROADMAP.md` Task 2.2.1, `SPEC-core.md` Flow 2 (Subscribe).
+
+---
+
 ## 2026-04-14 - Task 2.1.2: Add Source Form (Option B) - ✅ COMPLETED
 
 **Objective:** Implemented user-facing form to submit KOL sources for admin review (moderation queue).
@@ -51,7 +122,7 @@
 - `resources/js/components/AddSourceModal.tsx`
 - `resources/js/pages/MyKOLsPage.tsx`
 
-**Status:** ✅ Complete - Ready for Task 2.1.3 (Admin Approval Interface)
+**Status:** ✅ Complete — Next: **2.2.2** `DELETE /api/sources/{id}/subscribe` hoặc **2.1.3** my submissions / admin queue
 
 ---
 
@@ -59,8 +130,8 @@
 **Date:** 2026-04-06
 **Phase:** Giai đoạn 3 - Implementation
 **Sprint:** Sprint 2 — My KOLs _(Sprint 1 wedge 34/34 complete)_  
-**Tasks Covered (đã làm):** 1.1.1 – 1.2.5, **1.3.1** (OAuth X.com), **1.4.1** (categories seed), **1.4.2** (`GET /api/categories`), **1.5.1** (source pool CSV 80 rows), **1.5.2** (source pool seeder), **1.10.1** (`GET /api/signals`), **1.10.2** (Digest View + real API), **1.11.1** (`GET /api/signals/{id}` detail), **1.11.2** (Signal Detail Modal), **1.12.1** (`POST /api/signals/{id}/draft/copy`), **1.12.2** (Event-driven `copy_draft` logging), **1.12.3** (Copy to X — `signalService.copyDraft` + dual-mode UX), **2.1.1** (`POST /api/sources`), **2.1.2** (Add Source Form Screen #11 — Option B, `pending_review`)  
-**Next:** **2.2.1** — `POST /api/sources/{id}/subscribe` — `IMPLEMENTATION-ROADMAP.md` _(admin approval / moderation UI có thể tách task riêng hoặc backlog)_
+**Tasks Covered (đã làm):** 1.1.1 – 1.2.5, **1.3.1** (OAuth X.com), **1.4.1** (categories seed), **1.4.2** (`GET /api/categories`), **1.5.1** (source pool CSV 80 rows), **1.5.2** (source pool seeder), **1.10.1** (`GET /api/signals`), **1.10.2** (Digest View + real API), **1.11.1** (`GET /api/signals/{id}` detail), **1.11.2** (Signal Detail Modal), **1.12.1** (`POST /api/signals/{id}/draft/copy`), **1.12.2** (Event-driven `copy_draft` logging), **1.12.3** (Copy to X — `signalService.copyDraft` + dual-mode UX), **2.1.1** (`POST /api/sources`), **2.1.2** (Add Source Form Screen #11 — Option B, `pending_review`), **2.2.1** (`POST /api/sources/{id}/subscribe`, `SubscriptionController`)  
+**Next:** **2.2.2** — unsubscribe API; roadmap tiếp **2.2.3** UI; _(admin approval / moderation UI = 2.1.3 hoặc backlog)_
 
 **Lưu ý cho agent / Claude:** Khi user chỉ nhắc `SESSION-LOG` + SPEC để **cập nhật log / context**, **không** tự implement code trừ khi user ghi rõ *Implement Feature* / *làm task X*. OAuth X.com (1.3.1) **đã có trong repo** (Socialite + `twitter-oauth-2`).
 
@@ -5163,3 +5234,167 @@ Tích hợp nút **Copy to X** trong `SignalDetailModal`, gọi `POST /api/signa
 - `status='pending_review'`; no auto-subscribe on submit; browse ẩn pending; toast + messaging theo SPEC.
 
 **References:** SPEC-core.md §4 Option B | `IMPLEMENTATION-ROADMAP.md` §2.1.2
+
+---
+
+## Session: 2026-04-14 — Task 2.2.1: `POST /api/sources/{id}/subscribe` endpoint
+
+**Objective:** Implement API endpoint cho phép Pro/Power users subscribe (follow) KOL sources vào My KOLs personal list.
+
+**Completed:**
+
+### Implementation
+
+1. ✅ Created `app/Http/Controllers/Api/SubscriptionController.php`
+   - Method `subscribe(int $sourceId)` với full validation
+   - Free user blocked: **403** FORBIDDEN
+   - Cap enforcement: Pro ≤10, Power ≤50 với detailed error messages
+   - Source validation: exists, `status='active'` only
+   - Duplicate check: composite PK `(user_id, source_id)`
+   - Transaction safety: `DB::transaction` + `User::lockForUpdate()` for race condition prevention
+   - Response format: **201 Created** với source details + `subscription_count`
+
+2. ✅ Verified `app/Models/MySourceSubscription.php`
+   - Composite primary key: `['user_id', 'source_id']`
+   - Relationships: `user()`, `source()`
+   - No auto-increment, no `updated_at` column
+   - Fillable: `user_id`, `source_id`, `tenant_id`, `created_at`
+
+3. ✅ Added route `POST /api/sources/{sourceId}/subscribe` in `routes/api.php`
+   - Protected by `auth:sanctum` middleware
+   - Route constraint: `whereNumber('sourceId')`
+
+### Business Logic Implemented
+
+**Plan-based Access Control:**
+
+- Free users → **403** with upgrade message
+- Pro users → max **10** subscriptions
+- Power users → max **50** subscriptions
+
+**Cap Enforcement:**
+
+```php
+$cap = match ($user->plan) {
+    'pro' => 10,
+    'power' => 50,
+    default => 0,
+};
+```
+
+**Validation Layers:**
+
+1. User plan check (Free blocked)
+2. Current subscription count vs cap
+3. Source exists (**404** if not found)
+4. Source `status='active'` (**400** if pending/spam/deleted)
+5. Duplicate prevention (**409** if already subscribed)
+
+**Response Structures**
+
+*Success (201):*
+
+```json
+{
+  "data": {
+    "source_id": 10,
+    "handle": "@lexfridman",
+    "display_name": "Lex Fridman",
+    "subscribed_at": "2026-04-14T09:28:35+07:00",
+    "subscription_count": 11
+  }
+}
+```
+
+*Errors:*
+
+- **403:** Free user attempt
+- **400:** Cap exceeded (with `current_count`, `limit`, upgrade suggestion for Pro)
+- **409:** Duplicate subscription
+- **404:** Source not found
+- **400:** Source not active (with `source_status`)
+
+### Testing Results
+
+**All test cases passed:**
+
+| Test Case | Result | Details |
+|-----------|--------|---------|
+| Route registration | ✅ PASS | `POST api/sources/{sourceId}/subscribe` exists |
+| Free user blocked | ✅ PASS | 403 with upgrade message |
+| Power user subscribe | ✅ PASS | 201 Created, count 10→11 |
+| Duplicate prevention | ✅ PASS | 409 Conflict |
+| Source not found | ✅ PASS | 404 error |
+| Non-active source | ✅ PASS | 400 with `source_status='pending_review'` |
+| Power cap (50) | ✅ PASS | 400 at 50/50 limit |
+| Pro cap (10) | ✅ PASS | 400 at 10/10 + "Upgrade to Power" message |
+| Composite PK | ✅ PASS | Database integrity verified |
+| Subscription counts | ✅ PASS | Free=0, Pro=10, Power=50 |
+
+**Manual Testing Method:**
+
+- Used `php artisan tinker` for setup
+- Used `curl` commands for API testing
+- No automated tests (no `RefreshDatabase` trait)
+- No data loss during testing
+
+### Database State After Testing
+
+```
+Users:
+- ID:1 (free): 0 subscriptions
+- ID:2 (power): 50 subscriptions (at cap)
+- ID:3 (pro): 10 subscriptions (at cap)
+
+Sources:
+- Active sources: 80+ available
+- Test source ID:88 (pending_review): created for validation testing
+```
+
+### Code Quality Notes
+
+- **Transaction Safety:** Used `DB::transaction` with `lockForUpdate()` to prevent race conditions when checking cap
+- **Handle Normalization:** Prepends `@` to `x_handle` in response for consistent formatting
+- **ISO8601 Timestamps:** `subscribed_at` uses `toIso8601String()` for standard format
+- **Composite PK Handling:** Direct `DB::table('my_source_subscriptions')->insert()` due to Laravel limitation with composite PKs
+- **Error Messages:** Clear, actionable, include context (`current_count`, `limit`, upgrade path)
+
+### Dependencies Verified
+
+- ✅ Task 1.2.3: `my_source_subscriptions` table exists
+- ✅ Task 2.1.1: `sources` table with `status` column
+- ✅ `users` table with plan enum (free/pro/power)
+- ✅ Sanctum authentication working
+
+### API Contract Compliance
+
+Endpoint aligns with `SPEC-api.md` — Subscribe to Source (Flow 2):
+
+- Request: `POST /api/sources/{id}/subscribe` with Bearer token
+- Response: **201 Created** with `data` envelope
+- Error responses: proper HTTP status codes with messages
+- Permission guards: plan-based access control
+- Validation: comprehensive edge case handling
+
+### References
+
+- `SPEC-api.md` — POST `/api/sources/{id}/subscribe`
+- `SPEC-core.md` — Flow 2 (Subscribe to Source)
+- `IMPLEMENTATION-ROADMAP.md` — Task 2.2.1
+- `API-CONTRACTS.md` — Subscription endpoint contract
+- `db_schema.sql` / migrations — `my_source_subscriptions` table schema
+
+### Time Spent
+
+- **Implementation:** ~2 hours (code + route setup)
+- **Testing:** ~1 hour (10 test cases via tinker + curl)
+- **Total:** ~3 hours
+
+### Next Steps
+
+Ready to proceed to:
+
+- **Task 2.2.2:** `DELETE /api/sources/{id}/subscribe` (unsubscribe — inverse operation; `SPEC-api` / roadmap)
+- **Task 2.4.1:** `GET /api/my-sources` (list user's subscriptions — roadmap module 2.4)
+
+---

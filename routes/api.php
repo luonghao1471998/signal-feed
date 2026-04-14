@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\CurrentUserController;
 use App\Http\Controllers\Api\DraftController;
 use App\Http\Controllers\Api\SignalController;
 use App\Http\Controllers\Api\SourceController;
+use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\UpdateCurrentUserController;
 use Illuminate\Support\Facades\Route;
 
@@ -24,6 +25,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', CurrentUserController::class);
     Route::patch('/me', UpdateCurrentUserController::class);
     Route::post('/sources', [SourceController::class, 'store']);
+    Route::post('/sources/{sourceId}/subscribe', [SubscriptionController::class, 'subscribe'])
+        ->whereNumber('sourceId');
     Route::get('/signals', [SignalController::class, 'index']);
     Route::post('/signals/{id}/draft/copy', [DraftController::class, 'copy'])->whereNumber('id');
     Route::get('/signals/{id}', [SignalController::class, 'show'])->whereNumber('id');
