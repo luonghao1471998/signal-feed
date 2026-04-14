@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, Loader2, Plus, Search, UserPlus } from "lucide-react";
+import { Check, Loader2, Plus, Search, UserPlus, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Av, avatarUrlForHandle } from "@/components/Avatar";
-import CategoryBadge, { type CategoryKey } from "@/components/CategoryBadge";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -19,6 +18,9 @@ import { categoryDotActiveClass, categoryDotFilledClass } from "@/lib/categoryDo
 import { getCategories, type Category } from "@/services/categoryService";
 import {
   fetchBrowseSources,
+  getMySourcesAPI,
+  type MySource,
+  type MySourcesResponse,
   SourceSubscriptionError,
   subscribeToSource,
   type BrowseSource,
@@ -26,72 +28,17 @@ import {
 } from "@/services/sourceService";
 import { toast } from "sonner";
 
-interface KOLSource {
-  id: string;
-  name: string;
-  handle: string;
-  categories: CategoryKey[];
-  signals7d: number;
-  lastActive: string;
-}
+const formatSubscribedDate = (value: string): string => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "Unknown";
+  }
 
-const poolSources: KOLSource[] = [
-  { id: "karpathy", name: "Andrej Karpathy", handle: "@karpathy", categories: ["ai-ml"], signals7d: 12, lastActive: "2h ago" },
-  { id: "sama", name: "Sam Altman", handle: "@sama", categories: ["ai-ml", "startup-vc"], signals7d: 8, lastActive: "4h ago" },
-  { id: "levelsio", name: "Pieter Levels", handle: "@levelsio", categories: ["indie-saas"], signals7d: 15, lastActive: "1h ago" },
-  { id: "rauchg", name: "Guillermo Rauch", handle: "@rauchg", categories: ["dev-tools"], signals7d: 6, lastActive: "6h ago" },
-  { id: "naval", name: "Naval", handle: "@naval", categories: ["startup-vc"], signals7d: 3, lastActive: "12h ago" },
-  { id: "randfish", name: "Rand Fishkin", handle: "@randfish", categories: ["marketing"], signals7d: 9, lastActive: "3h ago" },
-  { id: "balajis", name: "Balaji Srinivasan", handle: "@balajis", categories: ["crypto", "startup-vc"], signals7d: 7, lastActive: "5h ago" },
-  { id: "patio11", name: "Patrick McKenzie", handle: "@patio11", categories: ["finance", "indie-saas"], signals7d: 4, lastActive: "8h ago" },
-  { id: "emollick", name: "Ethan Mollick", handle: "@emollick", categories: ["ai-ml"], signals7d: 11, lastActive: "1h ago" },
-  { id: "swyx", name: "swyx", handle: "@swyx", categories: ["ai-ml", "dev-tools"], signals7d: 10, lastActive: "2h ago" },
-];
-
-const kolBios: Record<string, string> = {
-  "@karpathy": "AI researcher & former Tesla AI director",
-  "@sama": "OpenAI CEO, frequent AI policy commentary",
-  "@levelsio": "Indie hacker, bootstrapped SaaS & nomad lifestyle",
-  "@rauchg": "CEO of Vercel, creator of Next.js",
-  "@naval": "Investor & philosopher, startup + wealth thinking",
-  "@randfish": "SEO expert, founder of SparkToro",
-  "@balajis": "Tech investor, crypto & biotech analyst",
-  "@patio11": "Stripe, fintech & software business insights",
-  "@emollick": "Wharton professor, AI in education & work",
-  "@swyx": "AI engineer, developer education & tooling",
-};
-
-const followingTabBadges: Partial<Record<string, CategoryKey[]>> = {
-  karpathy: ["ai-ml"],
-  sama: ["ai-ml", "startup-vc"],
-  levelsio: ["indie-saas"],
-  rauchg: ["dev-tools"],
-  randfish: ["marketing"],
-  emollick: ["ai-ml"],
-  swyx: ["ai-ml", "dev-tools"],
-};
-
-const getQualityColor = (signalCount: number) => {
-  if (signalCount >= 10) return "#10b981";
-  if (signalCount >= 5) return "#f59e0b";
-  return "#9ca3af";
-};
-
-const getQualityLabel = (signalCount: number) => {
-  if (signalCount >= 10) return "High activity";
-  if (signalCount >= 5) return "Medium activity";
-  return "Low activity";
-};
-
-/** Mock 7d counts for quality dot (Following tab). */
-const MOCK_QUALITY_SIGNAL_COUNT: Partial<Record<string, number>> = {
-  "@karpathy": 12,
-  "@sama": 8,
-  "@levelsio": 15,
-  "@rauchg": 6,
-  "@randfish": 9,
-  "@emollick": 11,
-  "@swyx": 10,
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
 };
 
 const MyKOLsPage = () => {
@@ -99,9 +46,6 @@ const MyKOLsPage = () => {
   const canAddSource = Boolean(user && (user.plan === "pro" || user.plan === "power"));
 
   const [tab, setTab] = useState<"browse" | "following">("browse");
-  const [following, setFollowing] = useState<Set<string>>(
-    new Set(["karpathy", "sama", "levelsio", "rauchg", "randfish", "emollick", "swyx"]),
-  );
   const [search, setSearch] = useState("");
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [apiSources, setApiSources] = useState<BrowseSource[]>([]);
@@ -112,6 +56,12 @@ const MyKOLsPage = () => {
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
   const [powerCapDialogOpen, setPowerCapDialogOpen] = useState(false);
+  const [followingSources, setFollowingSources] = useState<MySource[]>([]);
+  const [followingLoading, setFollowingLoading] = useState(false);
+  const [followingError, setFollowingError] = useState<string | null>(null);
+  const [followingPage, setFollowingPage] = useState(1);
+  const [followingHasMore, setFollowingHasMore] = useState(false);
+  const [followingBusySourceId, setFollowingBusySourceId] = useState<number | null>(null);
 
   const loadBrowseSources = useCallback(async () => {
     setApiLoading(true);
@@ -178,22 +128,79 @@ const MyKOLsPage = () => {
     });
   }, [apiSources, search, selectedCategoryIds]);
 
-  const toggleFollow = (id: string) => {
-    setFollowing((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
-
-  const followingList = poolSources.filter((s) => following.has(s.id));
   const subscriptionLimit = user?.plan === "power" ? 50 : user?.plan === "pro" ? 10 : 0;
   const currentSubscriptions = apiSources.filter((source) => source.is_subscribed).length;
   const followingQuotaLabel = subscriptionLimit > 0 ? `${currentSubscriptions}/${subscriptionLimit}` : "0/0";
+
+  const loadFollowingSources = useCallback(async (page: number, append: boolean) => {
+    setFollowingLoading(true);
+    setFollowingError(null);
+    try {
+      const response: MySourcesResponse = await getMySourcesAPI(page);
+      setFollowingHasMore(response.current_page < response.last_page);
+      setFollowingPage(response.current_page);
+      setFollowingSources((prev) => {
+        if (!append) {
+          return response.data;
+        }
+        const existing = new Set(prev.map((item) => item.id));
+        const merged = [...prev];
+        response.data.forEach((item) => {
+          if (!existing.has(item.id)) {
+            merged.push(item);
+          }
+        });
+        return merged;
+      });
+    } catch (error) {
+      setFollowingError(error instanceof Error ? error.message : "Failed to load following list");
+      toast.error("Failed to load following list");
+    } finally {
+      setFollowingLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (tab !== "following") {
+      return;
+    }
+    void loadFollowingSources(1, false);
+  }, [tab, loadFollowingSources]);
+
+  const handleLoadMoreFollowing = () => {
+    if (followingLoading || !followingHasMore) {
+      return;
+    }
+
+    void loadFollowingSources(followingPage + 1, true);
+  };
+
+  const handleUnfollowFromFollowing = async (source: MySource) => {
+    const confirmed = window.confirm(`Unfollow ${source.handle}?`);
+    if (!confirmed) {
+      return;
+    }
+
+    const previousFollowing = followingSources;
+    setFollowingBusySourceId(source.id);
+    setFollowingSources((prev) => prev.filter((item) => item.id !== source.id));
+    setApiSources((prev) =>
+      prev.map((item) => (item.id === source.id ? { ...item, is_subscribed: false } : item)),
+    );
+
+    try {
+      await unsubscribeFromSource(source.id);
+      toast.success(`Unfollowed ${source.handle}`);
+    } catch {
+      setFollowingSources(previousFollowing);
+      setApiSources((prev) =>
+        prev.map((item) => (item.id === source.id ? { ...item, is_subscribed: true } : item)),
+      );
+      toast.error("Failed to unfollow. Please try again.");
+    } finally {
+      setFollowingBusySourceId((prev) => (prev === source.id ? null : prev));
+    }
+  };
 
   const handleToggleSubscription = async (source: BrowseSource) => {
     const sourceHandle = `@${source.x_handle}`;
@@ -230,6 +237,7 @@ const MyKOLsPage = () => {
       if (isSubscribed) {
         await unsubscribeFromSource(source.id);
         toast.success(`Unfollowed ${sourceHandle}`);
+        setFollowingSources((prev) => prev.filter((item) => item.id !== source.id));
       } else {
         await subscribeToSource(source.id);
         toast.success(`Following ${sourceHandle}`);
@@ -239,6 +247,9 @@ const MyKOLsPage = () => {
           currentSubscriptions + 1 >= subscriptionLimit
         ) {
           setPowerCapDialogOpen(true);
+        }
+        if (tab === "following") {
+          void loadFollowingSources(1, false);
         }
       }
     } catch (error) {
@@ -456,12 +467,14 @@ const MyKOLsPage = () => {
           <div>
             <div className="mb-4 flex items-center justify-between">
               <span className="text-sm text-[#536471]">
-                {followingList.length} / {Math.max(subscriptionLimit, 10)} KOLs
+                {followingSources.length} / {Math.max(subscriptionLimit, 10)} KOLs
               </span>
               <div className="mx-3 h-1 flex-1 rounded-full bg-[#eff3f4]">
                 <div
                   className="h-full rounded-full bg-[#1d9bf0] transition-all"
-                  style={{ width: `${Math.min(100, (followingList.length / Math.max(subscriptionLimit, 10)) * 100)}%` }}
+                  style={{
+                    width: `${Math.min(100, (followingSources.length / Math.max(subscriptionLimit, 10)) * 100)}%`,
+                  }}
                 />
               </div>
               <span className="text-[13px] font-medium text-[#1d9bf0]">
@@ -469,57 +482,94 @@ const MyKOLsPage = () => {
               </span>
             </div>
 
-            <div className="divide-y divide-[#eff3f4] border-t border-[#eff3f4]">
-              {followingList.map((source) => {
-                const tabBadges = followingTabBadges[source.id];
-                const signalCountForQuality =
-                  MOCK_QUALITY_SIGNAL_COUNT[source.handle] ?? source.signals7d;
-                return (
-                  <div key={source.id} className="flex items-center gap-3 py-4">
-                    <Av src={avatarUrlForHandle(source.handle)} name={source.name} size={40} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[15px] font-bold text-[#0f1419]">{source.name}</span>
-                        <span className="text-sm text-[#536471]">{source.handle}</span>
+            {followingLoading && followingSources.length === 0 ? (
+              <p className="py-8 text-center text-sm text-[#536471]">Loading following list...</p>
+            ) : null}
+
+            {followingError ? <p className="py-4 text-center text-sm text-red-600">{followingError}</p> : null}
+
+            {!followingLoading && !followingError && followingSources.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-[#dbe2e8] px-4 py-10 text-center">
+                <Users className="mx-auto mb-3 h-10 w-10 text-[#536471]" />
+                <h3 className="text-base font-bold text-[#0f1419]">You haven&apos;t followed any KOLs yet</h3>
+                <p className="mt-2 text-sm text-[#536471]">
+                  Browse the source pool to find and follow KOLs that match your interests.
+                </p>
+                <Button type="button" className="mt-4 rounded-full px-5" onClick={() => setTab("browse")}>
+                  Browse KOLs
+                </Button>
+              </div>
+            ) : null}
+
+            {followingSources.length > 0 ? (
+              <div className="divide-y divide-[#eff3f4] border-t border-[#eff3f4]">
+                {followingSources.map((source) => {
+                  const sourceName = source.display_name?.trim() || source.handle.replace(/^@/, "");
+                  const sourceHandle = source.handle.startsWith("@") ? source.handle : `@${source.handle}`;
+                  const signalCount = source.stats.signal_count;
+                  const statsText =
+                    signalCount > 0
+                      ? `${signalCount} signal${signalCount > 1 ? "s" : ""} (last 7 days)`
+                      : "No recent signals";
+                  const lastActiveText = source.stats.last_active_date
+                    ? `last active ${source.stats.last_active_date}`
+                    : "No recent activity";
+                  const isBusy = followingBusySourceId === source.id;
+
+                  return (
+                    <div key={source.id} className="flex items-center gap-3 py-4">
+                      <Av src={avatarUrlForHandle(sourceHandle)} name={sourceName} size={40} />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[15px] font-bold text-[#0f1419]">{sourceName}</div>
+                        <div className="text-sm text-[#536471]">{sourceHandle}</div>
+                        {source.categories.length > 0 ? (
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                            {source.categories.map((category) => (
+                              <span
+                                key={category.id}
+                                className="rounded-full bg-[#f7f9f9] px-2.5 py-0.5 text-xs font-medium text-[#536471]"
+                              >
+                                {category.name}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                        <p className="mt-1 text-[13px] text-[#0f1419]">{statsText}</p>
+                        <p className="text-[13px] text-[#536471]">{lastActiveText}</p>
+                        <p className="text-[12px] text-[#536471]">
+                          Following since{" "}
+                          {source.subscribed_at ? formatSubscribedDate(source.subscribed_at) : "Unknown"}
+                        </p>
                       </div>
-                      {tabBadges && tabBadges.length > 0 ? (
-                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                          {tabBadges.map((cat) => (
-                            <CategoryBadge key={cat} category={cat} />
-                          ))}
-                        </div>
-                      ) : null}
-                      <div className="mt-1 flex items-center gap-2">
-                        <span className="rounded-full bg-[#e8f5fd] px-2 py-0.5 text-xs font-medium text-[#1d9bf0]">
-                          {source.signals7d} signals/7d
-                        </span>
-                        <span
-                          title={getQualityLabel(signalCountForQuality)}
-                          style={{
-                            display: "inline-block",
-                            width: 8,
-                            height: 8,
-                            borderRadius: "50%",
-                            background: getQualityColor(signalCountForQuality),
-                            marginLeft: 6,
-                            verticalAlign: "middle",
-                            flexShrink: 0,
-                          }}
-                        />
-                        <span className="text-[13px] text-[#536471]">last active {source.lastActive}</span>
-                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={isBusy}
+                        onClick={() => void handleUnfollowFromFollowing(source)}
+                        className="shrink-0 rounded-full px-4"
+                      >
+                        {isBusy ? "Unfollowing..." : "Unfollow"}
+                      </Button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => toggleFollow(source.id)}
-                      className="shrink-0 rounded-full border border-[#cfd9de] bg-white px-4 py-1.5 text-sm text-[#536471] hover:border-[#f4212e] hover:text-[#f4212e]"
-                    >
-                      Unfollow
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            ) : null}
+
+            {followingHasMore ? (
+              <div className="mt-4 flex justify-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleLoadMoreFollowing}
+                  disabled={followingLoading}
+                  className="rounded-full px-5"
+                >
+                  {followingLoading ? "Loading..." : "Load More"}
+                </Button>
+              </div>
+            ) : null}
           </div>
         )}
 

@@ -18,6 +18,24 @@ export interface BrowseSource {
   is_subscribed: boolean;
 }
 
+export interface SourceStats {
+  signal_count: number;
+  last_active_date: string | null;
+}
+
+export interface MySource extends Source {
+  subscribed_at: string;
+  stats: SourceStats;
+}
+
+export interface MySourcesResponse {
+  data: MySource[];
+  current_page: number;
+  last_page: number;
+  total: number;
+  per_page: number;
+}
+
 export interface CreateSourceRequest {
   handle: string;
   display_name?: string;
@@ -210,8 +228,42 @@ export async function unsubscribeFromSource(sourceId: number): Promise<void> {
   }
 }
 
+/**
+ * GET /api/my-sources — subscribed sources list.
+ */
+export async function getMySourcesAPI(page = 1): Promise<MySourcesResponse> {
+  const response = await fetch(`/api/my-sources?page=${page}`, {
+    method: "GET",
+    headers: authFetchHeaders(),
+    credentials: "same-origin",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch my sources");
+  }
+
+  const json = (await response.json()) as {
+    data?: MySource[];
+    meta?: {
+      current_page?: number;
+      last_page?: number;
+      total?: number;
+      per_page?: number;
+    };
+  };
+
+  return {
+    data: json.data ?? [],
+    current_page: json.meta?.current_page ?? 1,
+    last_page: json.meta?.last_page ?? 1,
+    total: json.meta?.total ?? 0,
+    per_page: json.meta?.per_page ?? 20,
+  };
+}
+
 export const sourceService = {
   createSource,
+  getMySourcesAPI,
   subscribeToSource,
   unsubscribeFromSource,
 };
