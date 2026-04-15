@@ -2,6 +2,118 @@
 
 ---
 
+## 2026-04-15 - Task 2.5.1: POST/DELETE /api/signals/{id}/archive — 📋 SPEC / IMPLEMENTATION PLAN
+
+**Status:** ✅ Completed (2026-04-15)  
+**Objective:** Implement 2 endpoints cho phép user lưu/xoá signal vào personal archive. Đây là backend foundation cho Archive feature (Screen #16), các task 2.5.2–2.5.4 phụ thuộc vào task này.
+
+**Dependencies (đã thỏa):**
+- ✅ Task 1.10.1: signals table + SignalController đã có
+- ✅ Schema `user_archived_signals`: migration `2026_04_15_112719_create_user_archived_signals_table.php` (trước đó repo chưa có bảng — `Schema::hasTable` = false; đã `php artisan migrate`)
+- ✅ Auth: Sanctum token
+
+**Schema tham chiếu (SPEC-api §9):**
+```sql
+CREATE TABLE user_archived_signals (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    signal_id BIGINT NOT NULL REFERENCES signals(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(user_id, signal_id)
+);
+```
+
+**Task 2.5.1a — POST /api/signals/{id}/archive (Save)**
+
+| Field | Detail |
+|-------|--------|
+| Route | POST /api/signals/{id}/archive |
+| Auth | Sanctum (tất cả plan) |
+| Guard | Signal tồn tại → 404 nếu không |
+| Logic | INSERT INTO user_archived_signals (user_id, signal_id) — idempotent: nếu đã tồn tại trả 200 thay vì 201 |
+| Response 201 | { "data": { "signal_id": X, "archived_at": "ISO8601" } } — lần đầu save |
+| Response 200 | { "data": { "signal_id": X, "archived_at": "ISO8601" } } — đã lưu rồi (idempotent) |
+| Response 404 | { "error": { "code": "NOT_FOUND", "message": "Signal not found" } } |
+
+**Task 2.5.1b — DELETE /api/signals/{id}/archive (Unsave)**
+
+| Field | Detail |
+|-------|--------|
+| Route | DELETE /api/signals/{id}/archive |
+| Auth | Sanctum (tất cả plan) |
+| Guard | Self-owned only (WHERE user_id = auth()->id()) |
+| Logic | DELETE FROM user_archived_signals WHERE user_id=? AND signal_id=? |
+| Response | 204 No Content |
+| Idempotent | Nếu không tồn tại record → vẫn 204 (không throw 404) |
+
+**Files dự kiến:**
+- app/Http/Controllers/Api/ArchiveController.php (controller mới)
+- app/Models/UserArchivedSignal.php (model mới)
+- routes/api.php (thêm 2 routes)
+
+**Migration check:**
+- Kiểm tra user_archived_signals table đã tồn tại chưa bằng tinker trước khi tạo migration mới
+- Nếu chưa có → tạo migration mới
+- Nếu đã có → không cần migration
+
+**Verify:**
+1. POST /api/signals/1/archive → 201 với signal_id + archived_at
+2. POST /api/signals/1/archive lần 2 → 200 (idempotent, không duplicate row)
+3. DELETE /api/signals/1/archive → 204
+4. DELETE /api/signals/1/archive lần 2 → 204 (idempotent)
+5. POST /api/signals/9999/archive → 404
+6. Unauthenticated → 401
+7. Verify DB: user_archived_signals chỉ có record của đúng user
+
+---
+
+### Actual Results
+
+**Implementation Summary:**
+- ✅ Migration: `2026_04_15_112719_create_user_archived_signals_table.php` — table created với UNIQUE(user_id, signal_id)
+- ✅ Model: `app/Models/UserArchivedSignal.php` — relationships User/Signal hoạt động
+- ✅ Controller: `app/Http/Controllers/Api/ArchiveController.php` — idempotent logic đúng spec
+- ✅ Routes: registered trong `auth:sanctum` group với `whereNumber('id')`
+
+**Controller Logic Highlights:**
+- `store()`: Dùng `firstOrCreate()` + `wasRecentlyCreated` → 201 (new) / 200 (exists)
+- `store()`: Sau `firstOrCreate`, gọi `refresh()` để lấy `created_at` từ DB (vì model có `public $timestamps = false`)
+- `store()`: `tenant_id` lấy từ `$user->tenant_id ?? 1`
+- `destroy()`: Luôn trả 204 (idempotent) — không check record tồn tại
+
+**Verification Results (Tinker - 10/10 PASS):**
+1. ✅ Model load & table exists
+2. ✅ Idempotent `firstOrCreate` — no duplicates
+3. ✅ Relationships (belongsTo User/Signal) working
+4. ✅ POST lần đầu → `201 Created` với correct JSON format
+5. ✅ POST lần 2 → `200 OK` (idempotent, timestamp unchanged)
+6. ✅ POST signal không tồn tại → `404 NOT_FOUND` với error format chuẩn CLAUDE.md
+7. ✅ DELETE → `204 No Content`
+8. ✅ DELETE lần 2 → `204` (idempotent, không throw 404)
+9. ✅ DB integrity: UNIQUE constraint enforced, no duplicate rows
+10. ✅ Routes registered: `POST/DELETE /api/signals/{id}/archive` trong auth:sanctum group
+
+**Edge Cases & Notes:**
+- SPEC-api ghi DELETE trả 404 khi signal/archive missing, nhưng implementation chọn idempotent 204 (theo pattern SubscriptionController và best practice RESTful DELETE)
+- Logic idempotent đảm bảo: POST nhiều lần không tạo duplicate row, DELETE record không tồn tại không throw error
+- `tenant_id` hiện tại hardcode fallback `?? 1`, chuẩn bị cho multi-tenancy Phase 2
+
+**Files Created/Modified:**
+- `database/migrations/2026_04_15_112719_create_user_archived_signals_table.php` (new)
+- `app/Models/UserArchivedSignal.php` (new)
+- `app/Http/Controllers/Api/ArchiveController.php` (new)
+- `routes/api.php` (modified — added 2 routes)
+
+**Testing Method:** Manual verification qua Tinker — không chạy automated tests, tiết kiệm credits.
+
+**Dependencies for Next Tasks:**
+- Task 2.5.2 (GET /api/archive/signals) có thể bắt đầu ngay
+- Task 2.5.3 (`is_archived` flag trong feed) cần query junction table
+- Task 2.5.4 (Frontend UI) cần 2.5.2 + 2.5.3 hoàn thành trước
+
+---
+
 ## 2026-04-15 - Task 2.1.3 + 2.1.4 + 2.1.5: My Submissions API + UI
 
 **Started:** 2026-04-15  

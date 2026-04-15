@@ -9,6 +9,7 @@
 
 use App\Http\Controllers\Api\Admin\AdminPipelineController;
 use App\Http\Controllers\Api\Admin\AdminSourceController;
+use App\Http\Controllers\Api\ArchiveController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CurrentUserController;
 use App\Http\Controllers\Api\DraftController;
@@ -35,6 +36,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/my-sources', [MySourcesController::class, 'index']);
     Route::get('/my-sources/stats', [MySourcesController::class, 'stats']);
     Route::get('/signals', [SignalController::class, 'index']);
+    Route::post('/signals/{id}/archive', [ArchiveController::class, 'store'])->whereNumber('id');
+    Route::delete('/signals/{id}/archive', [ArchiveController::class, 'destroy'])->whereNumber('id');
     Route::post('/signals/{id}/draft/copy', [DraftController::class, 'copy'])->whereNumber('id');
     Route::get('/signals/{id}', [SignalController::class, 'show'])->whereNumber('id');
 
