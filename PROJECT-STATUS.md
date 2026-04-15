@@ -1,11 +1,11 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-15 (Task 2.5.4 Archive Screen integration complete)
+**Last Updated:** 2026-04-15 (Task 2.5.6 Settings frontend integration complete)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 2 — My KOLs + Archive (2.5.x)
-**Completed Task:** **2.5.4** — Integrate Archive Screen with real API ✅ — 2026-04-15
-**Next Task:** **2.5.5** (GET/PATCH /api/settings) / **3.1.1** (Stripe) — xem `IMPLEMENTATION-ROADMAP.md`
-**Status:** Sprint 2 roadmap table (**14** tasks) — **14/14** ✅; backlog **2.5.x** (Archive / Settings): **4/7** task archive+settings nhóm 2.5.x hoàn thành (2.5.1–2.5.4 ✅)
+**Completed Task:** **2.5.6** — Settings Screen Frontend Integration ✅ — 2026-04-15
+**Next Task:** **3.1.1** (Stripe) — xem `IMPLEMENTATION-ROADMAP.md`
+**Status:** Sprint 2 roadmap table (**14** tasks) — **14/14** ✅; backlog **2.5.x** (Archive / Settings): **6/7** task archive+settings nhóm 2.5.x hoàn thành (2.5.1–2.5.6 ✅)
 
 ---
 
@@ -26,7 +26,7 @@
 
 ### Feature 2.5: Settings Page (Profile, Preferences, Plan)
 - **Status:** 🚧 In Progress
-- **Progress:** 2/5 tasks completed (40%)
+- **Progress:** 3/5 tasks completed (60%)
 - **Components:**
   - Task 2.5.1: ✅ Define settings schema & API contracts
   - Task 2.5.2: ⏳ Pending — SettingsPage layout & tab navigation
@@ -37,6 +37,13 @@
     - Controller: SettingsController (show, update)
     - Routes: GET/PATCH /api/settings (auth:sanctum)
     - Verified: 11/11 test cases passed
+    - Integration tested với frontend (Task 2.5.6)
+  - [x] **Task 2.5.6** - Settings Screen Frontend Integration ✅
+    - settingsService.ts: fetchSettings() + updateSettings()
+    - SettingsPage.tsx: 5 tabs integrated với backend APIs
+    - Manual tested: Profile, Digest Preferences, Plan & Billing, Telegram, Language
+    - Hotfix: Avatar render, UX improvements, /billing 404 fixes
+    - Phase 1 limitations: Coming Soon toasts cho billing/telegram features
 
 ### 2.4 Frontend - My KOLs Integration
 
@@ -236,7 +243,7 @@ _(Roadmap tiếp: **2.5.x** Archive / Settings — `IMPLEMENTATION-ROADMAP.md`.)
 
 ### In Progress / Next (roadmap)
 - **Sprint 2 (14-task table):** ✅ **14/14** — gồm **2.4.5** (digest My KOLs toggle) + **2.1.3–2.1.4** (my submissions) + **2.1.5** (auto-refresh; polish cùng release)
-- **Archive backlog:** ✅ **2.5.1** `POST/DELETE /api/signals/{id}/archive` (2026-04-15); ✅ **2.5.2** `GET /api/archive/signals` (2026-04-15); ✅ **2.5.3** Save to Archive button (2026-04-15); ✅ **2.5.4** Archive UI integration real API (2026-04-15) — **Next:** **2.5.5** Settings API / **3.1.1** Stripe — `IMPLEMENTATION-ROADMAP.md`
+- **Archive backlog:** ✅ **2.5.1** `POST/DELETE /api/signals/{id}/archive` (2026-04-15); ✅ **2.5.2** `GET /api/archive/signals` (2026-04-15); ✅ **2.5.3** Save to Archive button (2026-04-15); ✅ **2.5.4** Archive UI integration real API (2026-04-15); ✅ **2.5.5** Settings API (2026-04-15); ✅ **2.5.6** Settings frontend integration (2026-04-15) — **Next:** **3.1.1** Stripe — `IMPLEMENTATION-ROADMAP.md`
 - **Backlog (ngoài bảng Sprint 2):** **1.11.3** — metadata digest (tùy ưu tiên)
 
 ### Statistics
@@ -246,10 +253,12 @@ _(Roadmap tiếp: **2.5.x** Archive / Settings — `IMPLEMENTATION-ROADMAP.md`.)
 ### Progress Summary
 
 **Completed Tasks:** Sprint 1 **34/34** ✅; Sprint 2 **14/14** (thêm **2.1.3–2.1.5** 2026-04-15; **2.4.5** 2026-04-15; cùng các task 2.1.1–2.1.2, 2.2.x, 2.3.x, 2.4.1–2.4.4)
-**Current phase:** Sprint 2 — My KOLs **hoàn tất** (bundle 14 task); backlog **2.5.x** (Archive) — **2.5.1** ✅ **2.5.2** ✅ **2.5.3** ✅ **2.5.4** ✅; next **2.5.5** / Sprint 3
+**Current phase:** Sprint 2 — My KOLs **hoàn tất** (bundle 14 task); backlog **2.5.x** (Archive/Settings) — **2.5.1** ✅ **2.5.2** ✅ **2.5.3** ✅ **2.5.4** ✅ **2.5.5** ✅ **2.5.6** ✅; next **3.1.1** / Sprint 3
 **Last Updated:** 2026-04-15
 
 **Recent Completions:**
+- ✅ Task **2.5.6:** Settings Screen Frontend Integration — integrated all 5 tabs với backend APIs, save/load cho Profile + Digest Preferences + Language, fixed 4 UI issues (avatar render, digest UX, /billing 404 toasts) — SESSION-LOG 2026-04-15
+- ✅ Task **2.5.5:** GET/PATCH `/api/settings` endpoints — backend settings APIs integrated with frontend in Task 2.5.6 — SESSION-LOG 2026-04-15
 - ✅ Task **2.5.4:** Archive Screen integrated with real API — `ArchivePage` fetch/filter/pagination/unsave + error/empty/loading states + category pills from DB + TypeError fix + deep-link support — SESSION-LOG 2026-04-15
 - ✅ Task **2.5.3:** Save to Archive button on Digest cards — `is_archived` API field + optimistic UI + rollback/toast — SESSION-LOG 2026-04-15
 - ✅ Task **2.5.2:** GET `/api/archive/signals` — `ArchiveController@index`, filters + pagination — SESSION-LOG 2026-04-15
@@ -390,7 +399,7 @@ _(Roadmap tiếp: **2.5.x** Archive / Settings — `IMPLEMENTATION-ROADMAP.md`.)
 ## Quick Stats
 
 ### Sprint 1 Progress (34 tasks total)
-- **Completed:** 28/34 (82%)
+- **Completed:** 29/34 (85%)
 - **In Progress:** None
 - **Blocked:** None
 

@@ -2,6 +2,172 @@
 
 ---
 
+## 2026-04-15 - Task 2.5.6: Integrate Settings Screen with Settings APIs — 📋 SPEC / IMPLEMENTATION PLAN
+
+**Status:** ✅ COMPLETED — frontend integrated với backend APIs, manual tested, 4 UI issues fixed
+**Objective:** Nối SettingsPage.tsx (5 tabs) với GET/PATCH /api/settings thật. Bỏ hardcoded defaults.
+Sau khi save → reload vẫn giữ đúng dữ liệu.
+
+**Dependencies (đã thỏa):**
+- ✅ Task 2.5.5: GET/PATCH /api/settings với structure 4 sections
+- ✅ SettingsPage.tsx đã có UI (5 tabs: Profile / Digest Preferences / Plan & Billing / Telegram / Language)
+- ✅ AuthContext.tsx đã có user context + plan info
+
+**Files cần đọc trước:**
+- resources/js/pages/SettingsPage.tsx (toàn bộ — xem state hiện tại)
+- resources/js/contexts/AuthContext.tsx (user.plan, user.x_username)
+- resources/js/services/signalService.ts (pattern fetch + auth headers)
+
+**API Contract (từ Task 2.5.5):**
+GET /api/settings → {
+  profile: { display_name, x_username, email, avatar_url },
+  preferences: { my_categories, email_digest_enabled, email_digest_time, locale },
+  plan: { current, features[] },
+  telegram: { connected, chat_id, connect_token }
+}
+
+PATCH /api/settings → partial update, trả lại full settings object
+
+**Scope per tab:**
+
+Tab 1 - Profile:
+- Load: display_name từ settings.profile.display_name
+- Load: x_username (read-only display)
+- Load: email từ settings.profile.email
+- Save: PATCH { display_name, email }
+- Button: "Save changes"
+
+Tab 2 - Digest Preferences:
+- Load: email_digest_enabled toggle
+- Load: email_digest_time (hardcode "08:00" Phase 1 — toggle "Send at 8:00 AM")
+- Load: my_categories checkboxes (10 categories từ /api/categories)
+- Free plan banner: "Free plan: digest delivered Monday, Wednesday, Friday only. Upgrade to Pro →"
+- Save: PATCH { email_digest_enabled, email_digest_time, my_categories }
+- Button: "Save preferences"
+
+Tab 3 - Plan & Billing:
+- Load: settings.plan.current + features[]
+- UI: current plan card + upgrade card (static Phase 1)
+- Billing history: empty table "No billing history yet" (Phase 1 — Stripe Sprint 3)
+- Buttons: "Start free trial →" / "Manage subscription →" (static links Phase 1)
+- NO save needed (read-only Phase 1)
+
+Tab 4 - Telegram:
+- Load: settings.telegram.connected, connect_token
+- UI: 3-step instruction + token input (read-only) + Copy token button
+- "Connect Telegram" button: Phase 1 = hiển thị instructions (Stripe Sprint 3 = real connect)
+- Power plan gate: banner "Telegram alerts require Power plan ($30/mo). Upgrade to Power →"
+- NO save needed Phase 1
+
+Tab 5 - Language:
+- Load: settings.preferences.locale
+- UI: radio buttons en (active), vi (active), JP/KR/CN/ES (disabled + "Coming soon")
+- Save: PATCH { locale: "en" | "vi" }
+- Button: "Save"
+
+**Service layer (settingsService.ts — tạo mới):**
+- fetchSettings(): GET /api/settings
+- updateSettings(payload): PATCH /api/settings
+- Dùng ensureSanctumCsrf() + authFetchHeaders() pattern
+
+**State management trong SettingsPage:**
+- settings: SettingsData | null (load từ API on mount)
+- loading: boolean
+- saving: boolean (per tab hoặc global)
+- error: string | null
+- Toast success/error sau PATCH
+
+**Verify:**
+1. /settings load → GET API, display_name + email hiển thị đúng
+2. Đổi display_name → Save → reload → tên mới persist
+3. Đổi my_categories → Save → reload → categories mới persist
+4. Toggle email digest → Save → reload → toggle state đúng
+5. Language tab: chọn vi → Save → reload → locale: vi persist
+6. Plan tab: hiển thị đúng current plan + features
+7. Telegram tab: connect_token hiển thị đúng, Copy button hoạt động
+8. Free user: banner hiển thị đúng ở Digest Preferences tab
+
+---
+
+### ✅ Implementation Summary
+
+**Phase 1: Core Integration (2026-04-15 morning)**
+
+**Files Created:**
+- `resources/js/services/settingsService.ts` - Service layer cho GET/PATCH /api/settings
+  - `fetchSettings()`: GET /api/settings
+  - `updateSettings(payload)`: PATCH /api/settings
+  - TypeScript interfaces: `SettingsData`, `SettingsUpdatePayload`
+  - Pattern: `ensureSanctumCsrf()` + `authFetchHeaders()`
+
+**Files Modified:**
+- `resources/js/pages/SettingsPage.tsx` - Refactor toàn bộ 5 tabs
+  - State management: `settings`, `loading`, `saving`, `error`
+  - Load data from API on mount
+  - Profile tab: save `display_name` + `email`
+  - Digest Preferences tab: save `email_digest_enabled` + `my_categories`
+  - Plan & Billing tab: display `current` plan + `features[]` (read-only Phase 1)
+  - Telegram tab: display `connect_token` + copy button (instruction only Phase 1)
+  - Language tab: save `locale` (en/vi active, JP/KR/CN/ES/FR disabled "Coming soon")
+
+**Phase 2: UI Hotfix (2026-04-15 afternoon)**
+
+**Issues Fixed (post manual testing):**
+1. **Avatar render** - Added conditional: `avatar_url` có → render ảnh avatar, null → fallback letter
+2. **Digest Preferences UX** - Removed confusing "Send at 8AM" toggle, Free users can toggle email digest
+3. **Plan & Billing /billing 404** - Changed "Start free trial" + "Manage subscription" links → toast "Coming Soon"
+4. **Telegram /billing 404** - Changed "Upgrade to Power" link → toast "Coming Soon"
+5. **Added helper** - `showComingSoonToast()` for consistent Phase 1 placeholders
+
+**Technical Verification:**
+- ✅ `npm run lint`: pass (no new errors)
+- ✅ `npm run build`: successful bundle
+- ✅ Manual browser testing: all 5 tabs load + save correctly
+- ✅ Toast notifications: success/error feedback working
+- ✅ Data persistence: Profile, Digest Preferences, Language settings persist after reload
+- ✅ Plan-based UI: Free/Pro/Power banners display correctly
+- ✅ Phase 1 limitations: Coming Soon toasts for billing/telegram features
+
+**Manual Test Results:**
+| Test Case | Status | Notes |
+|-----------|--------|-------|
+| Settings load (GET /api/settings) | ✅ Pass | All tabs render correct data |
+| Profile save → reload | ✅ Pass | display_name + email persist |
+| Categories save → reload | ✅ Pass | my_categories persist |
+| Email digest toggle → reload | ✅ Pass | email_digest_enabled persist |
+| Language vi → save → reload | ✅ Pass | locale persist |
+| Plan tab display | ✅ Pass | Current plan + features correct |
+| Telegram token copy | ✅ Pass | Copy to clipboard working |
+| Free user banners | ✅ Pass | Digest + Telegram banners show |
+| Coming Soon toasts | ✅ Pass | All /billing links → toast feedback |
+| Avatar display | ✅ Pass | Shows avatar_url if available |
+
+**Credits Conservation:**
+- No automated tests run (manual browser testing only)
+- No database commands executed
+- No Twitter API calls during development
+- Efficient development: 2 phases, targeted fixes
+
+**Phase 1 Limitations (By Design):**
+- `email_digest_time`: hardcoded "08:00" backend, no UI control
+- Billing history: empty table placeholder
+- Telegram connect: instruction + token only, real connect Sprint 3
+- Upgrade buttons: toast "Coming Soon" placeholders
+- Languages JP/KR/CN/ES/FR: disabled "Coming soon"
+
+**Dependencies Satisfied:**
+- ✅ Task 2.5.5: GET/PATCH /api/settings backend APIs working
+- ✅ AuthContext: user.plan, user.x_username available
+- ✅ CategoryService: fetchCategories() working
+- ✅ Toast hook: useToast() pattern established
+
+**Next Steps:**
+- Sprint 2: Custom digest time UI (Pro plan feature)
+- Sprint 3: Stripe billing integration, real Telegram connect
+- Future: JP/KR/CN/ES/FR locale support
+
+---
+
 ## 2026-04-15 - Task 2.5.5: Implement GET/PATCH /api/settings endpoints — ✅ COMPLETED
 
 **Status:** ✅ Completed — all 11 test cases passed
