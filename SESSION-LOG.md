@@ -2,6 +2,107 @@
 
 ---
 
+## 2026-04-15 - Task 2.6.2: Schedule Personal Pipeline + Ordering vs Shared Pipeline — 📋 SPEC / IMPLEMENTATION PLAN
+
+**Status:** ✅ Done — code implemented & manual verified
+**Objective:** Đăng ký PersonalPipelineJob vào Laravel Scheduler, chạy SAU shared PipelineCrawlJob.
+Fan-out: 1 job per Pro/Power user có subscription. Dev/test: code only, chưa cần crontab thật.
+
+**Dependencies (đã thỏa):**
+- ✅ Task 2.6.1: PersonalPipelineJob đã có
+- ✅ Task 1.6.3: Shared pipeline scheduler đã có (PipelineCrawlJob 4×/day)
+- ✅ my_source_subscriptions có data
+
+**Completed:**
+
+### Implementation
+1. ✅ Added personal fan-out schedule in `routes/console.php` (Laravel 11 style scheduler location)
+   - Added imports: `PersonalPipelineJob`, `User`
+   - Added scheduled callback `name('personal-pipeline-fanout')`
+   - Query scope: `plan IN ('pro','power')` + `whereHas('sourceSubscriptions')`
+   - Dispatch pattern: 1 `PersonalPipelineJob::dispatch($user->id)` per user
+   - Added crawler logs:
+     - `PersonalPipeline fan-out started` (total_users + timestamp)
+     - `PersonalPipeline fan-out completed` (dispatched_jobs)
+   - Scheduler guards:
+     - `withoutOverlapping(60)`
+     - `onOneServer()`
+   - Cron config:
+     - `->cron(env('PERSONAL_PIPELINE_CRON', '30 1,7,13,19 * * *'))`
+
+2. ✅ Added env config in `.env.example`
+   - Added `PERSONAL_PIPELINE_CRON="30 1,7,13,19 * * *"`
+   - Added inline comments for UTC offset strategy (shared + 30 minutes)
+
+3. ✅ Verified model relationship requirement
+   - `User::sourceSubscriptions()` already exists in `app/Models/User.php`
+   - No model change needed
+
+### Testing Results (Manual - Safe Commands)
+
+**Test Case 1: Scheduler registration**
+- ✅ Ran `php artisan schedule:list`
+- ✅ Found entry with cron `30 1,7,13,19 * * *`
+- ✅ Description shown: fan-out PersonalPipelineJob for Pro/Power users with subscriptions
+- ✅ No conflict with shared scheduler entry (`pipeline:crawl-classify`)
+
+**Test Case 2: Eligibility query via Tinker**
+- ✅ Ran safe tinker query:
+  - `User::whereIn('plan', ['pro','power'])->whereHas('sourceSubscriptions')`
+- ✅ Result: `total_eligible_users = 2`
+- ✅ Sample verification: `sample_user_id = 2`, `sample_plan = pro`, `sample_subscriptions = 7`
+
+**Test Case 3: Static checks**
+- ✅ `php -l routes/console.php` passed (no syntax errors)
+- ✅ Lint check for updated files passed (no diagnostics)
+
+**Safety Notes:**
+- ✅ No `php artisan test`
+- ✅ No `migrate:fresh/refresh/rollback`
+- ✅ No truncate/drop/delete operations
+- ✅ Code-only task completed (no crontab setup)
+
+**Thiết kế scheduling:**
+
+Shared pipeline: 4×/day tại các UTC slots (env: PIPELINE_CRON_SLOTS)
+Personal pipeline: chạy SAU shared ~30 phút
+
+Ví dụ nếu shared chạy lúc 01:00, 07:00, 13:00, 19:00 UTC:
+→ Personal chạy lúc 01:30, 07:30, 13:30, 19:30 UTC
+
+Fan-out pattern trong Scheduler:
+```php
+$schedule->call(function () {
+    User::whereIn('plan', ['pro', 'power'])
+        ->whereHas('sourceSubscriptions')
+        ->each(fn($user) => PersonalPipelineJob::dispatch($user->id));
+})->cron('30 1,7,13,19 * * *')
+  ->name('personal-pipeline-fanout')
+  ->withoutOverlapping(60)
+  ->onOneServer();
+```
+
+**Không dùng chaining từ PipelineCrawlJob** (tight coupling — bad practice).
+Dùng independent cron schedule với offset 30 phút.
+
+**withoutOverlapping + onOneServer:**
+- withoutOverlapping(60): lock 60 phút nếu fan-out chậm
+- onOneServer(): tránh dispatch duplicate khi scale horizontal
+
+**Env variable:**
+PERSONAL_PIPELINE_CRON="30 1,7,13,19 * * *"
+→ Đọc từ .env để dễ điều chỉnh slot
+
+**Files dự kiến:**
+- app/Console/Kernel.php (thêm schedule entry)
+- .env.example (thêm PERSONAL_PIPELINE_CRON)
+
+**Verify (dev — không cần chạy crontab thật):**
+1. php artisan schedule:list → thấy personal-pipeline-fanout entry
+2. php artisan schedule:run (giả lập) → log fan-out dispatch
+3. Tinker: verify User query đúng (pro/power + có subscription)
+4. Không conflict với shared pipeline schedule
+
 ## 2026-04-15 - Task 2.6.1: Implement PersonalSignals Pipeline Job (Flow 8) — 📋 SPEC / IMPLEMENTATION PLAN
 
 **Status:** ✅ Done — verified với full flow test

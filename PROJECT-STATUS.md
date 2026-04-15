@@ -1,11 +1,11 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-15 (Task 2.6.1 PersonalPipeline Job completed)
+**Last Updated:** 2026-04-15 (Task 2.6.2 Personal Pipeline scheduler completed)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 2.5 — Settings Page MVP + Language Support
 **Sprint Status:** ✅ COMPLETED (3/3 tasks done)
 **Next Sprint:** Sprint 2.6 — Personal Signals Pipeline (POST-WEDGE)
-**Next Sprint Status:** 🚧 IN PROGRESS — Task 2.6.1 completed, tiếp tục 2.6.2/2.6.3
+**Next Sprint Status:** 🚧 IN PROGRESS — Task 2.6.1 + 2.6.2 completed, tiếp tục 2.6.3
 **Blocker:** Wedge strategy (monetization foundation) chưa implement
 
 ---
@@ -17,8 +17,13 @@
   - Verified: Pro user signal creation, Free user skip, idempotency, draft generation
   - cluster_id format: `{user_id}_{date}_cluster_{N}`
   - 0 TwitterAPI calls (reuse DB), ~900 tokens Anthropic per user per day
+- [x] **Task 2.6.2**: Schedule Personal Pipeline fan-out (backend) ✅ (2026-04-15)
+  - Added scheduler entry in `routes/console.php` (Laravel 11 schedule location), name `personal-pipeline-fanout`
+  - Cron via env: `PERSONAL_PIPELINE_CRON` (default `30 1,7,13,19 * * *`)
+  - Fan-out query verified: Pro/Power + has `sourceSubscriptions`; dispatch 1 job per user
+  - Guards enabled: `withoutOverlapping(60)` + `onOneServer()`; crawler logs for started/completed
 
-**Sprint 2**: 15/15 tasks done
+**Sprint 2**: 16/16 tasks done
 
 ---
 

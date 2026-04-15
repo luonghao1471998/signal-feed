@@ -1,6 +1,8 @@
 <?php
 
+use App\Jobs\PersonalPipelineJob;
 use App\Jobs\PipelineCrawlJob;
+use App\Models\User;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
@@ -18,11 +20,12 @@ Artisan::command('pipeline:run {--limit=10 : Max tweets per source}', function (
     $this->info('Done.');
 })->purpose('Run crawl + classify once (honours MOCK_LLM / .env)');
 
-// Pipeline: crawl + classify — 4×/ngày VN (dispatch_sync: không phụ thuộc queue worker khi QUEUE_CONNECTION=redis)
-Schedule::call(function () {
-    $limit = (int) config('pipeline.tweets_per_source', 10);
-    dispatch_sync(new PipelineCrawlJob($limit));
-})
+    // Pipeline: crawl + classify — 4×/ngày VN (dispatch_sync: không phụ thuộc queue worker khi QUEUE_CONNECTION=redis)
+    // Tiến trình chạy pipeline signal chung crawl + classify 4×/ngày VN (dispatch_sync: không phụ thuộc queue worker khi QUEUE_CONNECTION=redis)
+    Schedule::call(function () {
+        $limit = (int) config('pipeline.tweets_per_source', 10);
+        dispatch_sync(new PipelineCrawlJob($limit));
+    })
     ->name('pipeline:crawl-classify')
     ->cron('0 1,7,13,19 * * *')
     ->timezone('Asia/Ho_Chi_Minh')
@@ -50,6 +53,40 @@ Schedule::call(function () {
         ]);
     });
 
+    //Tiến trình chạy pipeline riêng cho Pro/Power users có subscription
+    Schedule::call(function () {
+        // Query users cần chạy pipeline riêng
+        $users = User::query()
+            ->whereIn('plan', ['pro', 'power'])
+            ->whereHas('sourceSubscriptions')
+            ->get();
+
+        // Log số lượng users cần chạy pipeline riêng vào crawler channel
+        Log::channel('crawler')->info(
+            'PersonalPipeline fan-out started',
+            [
+                'total_users' => $users->count(),
+                'timestamp' => now()->toIso8601String(),
+            ]
+        );
+
+        // Dispatch 1 job per user cần chạy pipeline riêng
+        $users->each(function (User $user): void {
+            PersonalPipelineJob::dispatch($user->id);
+        });
+
+        Log::channel('crawler')->info(
+            'PersonalPipeline fan-out completed',
+            ['dispatched_jobs' => $users->count()]
+        );
+    })
+    ->cron(env('PERSONAL_PIPELINE_CRON', '30 1,7,13,19 * * *'))
+    ->name('personal-pipeline-fanout')
+    ->description('Fan-out PersonalPipelineJob for Pro/Power users with subscriptions')
+    ->withoutOverlapping(60)
+    ->onOneServer();
+
+    // Tiến trình lấy avatar từ API twitterapi.io và lưu vào users và sources
     Schedule::command('sources:backfill-avatars --only-missing --limit=50')
     ->name('sources:avatar-backfill')
     ->dailyAt('03:30') // Chạy lúc rạng sáng để tránh xung đột
