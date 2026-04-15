@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\DB;
 
 class SourceController extends Controller
 {
+    private const SOURCES_PER_PAGE = 20;
+
     /**
      * Browse platform source pool (wedge: no pagination / filters).
      */
@@ -172,5 +174,67 @@ class SourceController extends Controller
                 'is_subscribed' => false,
             ],
         ], 201);
+    }
+
+    /**
+     * GET /api/sources/my-submissions — list current user's submitted sources (Pro/Power only).
+     */
+    public function mySubmissions(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!in_array($user->plan, ['pro', 'power'], true)) {
+            return response()->json([
+                'message' => 'This feature requires Pro or Power plan',
+            ], 403);
+        }
+
+        $sources = Source::query()
+            ->withTrashed()
+            ->where('type', 'user')
+            ->where('added_by_user_id', $user->id)
+            ->with('categories')
+            ->orderByDesc('created_at')
+            ->paginate(self::SOURCES_PER_PAGE);
+
+        $sourceIds = $sources->getCollection()
+            ->pluck('id')
+            ->all();
+
+        $subscribedIds = [];
+        if ($sourceIds !== []) {
+            $subscribedIds = MySourceSubscription::query()
+                ->where('user_id', $user->id)
+                ->whereIn('source_id', $sourceIds)
+                ->pluck('source_id')
+                ->all();
+        }
+        $subscribedSet = array_flip($subscribedIds);
+
+        $data = $sources->getCollection()->map(
+            static fn (Source $source): array => [
+                'id' => $source->id,
+                'handle' => '@' . $source->x_handle,
+                'display_name' => $source->display_name,
+                'account_url' => $source->account_url,
+                'status' => $source->status,
+                'categories' => $source->categories->map(static fn ($category): array => [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'slug' => $category->slug,
+                ])->values()->all(),
+                'submitted_at' => optional($source->created_at)?->toISOString(),
+                'is_subscribed' => isset($subscribedSet[$source->id]),
+            ]
+        )->values();
+
+        return response()->json([
+            'data' => $data,
+            'meta' => [
+                'current_page' => $sources->currentPage(),
+                'total' => $sources->total(),
+                'per_page' => $sources->perPage(),
+                'last_page' => $sources->lastPage(),
+            ],
+        ]);
     }
 }

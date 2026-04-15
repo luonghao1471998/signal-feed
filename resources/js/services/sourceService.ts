@@ -101,6 +101,20 @@ export interface Source {
   is_subscribed: boolean;
 }
 
+export interface MySubmissionSource extends Source {
+  submitted_at: string;
+}
+
+export interface MySubmissionsResponse {
+  data: MySubmissionSource[];
+  meta: {
+    current_page: number;
+    total: number;
+    per_page: number;
+    last_page: number;
+  };
+}
+
 /** Response payload from POST /api/sources (subset of fields returned). */
 export interface CreatedSourcePayload {
   id: number;
@@ -424,10 +438,47 @@ export async function getMySourcesStatsAPI(): Promise<MySourcesStatsResponse> {
   };
 }
 
+/**
+ * GET /api/sources/my-submissions — current user's submitted sources.
+ */
+export async function getMySubmissionsAPI(page = 1): Promise<MySubmissionsResponse> {
+  const response = await fetch(`/api/sources/my-submissions?page=${page}`, {
+    method: "GET",
+    headers: authFetchHeaders(),
+    credentials: "same-origin",
+  });
+
+  if (!response.ok) {
+    const message = await parseErrorMessage(response);
+    throw new Error(message);
+  }
+
+  const json = (await response.json()) as {
+    data?: MySubmissionSource[];
+    meta?: {
+      current_page?: number;
+      total?: number;
+      per_page?: number;
+      last_page?: number;
+    };
+  };
+
+  return {
+    data: json.data ?? [],
+    meta: {
+      current_page: json.meta?.current_page ?? 1,
+      total: json.meta?.total ?? 0,
+      per_page: json.meta?.per_page ?? 20,
+      last_page: json.meta?.last_page ?? 1,
+    },
+  };
+}
+
 export const sourceService = {
   bulkSubscribeSources,
   createSource,
   getCurrentSubscriptionCount,
+  getMySubmissionsAPI,
   getOnboardingKOLs,
   getMySourcesAPI,
   getMySourcesStatsAPI,

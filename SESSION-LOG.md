@@ -2,6 +2,183 @@
 
 ---
 
+## 2026-04-15 - Task 2.1.3 + 2.1.4 + 2.1.5: My Submissions API + UI
+
+**Started:** 2026-04-15  
+**Completed:** 2026-04-15  
+**Status:** ✅ DONE  
+**Type:** CORE FEATURE  
+**Source:** `IMPLEMENTATION-ROADMAP.md` Task 2.1.3, 2.1.4, 2.1.5
+
+### Requirements
+
+Cho phép Pro/Power users xem lại danh sách KOL sources mình đã submit, kèm trạng thái duyệt (pending_review / active / spam / deleted). Đây là vòng feedback sau khi user submit source qua Task 2.1.2.
+
+**Dependencies hoàn thành:**
+
+- ✅ Task 2.1.1: POST /api/sources (tạo source với status=pending_review)
+- ✅ Task 2.1.2: AddSourceModal.tsx (UI form submit source)
+- ✅ Database schema: sources table có columns: added_by_user_id, status, type, x_handle, display_name
+
+### Implementation Summary
+
+#### Task 2.1.3 — Backend: GET /api/sources/my-submissions
+
+**Route:**
+
+- `GET /api/sources/my-submissions` (đặt TRƯỚC `/api/sources/{sourceId}/subscribe` trong `routes/api.php` để tránh conflict với dynamic segments)
+- Protected by `auth:sanctum` middleware
+
+**Controller Method:**
+
+- File: `app/Http/Controllers/Api/SourceController.php`
+- Method: `mySubmissions()`
+- Guard: Pro/Power only → 403 nếu plan = `free`
+- Query logic:
+
+```php
+Source::withTrashed()
+    ->where('type', 'user')
+    ->where('added_by_user_id', auth()->id())
+    ->with('categories')
+    ->orderBy('created_at', 'desc')
+    ->paginate(20)
+```
+
+- Include soft-deleted sources (status=`deleted`) để user biết source bị gỡ
+- Thêm `is_subscribed` flag: check `my_source_subscriptions` table
+
+**Response Structure:**
+
+```json
+{
+  "data": [
+    {
+      "id": 89,
+      "handle": "@pvergadia",
+      "display_name": "Priyanka Vergadia",
+      "account_url": "https://x.com/pvergadia",
+      "status": "pending_review",
+      "categories": [...],
+      "submitted_at": "2026-04-14T05:56:50.000000Z",
+      "is_subscribed": false
+    }
+  ],
+  "meta": {
+    "current_page": 1,
+    "total": 7,
+    "per_page": 20,
+    "last_page": 1
+  }
+}
+```
+
+**Security:**
+
+- User chỉ thấy submissions của chính mình (`added_by_user_id` = auth user)
+- Không thấy submissions của users khác
+
+#### Task 2.1.4 — Frontend: My Submissions UI
+
+**Service Layer:**
+
+- File: `resources/js/services/sourceService.ts`
+- Function: `getMySubmissionsAPI(page: number)` (export trong `sourceService` object)
+- Types: `MySubmissionSource`, `MySubmissionsResponse`
+
+**UI Component:**
+
+- File: `resources/js/pages/MyKOLsPage.tsx`
+- Tab: **Submitted** (sau Browse + Following; trước Stats khi có tab Submitted)
+- Chỉ hiển thị với Pro/Power users (conditional render theo plan)
+- Free users không thấy tab này
+
+**UI Elements:**
+
+- List cards: handle, display name, categories badges, submitted date
+- **Status badge (màu):**
+  - `pending_review`: yellow/amber
+  - `active`: green
+  - `spam`: red
+  - `deleted`: gray
+- **Follow button:** chỉ khi `status === 'active' && !is_subscribed`
+- Empty state: copy theo empty state hiện tại trên tab Submitted
+- Loading: text/spinner pattern đồng bộ các tab
+- Pagination: Previous/Next khi `total > per_page`
+
+#### Task 2.1.5 — Auto-refresh after Add Source
+
+**Enhancement:**
+
+- File: `resources/js/pages/MyKOLsPage.tsx` — `handleAddSourceSuccess()` gọi refetch khi `tab === 'submitted'`
+- File: `resources/js/components/AddSourceModal.tsx` — prop tùy chọn `onSuccess?: () => void`, gọi sau khi `createSource` thành công (trước `onClose`)
+- Tránh double-fetch: nếu `submissionsPage !== 1` thì `setSubmissionsPage(1)` (để `useEffect` fetch trang 1); nếu đã ở trang 1 thì `loadSubmissions(1)` trực tiếp
+
+**Code (rút gọn):**
+
+```tsx
+// AddSourceModal — sau submit OK
+onSuccess?.();
+onClose();
+
+// MyKOLsPage
+const handleAddSourceSuccess = useCallback(() => {
+  if (tab !== "submitted") return;
+  if (submissionsPage !== 1) setSubmissionsPage(1);
+  else void loadSubmissions(1);
+}, [tab, submissionsPage, loadSubmissions]);
+```
+
+### Testing Summary
+
+**Manual (không automated tests — DATABASE SAFETY):**
+
+- Backend: Sanctum + cURL / tinker — Pro/Power → 200 + `data`/`meta`; Free → 403 + message đúng; isolation user; sort `created_at` DESC
+- Frontend: Pro → tab Submitted + list + badges + Follow khi active; Free → không thấy tab; sau Add KOL khi đang tab Submitted → list refresh, bản ghi mới ở đầu (cùng trang 1)
+
+**Database Safety:**
+
+- Không `php artisan test` / `migrate:fresh` / truncate / delete data theo policy phiên làm việc
+
+### Files Modified
+
+**Backend:**
+
+- `routes/api.php` — `GET /api/sources/my-submissions`
+- `app/Http/Controllers/Api/SourceController.php` — `mySubmissions()`
+
+**Frontend:**
+
+- `resources/js/services/sourceService.ts` — `getMySubmissionsAPI`, types
+- `resources/js/pages/MyKOLsPage.tsx` — tab Submitted, `handleAddSourceSuccess`
+- `resources/js/components/AddSourceModal.tsx` — `onSuccess` (Task 2.1.5)
+
+**Không tạo:** migration mới, seeder, test files tự động (theo scope)
+
+### API Contract Compliance
+
+- Request: `GET /api/sources/my-submissions?page={page}`
+- Auth: Sanctum
+- 200: `{ data: [...], meta: { current_page, total, per_page, last_page } }`
+- 403: `{ message: "..." }` cho Free
+- Pagination: 20/page
+
+### References
+
+- `SPEC-api.md`, `SPEC-core.md` (Flow 1 Option B)
+- `IMPLEMENTATION-ROADMAP.md` — Task 2.1.3, 2.1.4
+- `CLAUDE.md`
+
+### Time Spent (ước lượng)
+
+- Backend + frontend + verify manual: ~2–3 giờ (theo nhật ký làm việc)
+
+### Next Steps
+
+- Roadmap tiếp: **2.5.x** (Archive / Settings / i18n) hoặc **3.3.x** (admin moderation) — xem `IMPLEMENTATION-ROADMAP.md`
+
+---
+
 ## 2026-04-15 - Task 2.4.5: Add My KOLs Filter Toggle to Digest View — ✅ COMPLETED
 
 **Status:** ✅ Hoàn thành - Đã test và verify đầy đủ

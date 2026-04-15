@@ -19,9 +19,11 @@ import { categoryDotActiveClass, categoryDotFilledClass } from "@/lib/categoryDo
 import { getCategories, type Category } from "@/services/categoryService";
 import {
   fetchBrowseSources,
+  getMySubmissionsAPI,
   getMySourcesAPI,
   getMySourcesStatsAPI,
   type MySource,
+  type MySubmissionSource,
   type MySourcesResponse,
   type MySourcesStats,
   SourceSubscriptionError,
@@ -56,11 +58,39 @@ const formatShortDate = (value: string): string => {
   }).format(date);
 };
 
+const formatSubmissionDate = (value: string): string => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "Unknown";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
+};
+
+const SUBMISSION_STATUS_STYLES: Record<string, string> = {
+  pending_review: "border border-yellow-300 bg-yellow-100 text-yellow-800",
+  active: "border border-green-300 bg-green-100 text-green-800",
+  spam: "border border-red-300 bg-red-100 text-red-800",
+  deleted: "border border-gray-300 bg-gray-100 text-gray-800",
+};
+
+const SUBMISSION_STATUS_LABELS: Record<string, string> = {
+  pending_review: "Pending Review",
+  active: "Active",
+  spam: "Marked as Spam",
+  deleted: "Removed",
+};
+
 const MyKOLsPage = () => {
   const { user, authReady } = useAuth();
   const canAddSource = Boolean(user && (user.plan === "pro" || user.plan === "power"));
+  const canViewSubmittedTab = Boolean(user && (user.plan === "pro" || user.plan === "power"));
 
-  const [tab, setTab] = useState<"browse" | "following" | "stats">("browse");
+  const [tab, setTab] = useState<"browse" | "following" | "submitted" | "stats">("browse");
   const [search, setSearch] = useState("");
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [apiSources, setApiSources] = useState<BrowseSource[]>([]);
@@ -80,6 +110,21 @@ const MyKOLsPage = () => {
   const [statsData, setStatsData] = useState<MySourcesStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
+  const [submissions, setSubmissions] = useState<MySubmissionSource[]>([]);
+  const [submissionsLoading, setSubmissionsLoading] = useState(false);
+  const [submissionsError, setSubmissionsError] = useState<string | null>(null);
+  const [submissionsPage, setSubmissionsPage] = useState(1);
+  const [submissionsMeta, setSubmissionsMeta] = useState<{
+    current_page: number;
+    total: number;
+    per_page: number;
+    last_page: number;
+  } | null>(null);
+  const [submissionsBusySourceId, setSubmissionsBusySourceId] = useState<number | null>(null);
+  const availableTabs = useMemo(
+    () => (canViewSubmittedTab ? (["browse", "following", "submitted", "stats"] as const) : (["browse", "following", "stats"] as const)),
+    [canViewSubmittedTab],
+  );
 
   const loadBrowseSources = useCallback(async () => {
     setApiLoading(true);
@@ -146,9 +191,11 @@ const MyKOLsPage = () => {
     });
   }, [apiSources, search, selectedCategoryIds]);
 
-  const subscriptionLimit = user?.plan === "power" ? 50 : user?.plan === "pro" ? 10 : 0;
+  const subscriptionLimit =
+    user?.plan === "power" ? 50 : user?.plan === "pro" ? 10 : user ? 5 : 0;
   const currentSubscriptions = apiSources.filter((source) => source.is_subscribed).length;
-  const followingQuotaLabel = subscriptionLimit > 0 ? `${currentSubscriptions}/${subscriptionLimit}` : "0/0";
+  const followingQuotaLabel =
+    subscriptionLimit > 0 ? `${currentSubscriptions}/${subscriptionLimit}` : `${currentSubscriptions}/—`;
 
   const loadFollowingSources = useCallback(async (page: number, append: boolean) => {
     setFollowingLoading(true);
@@ -220,6 +267,81 @@ const MyKOLsPage = () => {
     }
   };
 
+  const loadSubmissions = useCallback(async (page: number) => {
+    setSubmissionsLoading(true);
+    setSubmissionsError(null);
+    try {
+      const response = await getMySubmissionsAPI(page);
+      setSubmissions(response.data);
+      setSubmissionsMeta(response.meta);
+      setSubmissionsPage(response.meta.current_page);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to load submitted sources";
+      setSubmissionsError(message);
+      toast.error(message);
+    } finally {
+      setSubmissionsLoading(false);
+    }
+  }, []);
+
+  const handleAddSourceSuccess = useCallback(() => {
+    if (tab !== "submitted") {
+      return;
+    }
+    if (submissionsPage !== 1) {
+      setSubmissionsPage(1);
+    } else {
+      void loadSubmissions(1);
+    }
+  }, [tab, submissionsPage, loadSubmissions]);
+
+  useEffect(() => {
+    if (tab !== "submitted" || !canViewSubmittedTab) {
+      return;
+    }
+
+    void loadSubmissions(submissionsPage);
+  }, [tab, submissionsPage, canViewSubmittedTab, loadSubmissions]);
+
+  useEffect(() => {
+    if (tab === "submitted" && !canViewSubmittedTab) {
+      setTab("browse");
+    }
+  }, [tab, canViewSubmittedTab]);
+
+  const handleFollowSubmission = async (source: MySubmissionSource) => {
+    if (source.status !== "active" || source.is_subscribed || submissionsBusySourceId !== null) {
+      return;
+    }
+
+    setSubmissionsBusySourceId(source.id);
+    setSubmissions((prev) =>
+      prev.map((item) => (item.id === source.id ? { ...item, is_subscribed: true } : item)),
+    );
+    setApiSources((prev) =>
+      prev.map((item) => (item.id === source.id ? { ...item, is_subscribed: true } : item)),
+    );
+
+    try {
+      await subscribeToSource(source.id);
+      toast.success(`Following ${source.handle}`);
+    } catch (error) {
+      setSubmissions((prev) =>
+        prev.map((item) => (item.id === source.id ? { ...item, is_subscribed: false } : item)),
+      );
+      setApiSources((prev) =>
+        prev.map((item) => (item.id === source.id ? { ...item, is_subscribed: false } : item)),
+      );
+      if (error instanceof SourceSubscriptionError) {
+        toast.error(error.message);
+      } else {
+        toast.error("Failed to follow source");
+      }
+    } finally {
+      setSubmissionsBusySourceId((prev) => (prev === source.id ? null : prev));
+    }
+  };
+
   const loadStatsData = useCallback(async () => {
     setStatsLoading(true);
     setStatsError(null);
@@ -252,19 +374,14 @@ const MyKOLsPage = () => {
       return;
     }
 
-    if (user.plan === "free") {
-      toast.info("Upgrade Required", {
-        description: "Upgrade to Pro to follow KOLs",
-      });
-      return;
-    }
-
     const atLimit = !isSubscribed && currentSubscriptions >= subscriptionLimit;
     if (atLimit) {
       toast.error(
-        user.plan === "pro"
-          ? "Subscription limit reached. Upgrade to Power to follow more KOLs."
-          : "Subscription limit reached for your plan.",
+        user.plan === "free"
+          ? "Subscription limit reached (5). Upgrade to Pro for up to 10 follows."
+          : user.plan === "pro"
+            ? "Subscription limit reached. Upgrade to Power to follow more KOLs."
+            : "Subscription limit reached for your plan.",
       );
       return;
     }
@@ -327,7 +444,7 @@ const MyKOLsPage = () => {
         </div>
 
         <div className="mb-4 flex gap-6 border-b border-[#eff3f4]">
-          {(["browse", "following", "stats"] as const).map((t) => (
+          {availableTabs.map((t) => (
             <button
               key={t}
               type="button"
@@ -337,7 +454,13 @@ const MyKOLsPage = () => {
                 tab === t ? "border-b-2 border-[#0f1419] text-[#0f1419]" : "text-[#536471] hover:text-[#0f1419]",
               )}
             >
-              {t === "browse" ? "Browse" : t === "following" ? "Following" : "Stats"}
+              {t === "browse"
+                ? "Browse"
+                : t === "following"
+                  ? "Following"
+                  : t === "submitted"
+                    ? "Submitted"
+                    : "Stats"}
             </button>
           ))}
         </div>
@@ -358,9 +481,6 @@ const MyKOLsPage = () => {
               <span className="text-[#536471]">
                 Following: <span className="font-semibold text-[#0f1419]">{followingQuotaLabel}</span>
               </span>
-              {user?.plan === "free" ? (
-                <span className="text-[#1d9bf0]">Upgrade to the Pro version to follow My KOLs.</span>
-              ) : null}
             </div>
 
             <div className="mb-3 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
@@ -431,16 +551,18 @@ const MyKOLsPage = () => {
                   const title = source.display_name?.trim() || source.x_handle;
                   const isBusy = busySourceId === source.id;
                   const isSubscribed = source.is_subscribed;
-                  const blockedByPlan = !user || user.plan === "free";
-                  const blockedByCap = !isSubscribed && subscriptionLimit > 0 && currentSubscriptions >= subscriptionLimit;
+                  const blockedByCap =
+                    !isSubscribed && subscriptionLimit > 0 && currentSubscriptions >= subscriptionLimit;
                   const isBlocked = blockedByCap;
-                  const shouldShowTooltip = blockedByPlan || blockedByCap;
-                  const tooltipLabel = blockedByPlan
-                    ? "Upgrade to Pro to follow KOLs"
+                  const shouldShowTooltip = !user || blockedByCap;
+                  const tooltipLabel = !user
+                    ? "Please sign in to follow KOLs"
                     : blockedByCap
-                      ? user?.plan === "pro"
-                        ? "Limit reached (10). Upgrade to Power."
-                        : "Limit reached (50)."
+                      ? user.plan === "free"
+                        ? "Limit reached (5). Upgrade to Pro for more follows."
+                        : user.plan === "pro"
+                          ? "Limit reached (10). Upgrade to Power."
+                          : "Limit reached (50)."
                       : "";
                   return (
                     <div key={source.id} className="flex items-center gap-3 py-4">
@@ -508,13 +630,13 @@ const MyKOLsPage = () => {
           <div>
             <div className="mb-4 flex items-center justify-between">
               <span className="text-sm text-[#536471]">
-                {followingSources.length} / {Math.max(subscriptionLimit, 10)} KOLs
+                {followingSources.length} / {subscriptionLimit > 0 ? subscriptionLimit : "—"} KOLs
               </span>
               <div className="mx-3 h-1 flex-1 rounded-full bg-[#eff3f4]">
                 <div
                   className="h-full rounded-full bg-[#1d9bf0] transition-all"
                   style={{
-                    width: `${Math.min(100, (followingSources.length / Math.max(subscriptionLimit, 10)) * 100)}%`,
+                    width: `${subscriptionLimit > 0 ? Math.min(100, (followingSources.length / subscriptionLimit) * 100) : 0}%`,
                   }}
                 />
               </div>
@@ -608,6 +730,125 @@ const MyKOLsPage = () => {
                   className="rounded-full px-5"
                 >
                   {followingLoading ? "Loading..." : "Load More"}
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        )}
+
+        {tab === "submitted" && canViewSubmittedTab && (
+          <div>
+            {submissionsLoading ? (
+              <p className="py-8 text-center text-sm text-[#536471]">Loading submitted sources...</p>
+            ) : null}
+
+            {!submissionsLoading && submissionsError ? (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-8 text-center">
+                <AlertCircle className="mx-auto mb-2 h-6 w-6 text-red-500" />
+                <p className="text-sm text-red-700">{submissionsError}</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-4 rounded-full"
+                  onClick={() => void loadSubmissions(submissionsPage)}
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Retry
+                </Button>
+              </div>
+            ) : null}
+
+            {!submissionsLoading && !submissionsError && submissions.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-[#dbe2e8] px-4 py-10 text-center">
+                <Users className="mx-auto mb-3 h-10 w-10 text-[#536471]" />
+                <h3 className="text-base font-bold text-[#0f1419]">You haven&apos;t submitted any KOLs yet</h3>
+                <p className="mt-2 text-sm text-[#536471]">
+                  Use the &quot;Add KOL&quot; button to contribute sources to the community.
+                </p>
+              </div>
+            ) : null}
+
+            {!submissionsLoading && !submissionsError && submissions.length > 0 ? (
+              <div className="divide-y divide-[#eff3f4] border-t border-[#eff3f4]">
+                {submissions.map((source) => {
+                  const sourceName = source.display_name?.trim() || source.handle.replace(/^@/, "");
+                  const statusStyle =
+                    SUBMISSION_STATUS_STYLES[source.status] ??
+                    "border border-gray-300 bg-gray-100 text-gray-800";
+                  const statusLabel = SUBMISSION_STATUS_LABELS[source.status] ?? source.status;
+                  const isBusy = submissionsBusySourceId === source.id;
+
+                  return (
+                    <div key={source.id} className="flex items-center gap-3 py-4">
+                      <Av src={avatarUrlForHandle(source.handle)} name={sourceName} size={40} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[15px] font-bold text-[#0f1419]">{source.handle}</span>
+                          <span className={cn("rounded-full px-2 py-1 text-xs font-medium", statusStyle)}>
+                            {statusLabel}
+                          </span>
+                        </div>
+                        <div className="text-sm text-[#536471]">{sourceName}</div>
+                        {source.categories.length > 0 ? (
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                            {source.categories.map((category) => (
+                              <span
+                                key={category.id}
+                                className="rounded-full bg-[#f7f9f9] px-2.5 py-0.5 text-xs font-medium text-[#536471]"
+                              >
+                                {category.name}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                        <p className="mt-1 text-[12px] text-[#536471]">
+                          Submitted: {formatSubmissionDate(source.submitted_at)}
+                        </p>
+                      </div>
+                      {source.status === "active" && !source.is_subscribed ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={isBusy}
+                          onClick={() => void handleFollowSubmission(source)}
+                          className="shrink-0 rounded-full px-4"
+                        >
+                          {isBusy ? "Following..." : "Follow"}
+                        </Button>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+
+            {!submissionsLoading &&
+            !submissionsError &&
+            submissionsMeta &&
+            submissionsMeta.total > submissionsMeta.per_page ? (
+              <div className="mt-4 flex items-center justify-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={submissionsPage <= 1}
+                  onClick={() => setSubmissionsPage((prev) => Math.max(1, prev - 1))}
+                  className="rounded-full px-4"
+                >
+                  Previous
+                </Button>
+                <span className="text-sm text-[#536471]">
+                  Page {submissionsMeta.current_page} / {submissionsMeta.last_page}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={submissionsPage >= submissionsMeta.last_page}
+                  onClick={() => setSubmissionsPage((prev) => prev + 1)}
+                  className="rounded-full px-4"
+                >
+                  Next
                 </Button>
               </div>
             ) : null}
@@ -773,7 +1014,11 @@ const MyKOLsPage = () => {
           </div>
         )}
 
-        <AddSourceModal isOpen={addModalOpen} onClose={() => setAddModalOpen(false)} />
+        <AddSourceModal
+          isOpen={addModalOpen}
+          onClose={() => setAddModalOpen(false)}
+          onSuccess={handleAddSourceSuccess}
+        />
 
         <AlertDialog open={powerCapDialogOpen} onOpenChange={setPowerCapDialogOpen}>
           <AlertDialogContent>

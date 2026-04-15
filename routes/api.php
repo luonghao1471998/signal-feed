@@ -26,6 +26,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', CurrentUserController::class);
     Route::patch('/me', UpdateCurrentUserController::class);
     Route::post('/sources', [SourceController::class, 'store']);
+    Route::get('/sources/my-submissions', [SourceController::class, 'mySubmissions']);
     Route::post('/sources/{sourceId}/subscribe', [SubscriptionController::class, 'subscribe'])
         ->whereNumber('sourceId');
     Route::post('/sources/bulk-subscribe', [SubscriptionController::class, 'bulkSubscribe']);

@@ -20,6 +20,8 @@ import { cn } from "@/lib/utils";
 export interface AddSourceModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Called after source is created successfully (before modal closes). */
+  onSuccess?: () => void;
 }
 
 const defaultForm = {
@@ -30,7 +32,7 @@ const defaultForm = {
 
 const DISPLAY_NAME_MAX = 100;
 
-export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
+export function AddSourceModal({ isOpen, onClose, onSuccess }: AddSourceModalProps) {
   const [form, setForm] = useState(defaultForm);
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<ApiCategory[]>([]);
@@ -131,6 +133,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
       });
 
       resetForm();
+      onSuccess?.();
       onClose();
     } catch (err) {
       if (err instanceof CreateSourceError) {

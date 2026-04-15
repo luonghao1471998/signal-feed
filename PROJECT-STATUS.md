@@ -1,19 +1,19 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-14 (Task 1.3.4 complete)
+**Last Updated:** 2026-04-15 (Task 2.1.3 + 2.1.4 + 2.1.5 complete)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 2 — My KOLs
-**Completed Task:** **1.3.4** — Enable subscribe API for onboarding follow step ✅ — 2026-04-14
-**Next Task:** **2.4.5** — Add My KOLs filter toggle to Digest View
-**Status:** Sprint 2; subscription APIs + Browse/Search + My KOLs list UI + stats dashboard ✅; next **2.4.5**
+**Completed Task:** **2.1.3 / 2.1.4 / 2.1.5** — My Submissions API + UI + auto-refresh after Add Source ✅ — 2026-04-15
+**Next Task:** **2.5.1** (Archive) / **3.1.1** (Stripe) — xem `IMPLEMENTATION-ROADMAP.md`
+**Status:** Sprint 2 roadmap table (**14** tasks) — **14/14** ✅; tiếp theo Sprint 3 / backlog **2.5.x**
 
 ---
 
 ## Sprint 2 — My KOLs (`IMPLEMENTATION-ROADMAP.md`)
 
-**Đồng bộ roadmap 2026-04-14:** Sprint 2 = **14** task (thêm **2.1.3** / **2.1.4**); tổng dự án **59** task — xem `IMPLEMENTATION-ROADMAP.md`.
+**Đồng bộ roadmap:** Sprint 2 = **14** task (trong đó **2.1.3** / **2.1.4** + polish **2.1.5** auto-refresh); tổng dự án **59** task — xem `IMPLEMENTATION-ROADMAP.md`.
 
-**Progress (14 tasks):** **11 / 14** (~79%)
+**Progress (14 tasks):** **14 / 14** (100%) — gồm 2.1.1–2.1.4, 2.2.x, 2.3.x, 2.4.1–2.4.5; **2.1.5** là polish UI (auto-refresh) cùng release
 
 ## Phase 2: My KOLs & Personalization
 
@@ -83,20 +83,33 @@
 - ✅ No auto-subscription (verified in DB)
 - ✅ Free users restricted (button hidden)
 
-**Next Step:** Task **2.4.5** — My KOLs filter toggle on Digest; hoặc **2.1.3** — API my submissions
+**Next Step:** Sprint 2 (14-task bundle) ✅ — chuyển sang **2.5.x** (Archive / Settings) hoặc **3.x** (Stripe / Admin) theo ưu tiên
 
 ---
 
 ## Phase 2.1: Source Management (Option B - Moderation Queue)
 
-**Status:** In Progress (3/4 complete — subscribe API done)
+**Status:** Complete (core user-facing 2.1.x + subscribe APIs)
 
 - ✅ Task 2.1.1: POST /api/sources endpoint (Option B) - Complete
 - ✅ Task 2.1.2: Add Source Form (pending_review queue) - Complete
+- [x] **Task 2.1.3:** GET /api/sources/my-submissions endpoint ✅ **(DONE 2026-04-15)**
+  - Returns user's submitted sources with status (pending_review/active/spam/deleted)
+  - Pro/Power only (403 for free users)
+  - Includes `is_subscribed` flag
+  - Pagination 20/page
+- [x] **Task 2.1.4:** My Submissions UI in MyKOLsPage ✅ **(DONE 2026-04-15)**
+  - Tab "Submitted" (Pro/Power only)
+  - Status badges with colors (yellow/green/red/gray)
+  - Follow button for active sources not yet subscribed
+  - Empty state + pagination
+- [x] **Task 2.1.5:** Auto-refresh Submitted tab after Add Source ✅ **(DONE 2026-04-15)**
+  - `AddSourceModal` `onSuccess` + `handleAddSourceSuccess` on parent
+  - New submission appears at top of list (sort `created_at` DESC) without manual refresh
 - ✅ Task 2.2.1: Implement POST /api/sources/{id}/subscribe endpoint — **COMPLETED 2026-04-14** (`SubscriptionController`, cap Pro≤10/Power≤50, `auth:sanctum`, manual tests 10/10)
 - ✅ Task 2.2.2: Implement DELETE /api/sources/{id}/subscribe endpoint — **COMPLETED 2026-04-14** (idempotent delete + `204 No Content`, source `404`, auth `401`)
 
-_(Roadmap tiếp: **2.4.5** digest filter toggle / **2.5.x** personal feed — `IMPLEMENTATION-ROADMAP.md`.)_
+_(Roadmap tiếp: **2.5.x** Archive / Settings — `IMPLEMENTATION-ROADMAP.md`.)_
 
 ---
 
@@ -201,20 +214,23 @@ _(Roadmap tiếp: **2.4.5** digest filter toggle / **2.5.x** personal feed — `
 **Notes:** Intent base URL backend: `https://x.com/intent/post?text=`; CSRF stateful Sanctum cho POST.
 
 ### In Progress / Next (roadmap)
-- **Next (Sprint 2):** **2.4.5** My KOLs filter toggle _(hoặc **2.1.3** my submissions)_ — sau **2.4.4** ✅
+- **Sprint 2 (14-task table):** ✅ **14/14** — gồm **2.4.5** (digest My KOLs toggle) + **2.1.3–2.1.4** (my submissions) + **2.1.5** (auto-refresh; polish cùng release)
+- **Next:** **2.5.1** archive / **3.1.1** Stripe — `IMPLEMENTATION-ROADMAP.md`
 - **Backlog (ngoài bảng Sprint 2):** **1.11.3** — metadata digest (tùy ưu tiên)
 
 ### Statistics
 - **Sprint 1 (34 tasks, `IMPLEMENTATION-ROADMAP`):** 34 / 34 ✅
-- **Sprint 2 (14 tasks):** 11 / 14 (~79%) — next **2.4.5** (digest filter) / **2.1.3** (my submissions)
+- **Sprint 2 (14 tasks):** 14 / 14 (100%) ✅
 
 ### Progress Summary
 
-**Completed Tasks:** Sprint 1 **34/34** ✅; Sprint 2 **11/14** (2.1.1 ✅ 2026-04-13, 2.1.2 ✅ 2026-04-14, **2.2.1–2.2.3** ✅, **2.3.1–2.3.2** ✅, **2.4.1–2.4.4** ✅ 2026-04-14)
-**Current phase:** Sprint 2 — My KOLs; next = **2.4.5** hoặc **2.1.3**
-**Last Updated:** 2026-04-14
+**Completed Tasks:** Sprint 1 **34/34** ✅; Sprint 2 **14/14** (thêm **2.1.3–2.1.5** 2026-04-15; **2.4.5** 2026-04-15; cùng các task 2.1.1–2.1.2, 2.2.x, 2.3.x, 2.4.1–2.4.4)
+**Current phase:** Sprint 2 — My KOLs **hoàn tất** (bundle 14 task); next = **2.5.x** / Sprint 3
+**Last Updated:** 2026-04-15
 
 **Recent Completions:**
+- ✅ Task 2.1.3–2.1.5: `GET /api/sources/my-submissions`, tab Submitted (Pro/Power), `getMySubmissionsAPI`, `AddSourceModal` `onSuccess` + refetch — SESSION-LOG 2026-04-15
+- ✅ Task 2.4.5: Digest My KOLs filter toggle — `SignalController` + `DigestPage` (2026-04-15)
 - ✅ Task 2.4.4: Stats dashboard UI — 4 metric cards (Total Today, Top Sources, 7-Day Trend chart, Category Breakdown), API integration + loading/error/empty states, responsive layout (2026-04-14)
 - ✅ Task 2.4.3: My KOLs Following Tab UI — list from `GET /api/my-sources`, unfollow with optimistic rollback, pagination, empty state, manual browser tests PASS (2026-04-14)
 - ✅ Task 2.4.2: `GET /api/my-sources/stats` — 4 metrics (total today, top 3, trend 7d, category breakdown), auth + empty-state handled, SQL-verified aggregate logic (2026-04-14)
@@ -310,10 +326,10 @@ _(Roadmap tiếp: **2.4.5** digest filter toggle / **2.5.x** personal feed — `
 
 ## Current Sprint Status
 
-**Completed Task:** Task **2.3.2** — Browse/Search UI Screen #10 ✅ (2026-04-14)  
-**Next Task:** Task **2.4.1** — Implement `GET /api/my-sources` — `IMPLEMENTATION-ROADMAP.md`  
-**Status:** Sprint 2; **2.2.1–2.2.3** + **2.3.1–2.3.2** complete — SESSION-LOG 2026-04-14  
-**Previous:** Task 2.3.1 server-side search ✅; Task 2.2.3 Browse Follow/Unfollow ✅
+**Completed Task:** Sprint 2 bundle **14/14** ✅ — gồm **2.1.3–2.1.5** (My Submissions + auto-refresh, 2026-04-15), **2.4.5** (digest toggle), các task 2.2.x / 2.3.x / 2.4.1–2.4.4  
+**Next Task:** **2.5.1** `POST/DELETE /api/signals/{id}/archive` (hoặc nhánh Stripe **3.1.1**) — `IMPLEMENTATION-ROADMAP.md`  
+**Status:** Sprint 2 (14-task table) complete — xem SESSION-LOG 2026-04-15  
+**Previous:** Task 2.4.5 Digest My KOLs filter; Task 2.1.2 Add Source modal
 
 **Recent Completions:**
 
