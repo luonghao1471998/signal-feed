@@ -15,6 +15,17 @@
 
 **Progress (14 tasks):** **11 / 14** (~79%)
 
+## Phase 2: My KOLs & Personalization
+
+### 2.4 Frontend - My KOLs Integration
+
+- [x] 2.4.5 Add My KOLs filter toggle to Digest view ✅ COMPLETED 2026-04-15
+  - Backend: `my_sources_only` logic phân nhánh theo plan (Free vs Pro/Power)
+  - Frontend: Toggle visibility chỉ cho Pro/Power users có subscriptions
+  - Fallback banner cho Pro/Power khi chưa có personal signals
+  - Migration: thêm `signals.type` và `signals.user_id` columns
+  - Tested: curl + browser manual testing, tất cả scenarios pass
+
 ### Feature 2.2: Follow/Unfollow KOL Sources
 
 | Task # | Task Name | Status | Completed Date |

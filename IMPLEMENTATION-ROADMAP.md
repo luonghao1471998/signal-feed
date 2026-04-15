@@ -28,7 +28,7 @@
 | 1.3.1 | Implement OAuth X.com redirect + callback flow | 1.3 | [SUPPORT] | Routes /auth/twitter, /auth/twitter/callback implemented, OAuth flow redirects to X.com authorize page | 1.2.2 | Click "Login with X" → redirects to twitter.com/oauth2/authorize with correct params | 2.1 NFR OAuth X.com flow diagram, 2.2e Auth endpoints |
 | 1.3.2 | Implement OAuth token exchange + user upsert | 1.3 | [SUPPORT] | POST callback handler exchanges code for tokens, creates/updates User record (x_user_id, x_username, x_access_token), creates session | 1.3.1 | Complete OAuth flow → User record created in DB with x_user_id, session active | 2.1 NFR OAuth flow steps 5-9, 2.2e User table |
 | 1.3.3 | Build onboarding Screen #3: Category selection | 1.3 | [SUPPORT] | React component /onboarding/categories renders 10 categories, user selects 1-3, saves to User.my_categories | 1.3.2, 1.4.1 | After OAuth login → onboarding screen shows, select categories → User.my_categories updated | 2.2f UI Skeleton Screen #3, 2.2a CRUD summary (category selection) |
-| 1.3.4 | Enable subscribe API for onboarding follow step | 1.3 | [SUPPORT] | Implement `POST /api/sources/{id}/subscribe` sớm để Step 2 onboarding có thể follow ngay (cap guard + idempotency + Pro/Power policy giữ nguyên) | 1.3.3, 1.5.3 | User mới ở onboarding gọi follow thành công, `my_source_subscriptions` được tạo đúng cap | Onboarding Screen #4 needs immediate follow, 2.2a Flow 2 |
+| 1.3.4 | Enable subscribe API for onboarding follow step | 1.3 | [SUPPORT] | Implement `POST /api/sources/{id}/subscribe` sớm để Step 2 onboarding follow ngay — **cap theo plan: Free ≤5, Pro ≤10, Power ≤50** (CR 2026-04-16); idempotency | 1.3.3, 1.5.3 | User **Free** onboarding follow thành công trong giới hạn 5; Pro/Power đúng cap | Onboarding Screen #4, CR 2026-04-16 |
 | 1.3.5 | Build onboarding Screen #4: `/onboarding/sources` (filter by my_categories, follow/skip) | 1.3 | [SUPPORT] | UI lấy sources `status=active` theo category user đã chọn (`my_categories`), cho phép Follow ngay tại onboarding hoặc Skip đi thẳng digest | 1.3.4, 1.3.3, 1.5.3 | Sau Step 1 → vào Step 2 thấy list KOL đúng category; follow tạo subscription; skip chuyển `/digest` | SPEC-plan Screen #4, Strategy Rule onboarding 2-step |
 | 1.4.1 | Seed 10 categories migration | 1.4 | [SUPPORT] | categories table seeded with 10 hardcoded categories (id, name, slug) per 2.2a | 1.2.2 | Query categories table → 10 rows exist matching 2.2a category list | 2.2a Entity Relationship (10 categories), 2.2f Test Data Strategy (fixture files) |
 | 1.4.2 | Implement GET /api/categories endpoint | 1.4 | [SUPPORT] | API returns all 10 categories as JSON array | 1.4.1 | GET /api/categories → 200 OK with 10 category objects | 2.2e GET /api/categories spec |
@@ -64,16 +64,16 @@
 | 2.1.2 | Build Add Source Form Screen #11 (React modal or page) | 2.1 | [POST-WEDGE] | Form @handle + categories; success = source **chờ duyệt** (`pending_review`) | 2.1.1 | Submit → 201 → hiển thị message chờ admin duyệt; browse chỉ thấy source sau khi approve | 2.2f UI Skeleton Screen #11, 2.2a F05 |
 | 2.1.3 | Implement GET user-submitted sources (my submissions) endpoint | 2.1 | [POST-WEDGE] | API trả các Source `type=user` do user hiện tại thêm (`added_by_user_id`), kèm **`status`** (`pending_review` \| `active` \| `spam` \| `deleted`) + metadata hiển thị — để user theo dõi queue **không** phụ thuộc admin UI | 2.1.1 | GET (path theo SPEC-api / quy ước REST) → danh sách submission + status đúng | SPEC-core Flow 1 (feedback cho user), VR-1 SPEC.md |
 | 2.1.4 | Build “My submissions” / status UI (Screen #11 bổ sung hoặc section My KOLs) | 2.1 | [POST-WEDGE] | React: hiển thị các KOL đã gửi + badge trạng thái (pending / approved / rejected\*); \*“từ chối” map từ `spam` hoặc `deleted` theo copy sản phẩm | 2.1.3 | User thấy submission pending; sau admin xử lý, status cập nhật (sau 3.3.4 có thể kèm toast/email) | SPEC-plan VR-1 (UI trạng thái chờ duyệt) |
-| 2.2.1 | Implement POST /api/sources/{id}/subscribe endpoint | 2.2 | [POST-WEDGE] | API checks cap (Pro ≤10, Power ≤50), creates MySourceSubscription record | 2.1.1 | POST /api/sources/{id}/subscribe as Pro user → subscription created, count ≤10 enforced | 2.2e POST /api/sources/{id}/subscribe spec, 2.2a Flow 2 (Subscribe) |
+| 2.2.1 | Implement POST /api/sources/{id}/subscribe endpoint | 2.2 | [POST-WEDGE] | API checks cap (**Free ≤5**, Pro ≤10, Power ≤50), creates MySourceSubscription; **Free được subscribe** (CR 2026-04-16) | 2.1.1 | Free → follow thành công đến 5; Pro → ≤10; cap vượt → 400 | 2.2e POST subscribe, CR 2026-04-16 |
 | 2.2.2 | Implement DELETE /api/sources/{id}/subscribe endpoint | 2.2 | [POST-WEDGE] | API deletes MySourceSubscription record (self-owned only) | 2.2.1 | DELETE /api/sources/{id}/subscribe → 204 No Content, subscription deleted | 2.2e DELETE /api/sources/{id}/subscribe spec, 2.2a CRUD (unfollow) |
 | 2.2.3 | Add Follow/Unfollow buttons to Browse Source Pool UI | 2.2 | [POST-WEDGE] | Buttons in source pool browse screen (Screen #10), calls subscribe/unsubscribe APIs, updates button state (Follow → Following) | 2.2.1, 2.2.2, 1.5.3 | Browse sources → click Follow → button changes to Following, MySourceSubscription created | 2.2f UI Skeleton Screen #10, 2.2a F06 |
 | 2.3.1 | Add search filter to GET /api/sources endpoint | 2.3 | [POST-WEDGE] | API accepts ?search=@handle query param, filters sources by handle LIKE search | 2.2.2 | GET /api/sources?search=elon → returns sources matching search | 2.2e GET /api/sources spec (search param), 2.2a CRUD (search sources) |
 | 2.3.2 | Build Browse Source Pool Screen #10 with search input (React) | 2.3 | [POST-WEDGE] | Screen renders source list, search input filters by @handle, category filter, Follow/Unfollow buttons | 2.3.1, 2.2.3 | Navigate to /sources → search by handle → results filtered, click Follow → subscribed | 2.2f UI Skeleton Screen #10, 2.2a F06 |
-| 2.4.1 | Implement GET /api/my-sources endpoint | 2.4 | [POST-WEDGE] | API returns user's MySourceSubscription list with source details + stats (signal_count, last_active_date computed on-demand) | 2.2.1 | GET /api/my-sources as Pro user → returns subscribed sources array (≤10) | 2.2e GET /api/my-sources spec, 2.2a F06 |
-| 2.4.2 | Implement GET /api/my-sources/stats endpoint | 2.4 | [POST-WEDGE] | API computes stats: total_signals_today, top_active_sources (top 3), trend_7day (signal count per day), per_category_breakdown | 2.4.1 | GET /api/my-sources/stats → 200 OK with computed stats object | 2.2e GET /api/my-sources/stats spec, 2.2a Flow 4 (stats calculation) |
+| 2.4.1 | Implement GET /api/my-sources endpoint | 2.4 | [POST-WEDGE] | API returns user's MySourceSubscription list + stats — **Free + Pro + Power** (CR 2026-04-16); cap 5/10/50 | 2.2.1 | GET /api/my-sources as **Free** với follow → 200 + list ≤5 | 2.2e GET /api/my-sources, CR 2026-04-16 |
+| 2.4.2 | Implement GET /api/my-sources/stats endpoint | 2.4 | [POST-WEDGE] | API computes stats (on shared-signal intersection với follows — mọi plan; CR 2026-04-16) | 2.4.1 | Free + follow → **200** (không còn 403) | 2.2e stats spec, CR 2026-04-16 |
 | 2.4.3 | Build My KOLs List Screen #8 (React) | 2.4 | [POST-WEDGE] | Screen renders My KOLs list from API, shows subscribed sources with Unfollow button | 2.4.1, 2.2.2 | Navigate to /my-sources → shows subscribed sources, click Unfollow → subscription deleted | 2.2f UI Skeleton Screen #8, 2.2a F06 |
 | 2.4.4 | Build My KOLs Stats Screen #9 (React) | 2.4 | [POST-WEDGE] | Screen fetches stats API, renders stats bar (signal count, top sources, 7-day trend chart, per-category breakdown) | 2.4.2, 2.4.3 | Navigate to /my-sources/stats → shows computed stats | 2.2f UI Skeleton Screen #9, 2.2a F15 |
-| 2.4.5 | Add My KOLs filter toggle to Digest View | 2.4 | [POST-WEDGE] | Toggle button on Screen #5 (digest), ?my_sources_only=true query param, filters signals to My KOLs sources only | 2.4.1, 1.10.2 | Toggle "My KOLs Only" on digest → signals filtered to subscribed sources | 2.2f UI Skeleton Screen #6 (filter toggle), 2.2a F14 |
+| 2.4.5 | Add My KOLs filter toggle to Digest View | 2.4 | [POST-WEDGE] | Toggle `?my_sources_only=true` — **Free:** lọc **`type=0`** theo `source_id` đã follow; **Pro/Power:** hiển thị **`type=1`** (Flow 8) per `SPEC-api` CR 2026-04-16 | 2.4.1, 1.10.2; **2.6.1** (Pro/Power personal view) | Free bật toggle không cần 2.6.1; Pro cần 2.6.1 | 2.2a F14, CR 2026-04-16 |
 | 2.5.1 | Implement POST/DELETE /api/signals/{id}/archive endpoints | 2.5 | [POST-WEDGE] | API toggle save/unsave signal vào personal archive (self-owned), idempotent cho repeated requests | 1.10.1, 1.2.4 | POST archive → 201/200; DELETE archive → 204; only current user archive affected | CR 2026-04-14 (Archive save flow), Screen #5 + Archive menu behavior |
 | 2.5.2 | Implement GET /api/archive/signals endpoint | 2.5 | [POST-WEDGE] | API trả danh sách archived signals của user với filter date/category/search + pagination | 2.5.1, 1.10.1 | GET /api/archive/signals?date_range=last30 → trả archived list đúng user | CR 2026-04-14, Screen Archive (`/archive`), SPEC-plan assumption #22 |
 | 2.5.3 | Add “Save to Archive” button on Digest cards | 2.5 | [POST-WEDGE] | Nút bookmark/save trên Digest (Screen #5), optimistic UI Saved/Unsaved, sync với archive endpoints | 2.5.1, 1.10.2 | Click Save on digest card → state đổi Saved + record archive created | CR 2026-04-14, Digest Screen #5 (missing save action) |
@@ -81,6 +81,9 @@
 | 2.5.5 | Implement GET/PATCH /api/settings endpoints | 2.5 | [POST-WEDGE] | API đọc/cập nhật user settings: profile basics, digest preferences, category prefs, locale | 1.3.2, 1.4.2 | PATCH /api/settings thành công → refresh GET phản ánh cấu hình mới | CR 2026-04-14, Screen #12 Settings |
 | 2.5.6 | Integrate Settings Screen with settings APIs | 2.5 | [POST-WEDGE] | Nối `SettingsPage` tabs (profile/digest/billing/telegram/language) vào API thật, bỏ hardcoded defaults | 2.5.5 | Save in Settings → reload vẫn giữ dữ liệu đúng | CR 2026-04-14, existing `/settings` route |
 | 2.5.7 | Add i18n foundation + Language persistence | 2.5 | [POST-WEDGE] | Setup i18n dictionaries (en/vi baseline), locale provider, bind Language tab với `PATCH /api/settings` | 2.5.5, 2.5.6 | Switch language in Settings → UI shell đổi ngôn ngữ và persist qua reload | CR 2026-04-14, multi-language enablement |
+| 2.6.1 | Implement PersonalSignals pipeline job (Flow 8 / `SPEC-core`) | 2.6 | [POST-WEDGE] | Giống trên; **bắt buộc skip `plan=free`** (CR 2026-04-16 — Free có follow nhưng không sinh `type=1`). Chỉ Pro/Power | 2.2.1, 1.6.1, 1.7.1, 1.8.1, 1.8.2, 1.9.1, 1.9.2 | Free user có subscription → job **không** tạo `type=1` | Flow 8, CR 2026-04-16 |
+| 2.6.2 | Schedule personal pipeline + ordering vs shared pipeline | 2.6 | [POST-WEDGE] | Đăng ký chạy **sau** shared `PipelineCrawlJob` (hoặc cùng scheduler với `WithoutOverlapping` / lock theo ngày) để personal luôn có dữ liệu đầu vào nhất quán; tránh chồng job | 2.6.1, 1.6.3 | Log có lần chạy personal sau shared; không deadlock queue | `SPEC-core` Flow 8, CR 2026-04-15 part 2 |
+| 2.6.3 | Enforce `GET /api/signals/{id}` ownership for `type=1` | 2.6 | [POST-WEDGE] | Policy/Resource: `type=1` và `user_id` ≠ auth → **403**; Free không bao giờ thấy `type=1` qua list (đã có guard list) | 2.6.1, 1.11.1 | User A không GET được signal personal của user B | `SPEC-api` Get Signal Detail, CR 2026-04-15 part 2 |
 
 ---
 
@@ -90,9 +93,9 @@
 |--------|-----------|---------|-----|--------|------------|---------------|--------|
 | 3.1.1 | Implement Stripe Checkout Session creation | 3.1 | [POST-WEDGE] | API endpoint (or frontend redirect) creates Stripe Checkout Session with Pro/Power price IDs, redirects to Stripe hosted page | Sprint 2 complete | Click "Upgrade to Pro" → redirects to Stripe checkout page | 2.2d Stripe integration (checkout.session.completed event), 2.2a F02 |
 | 3.1.2 | Implement Stripe webhook handler (4 events) | 3.1 | [POST-WEDGE] | POST /webhooks/stripe endpoint handles checkout.session.completed, subscription.updated, subscription.deleted, payment_failed → updates User.plan + User.stripe_customer_id, logs processed_stripe_events (idempotency) | 3.1.1 | Stripe sends webhook → User.plan updated, processed_stripe_events row created | 2.2e Stripe Webhook Handler spec, 2.2d Constraint #7 (plan sync webhook-only) |
-| 3.1.3 | Implement plan downgrade cleanup logic | 3.1 | [POST-WEDGE] | When subscription.deleted event received → auto-unsubscribe My KOLs (keep first 10 by created_at ASC for Pro downgrade, or all if Free downgrade) | 3.1.2 | Stripe webhook downgrade event → MySourceSubscriptions pruned to cap | 2.2e assumption #17 (downgrade cleanup), 2.2b assumption #10 |
+| 3.1.3 | Implement plan downgrade cleanup logic | 3.1 | [POST-WEDGE] | Downgrade → prune subscriptions to new cap: **Power→Pro: keep 10**; **Pro→Free: keep 5**; **→Free: max 5** (CR 2026-04-16) | 3.1.2 | Pro→Free webhook → còn ≤5 subscription | 2.2e assumption #17, CR 2026-04-16 |
 | 3.2.1 | Add Free tier Mon/Wed/Fri restriction to digest delivery job | 3.2 | [POST-WEDGE] | Cron job checks User.plan + current day-of-week, skips digest delivery for Free users on Tue/Thu/Sat/Sun | 3.1.2 | Free user on Tuesday → digest not generated/delivered, Mon/Wed/Fri → delivered | 2.2d Constraint #9 (Free tier schedule), 2.2a assumption #1 (Mon/Wed/Fri) |
-| 3.2.2 | Add plan-based feature gates to API endpoints | 3.2 | [POST-WEDGE] | Middleware checks User.plan, returns 403 FORBIDDEN for Free users accessing Pro/Power endpoints (My KOLs, drafts, stats) | 3.1.2 | Free user calls GET /api/my-sources → 403 FORBIDDEN | 2.2e Permission Guards (plan checks), 2.2a Permission Matrix |
+| 3.2.2 | Add plan-based feature gates to API endpoints | 3.2 | [POST-WEDGE] | Middleware: Free **không** 403 cho subscribe/list My KOLs/stats (CR 2026-04-16); vẫn 403 cho draft copy, add source, v.v. | 3.1.2 | Free GET /api/my-sources → **200**; POST draft copy → 403 | 2.2e Permission Guards, CR 2026-04-16 |
 | 3.3.1 | Implement GET /api/admin/sources (moderation list) endpoint | 3.3 | [POST-WEDGE] | API: filter **`type=user`** (+ optional `status=`); added_by_user, signal_count, noise_ratio — queue mặc định `pending_review` | Sprint 1 complete + admin guard (`users.is_admin`) — **không** bắt buộc Stripe | GET /api/admin/sources?type=user&status=pending_review → nguồn chờ duyệt | SPEC-api GET /api/admin/sources, SPEC-core Flow 6 Option B |
 | 3.3.2 | Implement PATCH /api/admin/sources/{id} (moderate) endpoint | 3.3 | [POST-WEDGE] | `action` ∈ `approve` \| `flag_spam` \| `adjust_categories` \| `soft_delete` \| `restore` (+ `category_ids` khi adjust); admin-only; **“Từ chối”** sản phẩm = `flag_spam` hoặc `soft_delete` (không có enum `rejected` riêng) | 3.3.1 | PATCH `approve` → `pending_review` → `active`; PATCH từ chối/spam → status tương ứng + audit | SPEC-api PATCH /api/admin/sources/{id} |
 | 3.3.3 | Build Admin Source Moderation Screen #13 (React) | 3.3 | [POST-WEDGE] | UI `type=user`, sort `created_at` desc; Approve, Flag spam, Adjust categories, Soft delete, Restore | 3.3.2 | `/admin/sources?type=user&status=pending_review` → approve → source được crawl/browse | 2.2f UI Skeleton Screen #13, SPEC-core Flow 6 Option B |
@@ -137,8 +140,9 @@ Sprint 1 Complete → 2.1.1 (Add Source API) → 2.1.2 (Add Source UI) → 2.1.3
                                                                    → 2.3.1 (Search Filter) → 2.3.2 (Browse UI)
                                                                    → 2.4.1 (My KOLs API), 2.4.2 (Stats API) → 2.4.3 (My KOLs List UI), 2.4.4 (Stats UI), 2.4.5 (Filter Toggle)
                                                                    → 2.5.1 (Archive save API) → 2.5.2 (Archive list API) → 2.5.3 (Digest Save button), 2.5.4 (Archive UI API), 2.5.5 (Settings API) → 2.5.6 (Settings UI), 2.5.7 (i18n foundation)
+                  → 2.6.1 (PersonalSignals job Flow 8) → 2.6.2 (Schedule personal pipeline) → 2.6.3 (GET signal type=1 policy)
 
-Critical Path: Sprint 1 → 2.1.1 → 2.2.1 → 2.4.1 → 2.4.5 → 2.5.1 → 2.5.4 (My KOLs + Archive complete)
+Critical Path: Sprint 1 → 2.1.1 → 2.2.1 → 2.4.1 → 2.4.5 → 2.6.1 → 2.6.3 → 2.5.1 → 2.5.4 (My KOLs + personal pipeline + Archive complete)
 Parallel Paths: 2.3.x (Browse/Search) can run parallel with 2.4.x; 2.1.3–2.1.4 song song 2.2.x; 2.5.5-2.5.7 phụ thuộc song song API settings
 Option B closure: moderation **3.3.1–3.3.4** (Sprint 3) có thể bắt đầu sớm — không cần chờ Stripe — xem Sprint 3
 ```
@@ -168,12 +172,13 @@ Parallel Paths: 3.3.x (Admin Sources + notify), 3.4.x (Admin Pipeline), 3.5.x (i
 3. Pipeline Core: Tasks 1.6.1 - 1.9.3 (11 tasks) — Crawl → Classify → Cluster → Summarize → Rank → Draft
 4. Digest UI: Tasks 1.10.1 - 1.12.3 (7 tasks) — Digest view + detail + draft copy
 
-**Sprint 2 — My KOLs + Archive + Settings (5 feature groups → 21 tasks):**
+**Sprint 2 — My KOLs + Archive + Settings + Personal pipeline (6 feature groups → 24 tasks):**
 1. Add Source: Tasks 2.1.1 - 2.1.4 (4 tasks — API + form + **my submissions** visibility)
 2. Subscribe/Unsubscribe: Tasks 2.2.1 - 2.2.3 (3 tasks)
 3. Browse/Search: Tasks 2.3.1 - 2.3.2 (2 tasks)
 4. My KOLs UI + Stats: Tasks 2.4.1 - 2.4.5 (5 tasks)
 5. Archive + Settings + Language foundation: Tasks 2.5.1 - 2.5.7 (7 tasks)
+6. Personal signals pipeline (Flow 8): Tasks 2.6.1 - 2.6.3 (3 tasks)
 
 **Sprint 3 — Billing + Admin + i18n completion (5 feature groups → 14 tasks):**
 1. Stripe Integration: Tasks 3.1.1 - 3.1.3 (3 tasks)
@@ -182,7 +187,7 @@ Parallel Paths: 3.3.x (Admin Sources + notify), 3.4.x (Admin Pipeline), 3.5.x (i
 4. Admin Pipeline Monitor: Tasks 3.4.1 - 3.4.2 (2 tasks)
 5. Multi-language rollout: Tasks 3.5.1 - 3.5.3 (3 tasks)
 
-**Total: 69 tasks across 3 sprints** (đếm trực tiếp từ các bảng Task Table phía trên)
+**Total: 74 tasks across 3 sprints** (đếm trực tiếp từ các bảng Task Table phía trên — **CR 2026-04-15 part 2** thêm **2.6.1–2.6.3**)
 
 ---
 
@@ -197,7 +202,8 @@ Bảng này mô tả **trạng thái sau amendment**; mọi thay đổi tiếp t
 | **Crawl loop** | Mô tả trong **`SPEC-api` Phần 2** + Flow 3 | Task **1.6.2** |
 | **Lịch scheduler** | **4×/ngày** — `SPEC-core`, `SPEC-plan` | Task **1.6.3**; đổi lịch = CR |
 | **Tweet fetch abstraction** | **`SPEC-core` §3.2 LOCK** + **`SPEC-api` Section 10 §0** | Interface + DI; swap vendor không đụng `PipelineService` logic |
-| **Personal feed** | Bảng **`user_personal_feed_entries`** + endpoint trong `SPEC-api` — **Sprint 2+** | Ngoài 69 task roadmap hiện tại; xem backlog / CR task sau |
+| **Personal signals (My KOLs / Flow 8)** | Hàng **`signals`** `type=1` + `user_id`; crawl qua **`TweetFetchProviderInterface`**; view list `GET /api/signals?my_sources_only=true`; detail guard `SPEC-api` | Task **2.6.1–2.6.3** (Sprint 2); CR **2026-04-15 part 2** |
+| **Free My KOLs (CR 2026-04-16)** | Subscribe/list/stats cho **Free** (cap **5**); `my_sources_only` = lọc **`type=0`** theo follow; Flow 8 **không** chạy Free; downgrade prune **5** | Task **2.2.1**, **2.4.x**, **2.4.5**, **3.1.3**, **3.2.2** |
 | **Clustering** | **Prompt-based** Phase 1 — changelog `SPEC-api` + Flow 3 | Task **1.8.1** theo hướng này |
 
 ---
@@ -221,7 +227,7 @@ Bảng này mô tả **trạng thái sau amendment**; mọi thay đổi tiếp t
 | 13 | **“Flag as Noise” user feedback (Appendix A #17).** Phase 1 (Digest UI) vs Phase 2 — không có task roadmap. | Question | Nếu Phase 1 → thêm task UI + API/log tương ứng; nếu Phase 2 → giữ ngoài scope. | SPEC-plan Appendix A #17 |
 | 14 | **Clustering: prompt-based vs embeddings.** | **Đã chốt:** Phase 1 **prompt-based** (`SPEC-api` changelog 2026-04-06). | Embeddings = backlog / CR nếu sau này đổi chiến lược. | Task 1.8.1 |
 | 15 | **Admin role** | **Đã có:** `users.is_admin` trong `SPEC-api` §9 + middleware admin. | Seed / manual gán admin. | Tasks 3.3.x, 3.4.x |
-| 16 | **Personal feed Pro/Power** | **Schema/API đã lock** trong `SPEC-api`; triển khai job/UI **sau wedge**. | Không nằm trong 69 task roadmap hiện tại. | Sprint 2+ backlog |
+| 16 | **Personal signals Pro/Power (Flow 8)** | **`signals.type=1`** + pipeline job sau shared crawl; REST đã lock trong `SPEC-api`. | Task **2.6.1–2.6.3**; phụ thuộc subscribe **2.2.1** + provider **1.6.1**. | Sprint 2 |
 
 ---
 

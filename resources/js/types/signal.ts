@@ -43,6 +43,7 @@ export interface SignalsMeta {
   per_page: number;
   total: number;
   last_page: number;
+  isPersonalSignals?: boolean;
 }
 
 export interface SignalsResponse {

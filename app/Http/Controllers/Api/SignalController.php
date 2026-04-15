@@ -13,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
 class SignalController extends Controller
@@ -45,12 +46,6 @@ class SignalController extends Controller
             'per_page' => 'nullable|integer|min:1|max:100',
         ]);
 
-        if ($plan === 'free' && $request->boolean('my_sources_only')) {
-            return response()->json([
-                'message' => 'My KOLs filter is available for Pro/Power users only.',
-            ], 403);
-        }
-
         $date = $request->input('date', Carbon::now()->toDateString());
 
         $query = Signal::query()
@@ -72,36 +67,6 @@ class SignalController extends Controller
 
         $hasTypeColumn = Schema::hasColumn('signals', 'type');
 
-        if ($hasTypeColumn) {
-            if ($plan === 'free') {
-                $query->where('signals.type', 0);
-            } elseif (in_array($plan, ['pro', 'power'], true)) {
-                // Shared digest only; My KOLs filter = signals that cite at least one subscribed source (F14)
-                $query->where('signals.type', 0);
-                if ($request->boolean('my_sources_only')) {
-                    $query->whereExists(static function ($sub) use ($user): void {
-                        $sub->select(DB::raw('1'))
-                            ->from('signal_sources as ss')
-                            ->whereColumn('ss.signal_id', 'signals.id')
-                            ->join('my_source_subscriptions as mss', static function ($join) use ($user): void {
-                                $join->on('mss.source_id', '=', 'ss.source_id')
-                                    ->where('mss.user_id', '=', $user->id);
-                            });
-                    });
-                }
-            }
-        } elseif (in_array($plan, ['pro', 'power'], true) && $request->boolean('my_sources_only')) {
-            $query->whereExists(static function ($sub) use ($user): void {
-                $sub->select(DB::raw('1'))
-                    ->from('signal_sources as ss')
-                    ->whereColumn('ss.signal_id', 'signals.id')
-                    ->join('my_source_subscriptions as mss', static function ($join) use ($user): void {
-                        $join->on('mss.source_id', '=', 'ss.source_id')
-                            ->where('mss.user_id', '=', $user->id);
-                    });
-            });
-        }
-
         if ($request->filled('category_id')) {
             /** @var list<int> $categoryIds */
             $categoryIds = array_map('intval', $request->input('category_id', []));
@@ -114,6 +79,52 @@ class SignalController extends Controller
         if ($request->filled('topic_tag') && $plan !== 'free') {
             $tag = $request->string('topic_tag')->toString();
             $query->whereRaw('?::text = ANY(signals.topic_tags)', [$tag]);
+        }
+
+        $mySourcesOnly = $request->boolean('my_sources_only');
+        $personalSignalsHeader = null;
+
+        $applySharedMySourcesFilter = static function ($builder) use ($user): void {
+            $builder->where('signals.type', 0)
+                ->whereExists(static function ($sub) use ($user): void {
+                    $sub->select(DB::raw('1'))
+                        ->from('signal_sources as ss')
+                        ->whereColumn('ss.signal_id', 'signals.id')
+                        ->whereExists(static function ($inner) use ($user): void {
+                            $inner->select(DB::raw('1'))
+                                ->from('my_source_subscriptions as mss')
+                                ->whereColumn('mss.source_id', 'ss.source_id')
+                                ->where('mss.user_id', $user->id);
+                        });
+                });
+        };
+
+        if ($hasTypeColumn) {
+            if ($mySourcesOnly) {
+                if (in_array($plan, ['pro', 'power'], true)) {
+                    $personalQuery = (clone $query)
+                        ->where('signals.type', 1)
+                        ->where('signals.user_id', $user->id);
+
+                    $personalCount = $personalQuery->count();
+
+                    if ($personalCount > 0) {
+                        $query->where('signals.type', 1)
+                            ->where('signals.user_id', $user->id);
+                        $personalSignalsHeader = 'true';
+                    } else {
+                        $applySharedMySourcesFilter($query);
+                        $personalSignalsHeader = 'false';
+                        Log::info("Pro user {$user->id} fallback to shared signals - no personal signals yet");
+                    }
+                } else {
+                    $applySharedMySourcesFilter($query);
+                }
+            } else {
+                $query->where('signals.type', 0);
+            }
+        } elseif ($mySourcesOnly) {
+            $applySharedMySourcesFilter($query);
         }
 
         $query->orderByDesc('signals.rank_score');
@@ -186,7 +197,13 @@ class SignalController extends Controller
             })
         );
 
-        return SignalResource::collection($signals);
+        $resource = SignalResource::collection($signals);
+
+        if ($personalSignalsHeader !== null) {
+            return $resource->response()->header('X-Personal-Signals', $personalSignalsHeader);
+        }
+
+        return $resource;
     }
 
     /**

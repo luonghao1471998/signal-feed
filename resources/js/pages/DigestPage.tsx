@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDigestSidebarOptional } from "@/contexts/DigestSidebarContext";
 import { fetchCategories, fetchSignals, type ApiCategory } from "@/services/signalService";
+import { getCurrentSubscriptionCount } from "@/services/sourceService";
 import { mapApiSignalToDigest } from "@/lib/mapApiSignalToDigest";
 import { categoryFilterKeyToDbSlug } from "@/lib/categorySlugMap";
 import type { DigestSignal } from "@/types/digestUi";
@@ -81,6 +82,7 @@ const DigestPage: React.FC = () => {
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
+  const [subscriptionCount, setSubscriptionCount] = useState(0);
 
   const isMobile = useMediaQuery("(max-width: 767px)");
   const { activeCategory, selectCategory } = useCategoryFilter();
@@ -99,15 +101,40 @@ const DigestPage: React.FC = () => {
   }, [dateParam, navigate, filterDate]);
 
   useEffect(() => {
+    setActiveTags([]);
+    setSelectedCategoryIds([]);
+  }, [filterDate]);
+
+  useEffect(() => {
     if (userPlan === "free" && myKolsOnly) {
       setMyKolsOnly(false);
     }
   }, [userPlan, myKolsOnly]);
 
   useEffect(() => {
-    setActiveTags([]);
-    setSelectedCategoryIds([]);
-  }, [filterDate]);
+    let cancelled = false;
+    if (!authReady || (!user && !token)) {
+      setSubscriptionCount(0);
+      return;
+    }
+
+    void (async () => {
+      try {
+        const count = await getCurrentSubscriptionCount();
+        if (!cancelled) {
+          setSubscriptionCount(count);
+        }
+      } catch {
+        if (!cancelled) {
+          setSubscriptionCount(0);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authReady, user, token]);
 
   useEffect(() => {
     let cancelled = false;
@@ -141,7 +168,7 @@ const DigestPage: React.FC = () => {
             })()
         : selectedCategoryIds;
 
-      const mySourcesOnly = userPlan !== "free" && myKolsOnly;
+      const mySourcesOnly = myKolsOnly;
       const topicTag =
         userPlan !== "free" && activeTags.length === 1 ? activeTags[0].replace(/^#/, "") : undefined;
 
@@ -164,6 +191,7 @@ const DigestPage: React.FC = () => {
       setTotal(response.meta.total);
       setCurrentPage(response.meta.current_page);
       setLastPage(response.meta.last_page ?? Math.max(1, Math.ceil(response.meta.total / response.meta.per_page)));
+
     } catch (e) {
       setRawSignals([]);
       setError(e instanceof Error ? e.message : "Failed to load signals");
@@ -385,6 +413,7 @@ const DigestPage: React.FC = () => {
   };
 
   const showUpgradeCta = error?.includes("Mon/Wed/Fri") || error?.includes("daily access");
+  const showMySourcesToggle = subscriptionCount > 0 && (userPlan === "pro" || userPlan === "power");
 
   return (
     <div className="min-h-screen bg-white">
@@ -461,7 +490,7 @@ const DigestPage: React.FC = () => {
                 })}
               </div>
 
-              {userPlan !== "free" && (
+              {showMySourcesToggle && (
                 <button
                   type="button"
                   onClick={() => {
@@ -559,7 +588,20 @@ const DigestPage: React.FC = () => {
             <>
               {visibleSignals.length === 0 ? (
                 <div className="mx-auto mt-8 max-w-2xl rounded-lg border border-[#eff3f4] bg-[#f7f9f9] p-8 text-center">
-                  <p className="text-[#536471]">No signals found for this date</p>
+                  {myKolsOnly ? (
+                    <>
+                      <p className="text-[#536471]">No signals from your KOLs today</p>
+                      <button
+                        type="button"
+                        onClick={() => setMyKolsOnly(false)}
+                        className="mt-3 rounded-full bg-[#0f1419] px-4 py-2 text-sm font-semibold text-white"
+                      >
+                        View All Sources
+                      </button>
+                    </>
+                  ) : (
+                    <p className="text-[#536471]">No signals found for this date</p>
+                  )}
                 </div>
               ) : (
                 <div className="border-t border-[#eff3f4]">
@@ -621,6 +663,7 @@ const DigestPage: React.FC = () => {
             mySourcesOnly={myKolsOnly}
             onMySourcesChange={setMyKolsOnly}
             userPlan={userPlan}
+            showMySourcesToggle={showMySourcesToggle}
             topicTagOptions={topicTagsForHeader}
           />
         </>

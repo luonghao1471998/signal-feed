@@ -7,7 +7,7 @@ export interface DigestFilterBarProps {
   currentDate: string;
   selectedCategories: number[];
   mySourcesOnly: boolean;
-  userPlan: "free" | "pro" | "power";
+  showMySourcesToggle: boolean;
   /** Options cho multi-select (id + label), ví dụ từ GET /api/categories + user.my_categories */
   categoryOptions?: Array<{ id: number; label: string }>;
 }
@@ -19,7 +19,7 @@ const DigestFilterBar: React.FC<DigestFilterBarProps> = ({
   currentDate,
   selectedCategories,
   mySourcesOnly,
-  userPlan,
+  showMySourcesToggle,
   categoryOptions = [],
 }) => {
   return (
@@ -55,7 +55,7 @@ const DigestFilterBar: React.FC<DigestFilterBarProps> = ({
         </label>
       )}
 
-      {userPlan !== "free" && (
+      {showMySourcesToggle && (
         <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
           <input
             type="checkbox"

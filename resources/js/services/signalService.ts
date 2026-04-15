@@ -85,7 +85,16 @@ export async function fetchSignals(params: FetchSignalsParams): Promise<SignalsR
     throw new Error(message);
   }
 
-  return response.json() as Promise<SignalsResponse>;
+  const json = (await response.json()) as SignalsResponse;
+  const personalSignalsHeader = response.headers.get("x-personal-signals");
+
+  return {
+    ...json,
+    meta: {
+      ...json.meta,
+      isPersonalSignals: personalSignalsHeader === "true",
+    },
+  };
 }
 
 export type ApiCategory = Category;

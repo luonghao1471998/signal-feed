@@ -11,7 +11,7 @@ Do tổng nội dung > 60.000 ký tự, spec được **chia 3 file** (theo rule
 | `SPEC-core.md` | 1–8 | Overview, NFR, Architecture, State/Error, Domain, Permissions, Flows, Data Model |
 | `SPEC-api.md` | 9–11 | DB Schema, External API Contracts, Internal REST API Specs |
 | `SPEC-plan.md` | 12–13 + Appendix A/B + Consistency Report | Delivery & Ops, **Sprint Plan** (Section 13); roadmap task → **`IMPLEMENTATION-ROADMAP.md`** riêng (playbook 2.2h) |
-| *(playbook)* | — | **`CLAUDE.md`** — rule ngắn cho agent; **`IMPLEMENTATION-ROADMAP.md`** — bảng task đánh số 1.x–3.x (**69** task tổng sau CR 2026-04-15; Sprint 1: 36, Sprint 2: 21, Sprint 3: 14 — đối chiếu file roadmap) |
+| *(playbook)* | — | **`CLAUDE.md`** — rule ngắn cho agent; **`IMPLEMENTATION-ROADMAP.md`** — bảng task đánh số 1.x–3.x (**74** task tổng sau CR 2026-04-15 part 2; Sprint 1: 36, Sprint 2: 24, Sprint 3: 14 — đối chiếu file roadmap) |
 
 **Change request (2026-04-13):** Chuyển workflow Source Phase 1 sang **Option B**. User thêm nguồn (`type=user`) tạo với **`status='pending_review'`**; chỉ vào crawl pool sau khi admin `approve` → `active`. Admin review queue qua `GET/PATCH /api/admin/sources`; state machine `SPEC-core.md` Section 4; UI/sprint Screen **#11**, **#13** + tasks **2.1.x**, **3.3.x** trong `SPEC-plan.md` / `IMPLEMENTATION-ROADMAP.md`.
 
@@ -27,13 +27,24 @@ Chi tiết task ở `IMPLEMENTATION-ROADMAP.md` (**1.3.4–1.3.5**, **2.5.1–2.
 - Danh sách KOL lọc theo `my_categories`; user có thể **Follow ngay** hoặc **Skip** vào digest.  
 - Roadmap thêm **1.3.4** (subscribe API sớm cho onboarding) + **1.3.5** (UI onboarding sources).
 
+**Change request (2026-04-15, part 2 — personal pipeline / schema lock):**  
+- **Chốt:** Không dùng bảng `user_personal_feed_entries` (đã **REMOVED** trong `SPEC-api` §9 SQL comment 2026-04-06). Tín hiệu cá nhân hóa (My KOLs / Flow 8) lưu trong **`signals`** với **`type=1`** + **`user_id`**, cùng `signal_sources` / `draft_tweets` như signal shared.  
+- **REST:** View My KOLs = `GET /api/signals?my_sources_only=true` (đã có trong `SPEC-api`); không bắt buộc endpoint riêng `GET /api/me/personal-digest`. Chi tiết GET signal: `type=1` chỉ owner được xem (403 nếu khác user).  
+- **Roadmap:** Thêm nhóm task **2.6.x** (personal pipeline job + scheduler + policy API).
+
+**Change request (2026-04-16 — Free My KOLs follow + digest filter):**  
+- **Cap `MySourceSubscription` theo plan:** Free **≤5**, Pro **≤10**, Power **≤50** — cùng bảng `my_source_subscriptions`, enforce tại subscribe API.  
+- **Flow 8:** Chỉ chạy cho **`plan IN ('pro','power')`**; Free có follow **không** sinh `signals.type=1`.  
+- **Digest `GET /api/signals?my_sources_only=true`:** Free → chỉ **`type=0`** (shared) có **ít nhất một** `source_id` thuộc danh sách follow; Pro/Power → **`type=1`** như đã lock (personal pipeline).  
+- Chi tiết: `SPEC-api.md`, `SPEC-core.md` (Permission Matrix, Flow 2/4), `IMPLEMENTATION-ROADMAP.md` (task 2.2.x, 3.1.3, 3.2.2), `CLAUDE.md`.
+
 ---
 
 ## Lock & human sign-off
 
 **Trạng thái:** LOCKED (có **amendment** sau review kỹ thuật / sản phẩm)  
 **Ngày lock gốc:** 2026-04-03  
-**Amendment:** 2026-04-06 — scheduler crawl **4×/ngày**; twitterapi.io **theo Báo cáo POC** (`advanced_search`); schema `last_crawled_at`, `users.is_admin`, `user_personal_feed_entries`; clustering **prompt-based**; **`TweetFetchProviderInterface`** + binding; **`audit_logs` §1.3.1** (event + write mechanism); prompt LLM tại **`docs/prompts/v1/`**; ON DELETE trong SQL — chi tiết trong `SPEC-core` / `SPEC-api` / `SPEC-plan`.  
+**Amendment:** 2026-04-06 — scheduler crawl **4×/ngày**; twitterapi.io **theo Báo cáo POC** (`advanced_search`); schema `last_crawled_at`, `users.is_admin`, **`signals.type` + `signals.user_id`** (personal signals; bảng `user_personal_feed_entries` **không** dùng — xem `SPEC-api` §9); clustering **prompt-based**; **`TweetFetchProviderInterface`** + binding; **`audit_logs` §1.3.1** (event + write mechanism); prompt LLM tại **`docs/prompts/v1/`**; ON DELETE trong SQL — chi tiết trong `SPEC-core` / `SPEC-api` / `SPEC-plan`. **CR 2026-04-15 part 2:** khóa Flow 8 + task **2.6.x** trong `IMPLEMENTATION-ROADMAP.md`. **CR 2026-04-16:** My KOLs Free cap **5** + digest filter shared; Flow 8 không chạy cho Free.  
 **Phạm vi lock:** Toàn bộ bundle `SPEC.md` + `SPEC-core.md` + `SPEC-api.md` + `SPEC-plan.md` (kèm Appendix A/B và Consistency Report nhúng trong `SPEC-plan.md`). Artifact đi kèm: **`IMPLEMENTATION-ROADMAP.md`**, **`CLAUDE.md`**.  
 **Người ký / reviewer:** HaoLuong  
 **Verdict:** PASS (baseline 2026-04-03); amendment 2026-04-06 **ghi nhận trong VALIDATION-LOG** (VR-6…VR-10) và các section đã nêu.

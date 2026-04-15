@@ -65,4 +65,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(MySourceSubscription::class);
     }
+
+    public function mySourceSubscriptions()
+    {
+        return $this->hasMany(\App\Models\MySourceSubscription::class, 'user_id');
+    }
 }

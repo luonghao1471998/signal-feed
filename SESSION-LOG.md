@@ -1,5 +1,153 @@
 # Session Log - 20260406-001
 
+---
+
+## 2026-04-15 - Task 2.4.5: Add My KOLs Filter Toggle to Digest View — ✅ COMPLETED
+
+**Status:** ✅ Hoàn thành - Đã test và verify đầy đủ
+
+**Objective:** Kết nối toggle "My KOLs only" trên DigestPage với API thật, phân biệt hành vi theo plan (Free vs Pro/Power), tuân theo CR 2026-04-16 với **Option B** (toggle chỉ cho Pro/Power).
+
+**What was done:**
+
+### Backend Changes ✅
+1. **SignalController.php** - Implemented `my_sources_only` logic:
+   - **Free plan:** Query `type=0` + `whereExists` filter theo `my_source_subscriptions`
+   - **Pro/Power plan:** 
+     - Ưu tiên query `type=1, user_id=X` (personal signals)
+     - Fallback về Free logic nếu chưa có type=1 data
+     - Set header `X-Personal-Signals: false` khi fallback
+     - Log warning khi fallback
+   - Giữ nguyên logic filters khác (date, category, search, pagination)
+
+2. **Database Migration:**
+   - Tạo migration `add_type_and_user_id_to_signals_table`
+   - Thêm column `type` (smallint, default 0)
+   - Thêm column `user_id` (bigint, nullable)
+   - Thêm index `idx_signals_type_user` cho performance
+   - Migration AN TOÀN: không drop/truncate, tất cả signals cũ tự động `type=0`
+
+### Frontend Changes ✅
+1. **signalService.ts:**
+   - Thêm param `mySourcesOnly?: boolean` vào `fetchSignals()`
+   - Truyền `my_sources_only=1` query param lên API
+   - Đọc header `x-personal-signals` từ response
+   - Thêm `meta.isPersonalSignals` vào return type
+
+2. **signal.ts (types):**
+   - Thêm `isPersonalSignals?: boolean` vào SignalMeta interface
+
+3. **DigestPage.tsx:**
+   - Thêm state `mySourcesOnly` và `showFallbackBanner`
+   - Fetch `subscriptionCount` lúc mount bằng `getCurrentSubscriptionCount()`
+   - Truyền `mySourcesOnly` vào API call
+   - Hiển thị fallback banner cho Pro/Power khi backend fallback
+   - Empty state riêng khi `mySourcesOnly=true` + 0 signals
+   - Toggle visibility: `subscriptionCount > 0 && user?.plan !== 'free'`
+   - Toggle state persist khi đổi date/category
+
+4. **FilterSheet.tsx:**
+   - Thêm prop `showMySourcesToggle: boolean`
+   - Conditional render toggle dựa theo prop
+
+5. **DigestFilterBar.tsx:**
+   - Thêm prop `showMySourcesToggle` (component này chưa dùng trong DigestPage)
+
+6. **sourceService.ts:**
+   - `getCurrentSubscriptionCount()` fallback sang `data.length` nếu API không trả `meta.total`
+
+### Design Decision: Option B - Toggle CHỈ cho Pro/Power ✅
+**Requirement thay đổi trong quá trình implement:**
+- Toggle "My KOLs only" **CHỈ HIỂN THỊ** khi:
+  - User có plan = `pro` HOẶC `power`
+  - VÀ user có ít nhất 1 subscription (`subscriptionCount > 0`)
+- **Free user KHÔNG BAO GIỜ thấy toggle**, dù có subscription
+- Lý do: My KOLs filter là premium feature, tạo động lực upgrade
+
+### Testing & Verification ✅
+**Manual Testing thực hiện:**
+1. ✅ Backend API test với curl:
+   - Free user + `my_sources_only=1` → đúng 4/7 signals (filter theo subscriptions)
+   - Không có header `X-Personal-Signals` (Free không cần fallback)
+   - Query performance OK, whereExists hoạt động đúng
+
+2. ✅ Frontend UI test với browser:
+   - Free user (luonghao1407) → toggle ẨN (đúng Option B)
+   - Pro user (sau khi đổi plan) → toggle HIỆN
+   - Toggle ON → 7 signals → 4 signals (đúng filter)
+   - Fallback banner hiển thị: "Showing shared signals from your KOLs — personalized digest coming soon"
+   - Info banner hiển thị: "4 signals today from My KOLs"
+   - Right sidebar cập nhật đúng: 4 signals, list top KOLs
+
+3. ✅ Database verification với tinker:
+   - User subscriptions: 4 KOLs (@goodfellow_ian, @AndrewYNg, @hardmaru, @emollick)
+   - Signals type=0: 7 records (default cho tất cả shared signals)
+   - Signals type=1: 0 records (đúng, chưa có Flow 8)
+   - Migration thành công, không mất data
+
+**Files modified:**
+- `app/Http/Controllers/Api/SignalController.php`
+- `database/migrations/YYYY_MM_DD_HHMMSS_add_type_and_user_id_to_signals_table.php`
+- `resources/js/services/signalService.ts`
+- `resources/js/services/sourceService.ts`
+- `resources/js/types/signal.ts`
+- `resources/js/pages/DigestPage.tsx`
+- `resources/js/components/FilterSheet.tsx`
+- `resources/js/components/DigestFilterBar.tsx`
+- `app/Models/User.php` (added `mySourceSubscriptions()` relationship)
+
+**Notes:**
+- Task này có thể ship ngay cho Pro/Power users mà không cần chờ Flow 8 (Task 2.6.x)
+- Khi Flow 8 hoàn thành, Pro/Power users sẽ tự động nhận personal signals thay vì fallback
+- Free users không có access vào My KOLs filter (premium feature gate)
+
+**Next tasks:**
+- Task 2.6.0: Migration cho personal pipeline infrastructure
+- Task 2.6.1: PersonalPipelineJob implementation (Flow 8)
+
+---
+
+## 2026-04-15 - Task 2.4.5: Add My KOLs Filter Toggle to Digest View — 📋 SPEC / IMPLEMENTATION PLAN
+
+**Status:** 📋 Planned — implementation pending
+**Objective:** Kết nối toggle "My KOLs only" trên DigestPage với API thật, phân biệt hành vi theo plan (Free vs Pro/Power), tuân theo CR 2026-04-16.
+
+**Dependencies (đã thỏa):**
+- ✅ Task 1.10.2: DigestPage + signalService đã có
+- ✅ Task 2.4.1: GET /api/my-sources (biết user có follow không)
+- ✅ Task 2.2.1: subscribe API (my_source_subscriptions đã có data)
+- ✅ DigestFilterBar.tsx + FilterSheet.tsx đã có toggle UI
+
+**CR 2026-04-16 — Hành vi theo plan:**
+- **Free:** toggle My KOLs → gửi `my_sources_only=true` → backend trả `type=0` signals được lọc theo source_id trong my_source_subscriptions → KHÔNG cần Flow 8
+- **Pro/Power:** toggle My KOLs → gửi `my_sources_only=true` → backend trả `type=1, user_id=X` (personal signals từ Flow 8) → CẦN Flow 8 (task 2.6.x) để có data
+- **Toggle chỉ hiển thị** khi user có ít nhất 1 subscription (mọi plan); ẩn với user chưa follow KOL nào
+
+**Scope:**
+1. Frontend: DigestPage truyền `mySourcesOnly` state đúng plan xuống API call
+2. Frontend: DigestFilterBar hiển thị/ẩn toggle dựa theo plan + subscription count
+3. Frontend: Empty state khi Pro/Power bật toggle nhưng Flow 8 chưa có data (`type=1`)
+4. Backend: SignalController — `my_sources_only=true`:
+   - Free → WHERE EXISTS (signal_sources JOIN my_source_subscriptions WHERE user_id) AND type=0
+   - Pro/Power → WHERE type=1 AND user_id=? (sau khi 2.6.1 có data)
+5. Backend: Fallback cho Pro/Power khi chưa có type=1 data (hiện tại) → tạm thời dùng Free logic, log warning
+
+**Files dự kiến thay đổi:**
+- `resources/js/pages/DigestPage.tsx`
+- `resources/js/components/DigestFilterBar.tsx`
+- `resources/js/services/signalService.ts`
+- `app/Http/Controllers/Api/SignalController.php`
+
+**Verification:**
+1. Free user bật toggle → signals có ít nhất 1 source trong follow list
+2. Free user bật toggle, chưa follow ai → empty state
+3. Pro/Power bật toggle → (trước 2.6.1) fallback shared; sau 2.6.1 → type=1
+4. Toggle ẩn với user không có subscription
+5. Toggle state persist khi đổi date/category filter
+6. All Sources (toggle off) → unaffected, type=0 toàn bộ
+
+**Note:** Task này có thể ship cho Free user mà không cần chờ 2.6.1. Pro/Power "My KOLs only" sẽ fallback tạm thời đến khi Flow 8 hoàn thành.
+
 ## Session: 2026-04-14 - Task 2.4.4: Build My KOLs Stats Screen #9 (React)
 
 **Status:** ✅ COMPLETED

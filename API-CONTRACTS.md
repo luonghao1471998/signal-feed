@@ -6,6 +6,8 @@
 **Re-sync:** 2026-04-14: **Option B** (user-added source → `pending_review`) — crawl chỉ **`status=active`**; thông báo user sau moderation có thể dùng **Resend** (transactional) hoặc in-app — chi tiết task **`IMPLEMENTATION-ROADMAP.md`** **3.3.4** / **2.1.3–2.1.4**; REST nội bộ vẫn lấy từ **`SPEC-api.md`**.  
 **Re-sync:** 2026-04-14 (CR Archive/Settings/Language): bổ sung nhóm task 2.5.x/3.5.x cho **Save to Archive**, **Settings persistence**, **i18n**. Không thêm vendor mới; i18n dùng dictionary nội bộ + user locale preference qua internal API.
 **Re-sync:** 2026-04-15: bổ sung onboarding Step 2 (`/onboarding/sources`) lọc KOL theo `my_categories`, cho phép follow ngay bằng internal API subscribe hoặc skip vào digest; không phát sinh vendor mới.
+**Re-sync:** 2026-04-15 (CR part 2): **Flow 8** — crawl cá nhân hóa (chỉ KOL user follow) vẫn dùng **cùng** twitterapi.io / **`TweetFetchProviderInterface`** (vd. `advanced_search` theo `from:user` / cửa sổ thời gian); kết quả lưu **`signals.type=1`** + `user_id` — xem `SPEC-core` Flow 8, `IMPLEMENTATION-ROADMAP` **2.6.x**.
+**Re-sync:** 2026-04-16: **My KOLs subscribe** — Free **≤5**, Pro **≤10**, Power **≤50** (`my_source_subscriptions`). Free **không** chạy Flow 8; digest `my_sources_only` = lọc shared — canonical **`SPEC-api.md`** REST + `SPEC.md` CR 2026-04-16.
 **Input:** Ideation v2.0 Section 7 + Domain Foundation (2.2a) + Architecture & State (2.2b) + Data Model (2.2c)  
 **Purpose:** Tóm tắt hợp đồng dịch vụ ngoài — **canonical = `SPEC-api.md` Section 10 + schema §9**. Nếu lệch, ưu tiên SPEC-api.
 
@@ -49,6 +51,7 @@
 
 **Notes:**
 - **Crawl chính:** hàng #1 theo POC — không lấy ví dụ draft cũ (`/tweets/user` only) làm nguồn truth.
+- **Crawl Flow 8 (personal / My KOLs):** cùng outbound #1 (hoặc tương đương trong provider), phạm vi query giới hạn theo tập `source_id`/`from:user` từ `my_source_subscriptions` — **không** vendor HTTP thứ hai.
 - **Ứng dụng:** `PipelineService` / job **không** import URL twitterapi trực tiếp — chỉ qua interface.
 - Endpoint #2 CRITICAL: Verify if `last_tweet_date` or `tweet_count_30d` available for Flow 1 validation.
 - Endpoint #3: Admin review workflow.

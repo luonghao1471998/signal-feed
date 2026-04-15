@@ -12,7 +12,7 @@
 **Source:** 2.2e Phần 1 (+ file header & External Constraints)
 **Last confirmed:** 2026-04-06 (amendment: crawl schedule, twitterapi POC, schema extensions — see changelog in Section 9 header notes)
 
-**Changelog 2026-04-06 (+ CR 2026-04-14, 2026-04-15):** (1) Scheduler/crawl: **4 lần/ngày** (không còn mô tả 96 lần crawl cho digest). (2) **twitterapi.io:** endpoint chính theo **Báo Cáo POC** — `advanced_search` (thay cho ví dụ `/tweets/user/{username}`). (3) Schema: `users.is_admin`, `sources.last_crawled_at`, `tweets.tweet_kind` (optional), bảng **`user_personal_feed_entries`** (Pro/Power personal feed). (4) **ON DELETE** các flag placeholder được **chốt** trong comment SQL. (5) **audit_logs:** danh mục `event_type` + **§1.3.1** cơ chế ghi (LOCK). (6) Anthropic **clustering:** Phase 1 = **prompt-based** (Section 10). (7) **Tweet fetch abstraction** — interface + binding (Section 10, trước Phần 2 §1). (8) **`API-CONTRACTS.md`** — đồng bộ tóm tắt dịch vụ ngoài; nếu lệch, **canonical = file này**. (9) **LLM prompts** — file versioned tại **`docs/prompts/v1/`** (classify, cluster, summarize, draft). (10) CR 2026-04-14: thêm `users.locale`, `user_archived_signals`, endpoint `/api/settings`, `/api/signals/{id}/archive`, `/api/archive/signals`. (11) CR 2026-04-15: onboarding Step 2 `/onboarding/sources` dùng source list filter theo `my_categories` + follow/skip.
+**Changelog 2026-04-06 (+ CR 2026-04-14, 2026-04-15, 2026-04-16):** (1) Scheduler/crawl: **4 lần/ngày** (không còn mô tả 96 lần crawl cho digest). (2) **twitterapi.io:** endpoint chính theo **Báo Cáo POC** — `advanced_search` (thay cho ví dụ `/tweets/user/{username}`). (3) Schema: `users.is_admin`, `sources.last_crawled_at`, `tweets.tweet_kind` (optional); **personal Pro/Power** = cột **`signals.type`** (0 shared / 1 personal) + **`signals.user_id`** — bảng `user_personal_feed_entries` **đã REMOVED** (thay thế bằng `signals`, xem comment SQL dưới). (4) **ON DELETE** các flag placeholder được **chốt** trong comment SQL. (5) **audit_logs:** danh mục `event_type` + **§1.3.1** cơ chế ghi (LOCK). (6) Anthropic **clustering:** Phase 1 = **prompt-based** (Section 10). (7) **Tweet fetch abstraction** — interface + binding (Section 10, trước Phần 2 §1). (8) **`API-CONTRACTS.md`** — đồng bộ tóm tắt dịch vụ ngoài; nếu lệch, **canonical = file này**. (9) **LLM prompts** — file versioned tại **`docs/prompts/v1/`** (classify, cluster, summarize, draft). (10) CR 2026-04-14: thêm `users.locale`, `user_archived_signals`, endpoint `/api/settings`, `/api/signals/{id}/archive`, `/api/archive/signals`. (11) CR 2026-04-15: onboarding Step 2 `/onboarding/sources` dùng source list filter theo `my_categories` + follow/skip. (12) **CR 2026-04-15 part 2:** Flow 8 personal pipeline → `signals` `type=1`; view My KOLs = `GET /api/signals?my_sources_only=true`; task roadmap **2.6.x**. (13) **CR 2026-04-16:** My KOLs subscribe cho **Free** (cap **5**), Pro **10**, Power **50**; `my_sources_only` với Free = lọc **`type=0`** theo follow; Flow 8 không chạy cho Free.
 
 — Schema & API Specs (2.2e)
 
@@ -197,7 +197,7 @@ CREATE TABLE my_source_subscriptions (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), -- Used for "first 10" selection in downgrade per 2.2b assumption #10
     UNIQUE(user_id, source_id)
 );
--- Cap enforcement: Pro max 10, Power max 50, Free = 0 — checked at API layer (2.2d Constraint #10), not DB
+-- Cap enforcement: Free max 5, Pro max 10, Power max 50 — checked at API layer (2.2d Constraint #10, CR 2026-04-16), not DB
 -- [assumption #6 from 2.2a]: Soft-deleted sources preserve subscriptions (user keeps following until manual unfollow)
 
 
@@ -1123,7 +1123,7 @@ ORDER BY date DESC, event_count DESC;
 | 7 | Plan sync from Stripe webhook ONLY | Stripe | User.plan field: (a) No direct updates (except initial='free'), (b) Changes via webhook OR admin override (separate endpoint + audit log: `admin_audit_log` table). Public User update: plan read-only. | Phần 2 Stripe webhooks, 2.2c User.plan |
 | 8 | Category filter OR logic [GAP FILLED] | Internal logic (2.2a conflict #24) | Digest filter: OR logic for multi-category signals. If user selects ["AI", "Crypto"] → show signals where categories array overlaps ANY. Postgres: `signal.categories && ARRAY[...]` (overlap operator). NOT AND logic. | 2.2a conflict #24, 2.2b conflict #16, Phần 3 Signal.categories |
 | 9 | Free tier schedule: Mon/Wed/Fri [GAP FILLED] | Internal logic (2.2a assumption #1) | Digest delivery: enforce Free=Mon/Wed/Fri only (3/week per Ideation §4). Check User.plan before send. Pro/Power=daily. Cron daily 8AM UTC, filter by plan+day. | 2.2a assumption #1, Ideation §4 Free tier |
-| 10 | My KOLs cap enforcement [GAP FILLED] | Internal logic (2.2a Permission Matrix) | Subscribe endpoint: check cap BEFORE create MySourceSubscription. Pro<10, Power<50. If exceeded → 400 `SUBSCRIPTION_CAP_EXCEEDED` + upgrade prompt. Atomic check (transaction lock or SELECT FOR UPDATE — race condition). | 2.2a Permission Matrix caps, 2.2c MySourceSubscription |
+| 10 | My KOLs cap enforcement [GAP FILLED] | Internal logic (2.2a Permission Matrix) | Subscribe endpoint: check cap BEFORE create MySourceSubscription. **Free≤5, Pro≤10, Power≤50** (CR 2026-04-16). If exceeded → 400 `SUBSCRIPTION_CAP_EXCEEDED` + upgrade prompt. Atomic check (transaction lock or SELECT FOR UPDATE — race condition). | 2.2a Permission Matrix caps, 2.2c MySourceSubscription |
 | 11 | Timezone: UTC only [GAP FILLED] | All services (return UTC) | Store all datetime fields as UTC (Postgres `timestamp with time zone`). User timezone = frontend concern (convert UTC→local for display). Backend API: return UTC ISO 8601 + 'Z' suffix. | Phần 3 timezone note, standard best practice |
 | 12 | Prompt engineering constraint [GAP FILLED] | Anthropic API | LLM responses must be structured JSON (enforced via prompt). Prompt design = contract constraint (affects parsing reliability). Prompts must specify: (a) JSON-only output, (b) Schema with required fields, (c) No preamble/markdown. Test prompts before deploy. | Phần 2 Anthropic notes, Phần 3 parsing dependencies |
 | 13 | Stripe price→plan env config [GAP FILLED] | Stripe | Deployment config: STRIPE_PRO_PRICE_ID, STRIPE_POWER_PRICE_ID required. Validate at app startup (throw error if missing). Unknown price IDs → log + alert + default 'free'. | Phần 3 Stripe mapping note, Phần 1 env config |
@@ -1428,7 +1428,7 @@ ORDER BY date DESC, event_count DESC;
 | Field | Detail |
 |-------|--------|
 | Route | `GET /api/sources` |
-| Actor | All authenticated users (Free: read-only, Pro/Power: can add/subscribe) |
+| Actor | All authenticated users (Free: browse + **subscribe** với cap 5; Pro/Power: browse + subscribe + **add source** `POST /api/sources`) |
 | Auth | Sanctum token |
 | Permission Guard | Free users: read-only access. Admin: can filter by status/type. |
 | Request | Query params: `?category_id=X` (filter by category), `?search=handle` (search by handle/display_name), `?status=X` (admin only), `?type=X` (admin only) |
@@ -1498,29 +1498,28 @@ ORDER BY date DESC, event_count DESC;
 
 ##### Subscribe to Source (Follow to My KOLs)
 **Source:** 2.2a Flow 2 (User Subscribes to Source)  
-**Accommodates:** 2.2d Constraint #10 (My KOLs cap enforcement), CR 2026-04-15 (onboarding follow)
+**Accommodates:** 2.2d Constraint #10 (My KOLs cap enforcement), CR 2026-04-15 (onboarding follow), **CR 2026-04-16** (Free cap 5)
 
 | Field | Detail |
 |-------|--------|
 | Route | `POST /api/sources/{id}/subscribe` |
-| Actor | Pro (cap 10), Power (cap 50) |
+| Actor | Free (cap **5**), Pro (cap **10**), Power (cap **50**) |
 | Auth | Sanctum token |
-| Permission Guard | User.plan IN ('pro', 'power'). Cap check: Pro <10, Power <50 current subscriptions. |
+| Permission Guard | Authenticated. Cap check theo `plan`: **Free &lt;5**, **Pro &lt;10**, **Power &lt;50** current `MySourceSubscription` rows. |
 | Request | None (source ID in URL) |
 | Success Response | `201 Created` — `{ data: { subscription_id, source: {id, handle, display_name}, subscribed_at } }` |
 | Error Responses | See table below |
 
 | HTTP Status | Error Code | Trigger | Source |
 |-------------|-----------|---------|--------|
-| 403 | FORBIDDEN | Free user attempts subscribe | 2.2a Permission Matrix (Free users: no My KOLs) |
-| 400 | SUBSCRIPTION_CAP_EXCEEDED | Pro user has 10 subscriptions, Power has 50 | 2.2a Flow 2 Guard (Pro ≤10, Power ≤50), 2.2d Constraint #10 |
+| 400 | SUBSCRIPTION_CAP_EXCEEDED | Đạt cap theo plan (Free 5 / Pro 10 / Power 50) | CR 2026-04-16, 2.2d Constraint #10 |
 | 409 | CONFLICT | Already subscribed (unique constraint user_id, source_id) | 2.2a Flow 2 Error Case |
 | 404 | NOT_FOUND | Source doesn't exist or status='deleted' | reference integrity |
 
 **Notes:**
 - Accommodates 2.2d Constraint #10 (atomic cap check via SELECT FOR UPDATE to prevent race condition)
-- Error response for cap exceeded includes upgrade prompt: `"message": "You've reached your limit (10). Upgrade to Power (50) or unfollow others"`
-- Endpoint được dùng ở cả Browse screen và onboarding Step 2 (`/onboarding/sources`).
+- Error response for cap exceeded: prompt nâng cấp khi Free/Pro đầy; ví dụ Free: `"Upgrade to Pro for up to 10 follows"`; Power: unfollow hoặc thông báo đã đạt 50.
+- Endpoint được dùng ở cả Browse screen và onboarding Step 2 (`/onboarding/sources`) — **Free mặc định có thể follow** trong giới hạn 5.
 
 ---
 
@@ -1531,7 +1530,7 @@ ORDER BY date DESC, event_count DESC;
 | Field | Detail |
 |-------|--------|
 | Route | `DELETE /api/sources/{id}/subscribe` |
-| Actor | Pro, Power (user who subscribed) |
+| Actor | Free, Pro, Power (user who subscribed) |
 | Auth | Sanctum token |
 | Permission Guard | MySourceSubscription.user_id = authenticated user (self-owned) |
 | Request | None |
@@ -1554,20 +1553,17 @@ ORDER BY date DESC, event_count DESC;
 | Field | Detail |
 |-------|--------|
 | Route | `GET /api/my-sources` |
-| Actor | Pro, Power |
+| Actor | All authenticated users (Free + Pro + Power) |
 | Auth | Sanctum token |
-| Permission Guard | User.plan IN ('pro', 'power') |
+| Permission Guard | Self — list `MySourceSubscription` của user hiện tại |
 | Request | None |
-| Success Response | `200 OK` — `{ data: [{ id, handle, display_name, account_url, categories, subscribed_at, stats: { signal_count, last_active_date } }] }` — no pagination (cap 10/50) |
-| Error Responses | See table below |
-
-| HTTP Status | Error Code | Trigger | Source |
-|-------------|-----------|---------|--------|
-| 403 | FORBIDDEN | Free user attempts access | 2.2a Permission Matrix (Free: no My KOLs) |
+| Success Response | `200 OK` — `{ data: [{ id, handle, display_name, account_url, categories, subscribed_at, stats: { signal_count, last_active_date } }] }` — no pagination (cap 5 / 10 / 50 theo plan) |
+| Error Responses | — (authenticated only) |
 
 **Notes:**
 - Stats (signal_count, last_active_date) computed on-demand per 2.2c Phần 2
 - Empty state if zero subscriptions: `{ data: [] }`
+- **CR 2026-04-16:** Free user có thể có tối đa **5** bản ghi subscription.
 
 ---
 
@@ -1637,7 +1633,8 @@ ORDER BY date DESC, event_count DESC;
 ##### List Signals (Digest View)
 **Source:** 2.2a F13 Signal Digest (Web) — All, F14 Signal Digest — My KOLs, Flow 4  
 **Accommodates:** 2.2d Constraint #8 (category filter OR logic), **Decision 1** (API Guard enforcement for Free tier)  
-**Amendment 2026-04-06:** Support personal signals (type=1) for Pro/Power users
+**Amendment 2026-04-06:** Support personal signals (type=1) for Pro/Power users  
+**Amendment CR 2026-04-16:** Free có My KOLs (cap 5); `my_sources_only` cho Free = lọc shared theo follow
 
 | Field | Detail |
 |-------|--------|
@@ -1645,28 +1642,27 @@ ORDER BY date DESC, event_count DESC;
 | Actor | All authenticated users |
 | Auth | Sanctum token |
 | Permission Guard | **Decision 1 - API Guard:** Free users → check `user.plan === 'free' AND day_of_week NOT IN ['Mon', 'Wed', 'Fri']` → return `403 FORBIDDEN`. Pro/Power: full filters enabled. |
-| Request | Query params: `?date=YYYY-MM-DD` (default: today), `?category_id[]=X&category_id[]=Y` (OR logic filter), `?my_sources_only=true` (Pro/Power only), `?topic_tag=X` (Pro/Power only) |
+| Request | Query params: `?date=YYYY-MM-DD` (default: today), `?category_id[]=X&category_id[]=Y` (OR logic filter), `?my_sources_only=true` (**mọi plan** — semantics khác nhau theo CR 2026-04-16), `?topic_tag=X` (Pro/Power only) |
 | Success Response | `200 OK` — `{ data: [{ id, title, summary, source_count, rank_score, categories: [{id, name}], topic_tags: [string], sources: [{handle, display_name, tweet_url, is_my_source?: bool}], draft_tweets: [{ id, text }], date, type, is_personal }], meta: {...} }` — sorted by rank_score DESC. **Decision 3:** `draft_tweets` EMPTY for Free users. |
 | Error Responses | See table below |
 
 | HTTP Status | Error Code | Trigger | Source |
 |-------------|-----------|---------|--------|
 | 403 | FORBIDDEN | **Decision 1:** Free user attempts access on Tue/Thu/Sat/Sun. Message: "Free tier: digest available Mon/Wed/Fri only. Upgrade to Pro for daily access." | Decision 1 |
-| 403 | FORBIDDEN | Free user attempts my_sources_only filter | 2.2a Permission Matrix (Free: All Sources view only, no My KOLs) |
 | 422 | VALIDATION_ERROR | Date format invalid | platform invariant |
 
 **Notes:**
 - **Decision 1 (API Guard):** Free tier enforcement at API layer. Check plan + day_of_week → 403 if not Mon/Wed/Fri. Clear error message.
 - **Decision 2 (Dedicated Page):** This endpoint returns list view only. For signal detail, client calls `GET /api/signals/{id}`.
 - **Decision 3 (API Strip):** Backend strips `draft_tweets` for Free users before serialization (array empty in response).
-- **Personal Signals (2026-04-06):**
-  - Free users: ONLY see `type=0` (shared signals from 500 KOL pool)
-  - Pro/Power users:
-    - **`my_sources_only=false` (default):** See shared signals (`type=0`)
-    - **`my_sources_only=true`:** See personal signals (`type=1` WHERE `user_id=auth_user`)
-  - Query: `WHERE (type = 0) OR (type = 1 AND user_id = ?)` depending on `my_sources_only` param
+- **Signals list semantics (CR 2026-04-16):**
+  - **Free + `my_sources_only=false` (default):** chỉ `type=0` (shared), như cũ.
+  - **Free + `my_sources_only=true`:** chỉ `type=0` **và** signal có **ít nhất một** `signal_sources.source_id` ∈ tập `source_id` user đang follow (JOIN subscriptions). **Không** trả `type=1`. Nếu user chưa follow ai → `{ data: [] }`.
+  - **Pro/Power + `my_sources_only=false`:** `type=0` only.
+  - **Pro/Power + `my_sources_only=true`:** chỉ `type=1` WHERE `user_id=auth_user` (output Flow 8 — không trộn `type=0` trong mode này trừ khi product chỉ định khác; mặc định spec: **chỉ personal** cho paid My KOLs view).
+- **Clarification:** Free **không** nhận pipeline Flow 8; filter trên chỉ là **shared digest** thu hẹp theo follow.
 - Category filter: OR logic via Postgres array overlap (`WHERE signals.categories && ARRAY[selected_ids]`) — accommodates 2.2d Constraint #8
-- sources array: `is_my_source` flag added for Pro/Power users (TRUE if source in user's My KOLs, NULL for Free users)
+- sources array: `is_my_source` = TRUE khi `source_id` ∈ subscriptions của user (mọi plan có follow)
 
 ---
 
@@ -1679,40 +1675,22 @@ ORDER BY date DESC, event_count DESC;
 | Route | `GET /api/signals/{id}` |
 | Actor | All authenticated users |
 | Auth | Sanctum token |
-| Permission Guard | None (signals are shared, no user ownership) |
+| Permission Guard | **`type=0`:** mọi user đã auth (shared). **`type=1` (personal):** chỉ user có `signals.user_id === auth_user.id`; nếu khác → **`403 FORBIDDEN`** |
 | Request | None |
 | Success Response | `200 OK` — `{ data: { id, title, summary, source_count, rank_score, categories, topic_tags, sources: [{ handle, display_name, tweet_url, tweet_text, posted_at }], draft_tweets: [{ id, text }], date, published_at } }` — full signal object with all source attribution |
 | Error Responses | See table below |
 
 | HTTP Status | Error Code | Trigger | Source |
 |-------------|-----------|---------|--------|
+| 403 | FORBIDDEN | Signal `type=1` và `user_id` ≠ authenticated user | CR 2026-04-15 part 2 |
 | 404 | NOT_FOUND | Signal ID doesn't exist | reference integrity |
 
 **Notes:**
 - **Decision 2 (Dedicated Page):** This endpoint returns full signal detail for dedicated page view (not modal). Client calls this when user clicks signal row.
 - **Decision 3 (API Strip):** `draft_tweets` array is **EMPTY** for Free users (backend strips before serialization). Pro/Power users see full draft_tweets array.
 - Source attribution: all tweets + sources linked via signal_sources table (2.2a F18)
-- No permission check beyond auth — signals are public to all authenticated users
-
----
-
-##### Personal digest (Pro / Power) — `user_personal_feed_entries`
-**Source:** 2026-04-06 review — shared `signals` may omit My KOLs-only tweets; this feed fills gap per user/day.  
-**Sprint:** Implementation **Sprint 2+** (after shared wedge stable).
-
-| Field | Detail |
-|-------|--------|
-| Route | `GET /api/me/personal-digest` |
-| Actor | Pro, Power |
-| Auth | Sanctum token |
-| Permission Guard | `User.plan IN ('pro','power')` **AND** row exists or job created `user_personal_feed_entries` for `digest_date` |
-| Request | Query: `?date=YYYY-MM-DD` (default: today) |
-| Success Response | `200 OK` — `{ data: { date, items: [...], referenced_signal_ids: [] } }` — shape aligns with `user_personal_feed_entries.items` JSONB |
-| Error Responses | `403` FORBIDDEN (Free); `404` if not yet generated (optional empty state `{ data: { items: [] } }`) |
-
-**Notes:**
-- Builder job: after shared Pipeline + My KOLs membership, optionally run LLM to merge/rank items for **this user only**.
-- Not a replacement for shared digest — **additive** for paid retention.
+- **`type=0`:** readable by any authenticated user. **`type=1`:** chỉ owner (Permission Guard ở trên).
+- **My KOLs list view:** dùng **`GET /api/signals?my_sources_only=true`** — không bắt buộc endpoint riêng `GET /api/me/personal-digest` (bảng `user_personal_feed_entries` đã REMOVED — `SPEC-api` §9 SQL).
 
 ---
 
@@ -1723,20 +1701,17 @@ ORDER BY date DESC, event_count DESC;
 | Field | Detail |
 |-------|--------|
 | Route | `GET /api/my-sources/stats` |
-| Actor | Pro, Power |
+| Actor | All authenticated users (Free + Pro + Power) |
 | Auth | Sanctum token |
-| Permission Guard | User.plan IN ('pro', 'power') |
+| Permission Guard | Authenticated — stats tính trên subscriptions hiện có (shared-signal intersection cho mọi plan) |
 | Request | Query params: `?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD` (default: last 7 days) |
 | Success Response | `200 OK` — `{ data: { total_signals_today: int, top_active_sources: [{ source_id, handle, signal_count }], trend_7day: [{ date, signal_count }], per_category_breakdown: [{ category_id, category_name, signal_count }] } }` |
-| Error Responses | See table below |
-
-| HTTP Status | Error Code | Trigger | Source |
-|-------------|-----------|---------|--------|
-| 403 | FORBIDDEN | Free user attempts access | 2.2a Permission Matrix |
+| Error Responses | `422` nếu tham số date không hợp lệ |
 
 **Notes:**
 - Stats computed on-demand per 2.2c Phần 2 (no pre-aggregation Phase 1)
 - Empty state if zero My KOLs subscriptions: all counts = 0
+- **CR 2026-04-16:** Free user có subscriptions (≤5) vẫn gọi được endpoint này.
 
 ---
 

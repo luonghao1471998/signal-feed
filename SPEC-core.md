@@ -120,8 +120,8 @@ SignalFeed aggregates signal from noise across 500+ curated tech/crypto/marketin
 | In Scope | Out of Scope | Source |
 |----------|-------------|--------|
 | 500 KOL source pool curated by platform | User-added unlimited sources Phase 1 | Strategy Wedge Feature #1 |
-| **User-added sources to shared pool (no cap on adding)** — Pro/Power users can add KOLs to shared pool for all users to benefit. Cap applies ONLY to My KOLs subscriptions (Pro: 10, Power: 50), NOT to the act of creating a new Source in the pool. **H1 (2026-04-02):** On add, `MySourceSubscription` is created only if the user is under cap; if at cap, the Source is still created (pool grows) and the user may Follow via Flow 2 after freeing a slot. | User bypassing cap by finding existing sources in pool — this is INTENDED behavior (contribute to commons = no penalty). | 2.2a assumption #2 + Flow 1 H1. **Clarification:** Add to pool = altruistic contribution. My KOLs list = personal quota (capped); optional subscribe-at-add when under cap. |
-| AI classify + cluster + summarize pipeline (shared output for all users same category) | **Full** AI personalization mọi ranking Phase 1 | Strategy V1 MUST-NOT-HAVE #4 — **Ngoại lệ 2026-04-06:** Pro/Power **personal digest slice** (`user_personal_feed_entries` + job sau shared pipeline) **Sprint 2+** — không đổi shared ranking, chỉ bổ sung feed theo My KOLs |
+| **User-added sources to shared pool (no cap on adding)** — Pro/Power users can add KOLs to shared pool for all users to benefit. Cap applies ONLY to My KOLs subscriptions (**Free: 5**, Pro: 10, Power: 50 — CR 2026-04-16), NOT to the act of creating a new Source in the pool. **H1 (2026-04-02):** On add, `MySourceSubscription` is created only if the user is under cap; if at cap, the Source is still created (pool grows) and the user may Follow via Flow 2 after freeing a slot. | User bypassing cap by finding existing sources in pool — this is INTENDED behavior (contribute to commons = no penalty). | 2.2a assumption #2 + Flow 1 H1. **Clarification:** Add to pool = altruistic contribution. My KOLs list = personal quota (capped); optional subscribe-at-add when under cap. |
+| AI classify + cluster + summarize pipeline (shared output for all users same category) | **Full** AI personalization mọi ranking Phase 1 | Strategy V1 MUST-NOT-HAVE #4 — **Ngoại lệ 2026-04-06 + CR 2026-04-15:** Pro/Power **personal signals** (`signals.type=1`, `user_id`) sinh bởi **Flow 8** / job sau shared pipeline **Sprint 2+** — không đổi shared ranking (`type=0`), chỉ bổ sung hàng trong `signals` cho My KOLs |
 | Daily digest web UI (mobile-first, card-based) | Native mobile app Phase 1 | 2.1 NFR #4 — PWA Phase 1, native app Phase 2 |
 | Twitter OAuth login only | Email/password, Google, GitHub auth | 2.1 NFR — OAuth X.com single provider |
 | Email digest delivery (Pro/Power) | Real-time Telegram alerts Phase 1 — defer to Phase 2 per 2.1 NFR. **Clarification:** "Real-time" in Strategy = misnomer. Pipeline runs **4×/day** → digest latency theo slot crawl + queue, không phải push tức thời. Phase 2 = "faster notification via Telegram". | Strategy Wedge Features — email Yes, Telegram defer per 2.1 |
@@ -336,7 +336,7 @@ No multi-step logic (không có "if X then Y else Z" business logic).
 Example:
 
 ✅ Bypass OK: PUT /user/preferences → $user->update(['delivery_preferences' => $validated]) — self-owned field, no side effect.
-❌ Bypass KHÔNG OK: POST /sources/{id}/follow → tạo MySourceSubscription + check cap (Pro=10, Power=50) → có guard + potential side effect (stats) → phải qua SubscribeToSourceAction.
+❌ Bypass KHÔNG OK: POST /sources/{id}/follow → tạo MySourceSubscription + check cap (**Free=5, Pro=10, Power=50**) → có guard + potential side effect (stats) → phải qua SubscribeToSourceAction.
 
 
 Anti-patterns Cần Tránh
@@ -401,7 +401,7 @@ Source: Domain 2.2a Entity Relationship (User.plan), F02 (Plan & Billing)
 Summary: User.plan enum: free, pro, power. No complex lifecycle — plan changes via Stripe webhook (subscription created/canceled/updated). Not a state machine — just plan field update + timestamp.
 Side effects khi plan changes:
 
-Plan downgrade (Pro → Free): MySourceSubscription cap enforcement (keep first 10, unsubscribe rest) [based on assumption #10].
+Plan downgrade (Pro → Free): MySourceSubscription cap enforcement (keep first **5** by `created_at ASC`, unsubscribe rest) [CR 2026-04-16]. Power → Pro: keep first **10**.
 Plan upgrade (Free → Pro): unlock features (My KOLs, drafts, daily digest).
 
 No state machine needed. Plan field + feature gates in code (middleware/policy).
@@ -504,11 +504,10 @@ Purpose: Domain spec for AI coding tools (Claude Code, Cursor, Antigravity)
 | Source | Source Pool | Tweets; SignalSources (M:N) | 1:N | Type enum: `default` (platform curated) or `user` (user-added). Must have ≥1 category. Account must exist + be public on X. Soft delete (preserve history). | Section 3, F04, F05 |
 | SourceCategory | — | M:N junction | — | Links Source ↔ Category. 1 source can have multiple categories. | Section 3, F03 |
 | User | Platform | MySourceSubscriptions; Digests (view history) | 1:N | `plan` enum: `free`, `pro`, `power`. Has `my_categories` (array of category IDs at onboarding). Has `delivery_preferences` (json: email, telegram, web). | Section 3, Section 4, F01, F02 |
-| MySourceSubscription | User | — (junction) | M:N junction | Links User ↔ Source for personal watchlist. Pro max 10, Power max 50, Free = 0. Created via follow action. | Section 3, F06 |
+| MySourceSubscription | User | — (junction) | M:N junction | Links User ↔ Source for personal watchlist. **Free max 5**, Pro max 10, Power max 50. Created via follow action. | Section 3, F06; CR 2026-04-16 |
 | UserArchivedSignal | User | — (junction) | M:N junction | Links User ↔ Signal for personal archive (save/unsave from digest). Unique `(user_id, signal_id)`; supports `/archive` list. | F20 + CR 2026-04-14 |
 | Tweet | Source | SignalSources (M:N) | N:1 (Source) → 1:N (Signals) | Raw tweet data from twitterapi.io. Fields: `tweet_id` (unique), text, timestamp, url; optional `tweet_kind`. Classification: `signal_score` (0–1), `is_signal` (boolean). Ingested on **scheduled crawl** (4×/day). | Section 3, F07, F08 |
-| Signal | Pipeline (system-generated) | SignalSources (M:N); DraftTweet | 1:N | `cluster_id` (unique), title, summary, `source_count`, `rank_score` (0–1), date. `categories` array (inferred from sources). `topic_tags` (1–3 AI tags). Phase 1: **shared** digest; per-user **supplement** = `user_personal_feed_entries` (Pro/Power, Sprint 2+). | Section 3, F09, F10, F11 |
-| UserPersonalFeedEntry | User | — | 1:1 per (user, date) | `SPEC-api` table `user_personal_feed_entries` — JSON `items` for Pro/Power when shared clusters miss My KOLs-only signal. Built **after** shared pipeline. | Amendment 2026-04-06 |
+| Signal | Pipeline (system-generated) | SignalSources (M:N); DraftTweet | 1:N | `type`: **0** = shared digest (mọi user); **1** = personal (My KOLs / Flow 8). `user_id` NULL khi `type=0`, bắt buộc khi `type=1`. `cluster_id` scoped theo `UNIQUE (type, user_id, cluster_id, date)` trong `SPEC-api` §9. Phase 1 wedge: chỉ `type=0`. Sprint 2+: thêm `type=1` per Pro/Power. | Section 3, F09, F10, F11; Flow 8 |
 | SignalSource | — | M:N junction | — | Links Signal ↔ Tweet ↔ Source. Preserves attribution: which KOL said what (tweet) in which event (signal). | Section 3, F18 |
 | DraftTweet | Signal | — | 1:1 | AI-generated ready-to-post tweet per signal. Fields: text (280 chars max), tone (category-aware). 1 draft per signal Phase 1. | Section 3, F12 |
 | Digest | Platform (system-generated) | Signals (view reference, not ownership) | 1:N | Daily compilation. Fields: date (unique per day), `created_at`. Phase 1: single shared digest per day; filter at view time per user. Not user-owned. | Section 3, F13, F14 |
@@ -518,7 +517,7 @@ Notes:
 
 Pipeline is NOT an entity — it's a scheduled background process (**4× daily** crawl + classify + cluster + …).
 SourcePool is a logical concept, not a separate table — refers to all Source records.
-Phase 1: Signals are **shared**; Pro/Power **personal digest slice** is additive (`user_personal_feed_entries`), not a replacement — Sprint 2+.
+Phase 1: Signals are **shared** (`type=0`); Pro/Power **personal signals** (`type=1` + `user_id`) là **additive**, không thay digest shared — Sprint 2+ (Flow 8).
 
 ### Phần 4 — Feature Coverage Check (from 2.2a — preserved)
 
@@ -558,11 +557,11 @@ Summary: 18 ✓ Covered, 4 ⚠ Partial. Partial features còn lại chủ yếu 
 | Entity | Free User | Pro User | Power User | Admin | Source |
 |--------|-----------|----------|------------|-------|--------|
 | SourceCategory | R (all 10) | R (all 10) | R (all 10) | R | Section 4, F03 |
-| Source | R (browse pool only) | R (browse + search pool), C (add new to pool, cap none [assumption #2]), assign (follow My Sources, cap 10) | R, C (add new), assign (cap 50) | C, R, U (edit categories), D (soft delete), approve (review user-added) | Section 4, Section 5 (Manage My Sources), F04, F05, F06 |
-| MySourceSubscription | — (none) | C (follow), D (unfollow) — cap 10 total | C, D — cap 50 total | R (view all users' lists) | Section 4, F06 |
+| Source | R (browse pool), assign (follow My Sources, **cap 5**) | R (browse + search pool), C (add new to pool, cap none [assumption #2]), assign (follow, cap 10) | R, C (add new), assign (cap 50) | C, R, U (edit categories), D (soft delete), approve (review user-added) | Section 4, Section 5 (Manage My Sources), F04, F05, F06; CR 2026-04-16 |
+| MySourceSubscription | C (follow), D (unfollow) — **cap 5** total | C, D — cap 10 total | C, D — cap 50 total | R (view all users' lists) | Section 4, F06; CR 2026-04-16 |
 | UserArchivedSignal | C/R/D (self archive list) | C/R/D (self archive list) | C/R/D (self archive list) | R (for moderation/debug only) | F20 + CR 2026-04-14 |
 | Tweet | — | — | — | R (spot-check for accuracy) | Section 4, F22 |
-| Signal | R (3 digests/week, All Sources only, no topic filter [assumption #1]) | R (daily, filter category + topic + My Sources toggle) | R (daily + Telegram alerts) | R, U (manual rank override [assumption #3]) | Section 4, F13, F14, F17 |
+| Signal | R (3 digests/week; **My KOLs toggle** = lọc shared `type=0` theo follow, không `type=1` [CR 2026-04-16]) | R (daily, filter category + topic + My Sources toggle → **`type=1` personal**) | R (daily + Telegram alerts) | R, U (manual rank override [assumption #3]) | Section 4, F13, F14, F17 |
 | DraftTweet | — (none) | R (view + copy) | R (view + copy) | R | Section 4, Section 5 (Daily Creation), F12, F19 |
 | Digest | R (3/week, web only) | R (daily, web + email) | R (daily, web + email + Telegram) | R | Section 4, F13, F16, F17 |
 | UserInteraction | C (log clicks/skips — Phase 1 capture only, no usage) | C (log all actions) | C (log all actions) | R (analytics dashboard [assumption #4]) | Product Strategy Section 5 Rule #1 |
@@ -572,7 +571,7 @@ Phase 1 Notes:
 
 **Admin access (2026-04-06):** `users.is_admin = true` — middleware on `/api/admin/*` (see `SPEC-api`). Bootstrap admin via env allowlist or one-time seeder.
 
-**Free tier enforcement:** **Both** (1) API middleware returns **403** for Pro-only routes (My KOLs, drafts, personal digest, copy draft) and (2) digest delivery job skips non–Mon/Wed/Fri for Free users [Constraint #9].
+**Free tier enforcement:** **Both** (1) API middleware returns **403** for Pro-only routes (**drafts, copy draft**, add source `POST /api/sources`, v.v.) — **My KOLs subscribe/list/stats** cho Free **được phép** với cap 5 [CR 2026-04-16] — và (2) digest delivery job skips non–Mon/Wed/Fri for Free users [Constraint #9].
 
 Free users: 3 digests/week = access restricted to Mon/Wed/Fri digests [based on assumption #1].
 Source add cap: Ideation F05 says "cap theo plan" but doesn't specify cap for adding to shared pool vs subscribing. Assumption #2: no cap on adding to pool (benefits all users), cap only on My Sources subscriptions.
@@ -593,7 +592,7 @@ Source: Section 5 (Manage My Sources), F05
 | Actor | Pro User, Power User |
 | Action | Add @handle to shared SourcePool |
 | Precondition | User authenticated, plan ∈ {pro, power}, @handle not already in pool |
-| Steps | 1. User inputs @handle in Add Source form → 2. System validates: (a) account exists on X, (b) public, (c) ≥1 tweet in last 30 days [assumption #5] → 3. User selects 1+ categories → 4. Creates Source (`type='user'`, `added_by=user_id`, **`status='pending_review'`** — Option B, Section 4) → 5. SourceCategory links → 6. If My KOLs count &lt; plan cap (Pro &lt;10, Power &lt;50), create MySourceSubscription; if at cap, skip subscription (H1) → 7. Admin approve → `active` → **next scheduled crawl** includes source |
+| Steps | 1. User inputs @handle in Add Source form → 2. System validates: (a) account exists on X, (b) public, (c) ≥1 tweet in last 30 days [assumption #5] → 3. User selects 1+ categories → 4. Creates Source (`type='user'`, `added_by=user_id`, **`status='pending_review'`** — Option B, Section 4) → 5. SourceCategory links → 6. If My KOLs count &lt; plan cap (**Free &lt;5**, Pro &lt;10, Power &lt;50), create MySourceSubscription; if at cap, skip subscription (H1) → 7. Admin approve → `active` → **next scheduled crawl** includes source |
 | Guards | @handle format (alphanumeric + underscore, 1–15 chars); account public (API); ≥1 category; Pro/Power only; no cap on adding to pool; cap gates only optional subscribe in step 6 and Flow 2 [assumption #2, H1] |
 | Result | Source in pool for all users; My KOLs subscription at add only when under cap; at cap, user may Follow via Flow 2 after freeing a slot |
 | Error Cases | Account missing → "Account not found on X"; private → "Cannot add private accounts"; no tweets 30d → "Account appears inactive" [assumption #5]; already in pool → subscribe flow; no category → validation error |
@@ -603,12 +602,12 @@ Source: Section 5 (Manage My Sources), F06
 
 | Field | Detail |
 |-------|--------|
-| Actor | Pro User (cap 10), Power User (cap 50) |
+| Actor | Free User (cap **5**), Pro User (cap **10**), Power User (cap **50**) |
 | Action | Follow source from pool into personal My Sources list |
-| Precondition | User authenticated, plan ∈ {pro, power}, source in pool, not already subscribed |
-| Steps | 1. User clicks Follow → 2. Cap check: Pro ≤10, Power ≤50 → 3. Create MySourceSubscription(user_id, source_id) → 4. UI: Following, source in My Sources tab |
-| Guards | Pro: subscription count &lt;10; Power: &lt;50; source exists; no duplicate follow |
-| Result | MySourceSubscription created; signals from source appear in My Sources digest filter |
+| Precondition | User authenticated, source in pool `active`, not already subscribed; cap theo plan (CR 2026-04-16) |
+| Steps | 1. User clicks Follow → 2. Cap check: Free ≤5, Pro ≤10, Power ≤50 → 3. Create MySourceSubscription(user_id, source_id) → 4. UI: Following, source in My Sources tab |
+| Guards | Free: &lt;5; Pro: &lt;10; Power: &lt;50; source exists; no duplicate follow |
+| Result | MySourceSubscription created; **Pro/Power:** `type=1` view qua Flow 8; **Free:** chỉ dùng để lọc digest shared (`type=0`) khi bật My KOLs filter |
 | Error Cases | Cap exceeded → upgrade prompt; already following → ignore or message; source soft-deleted → hide from browse, keep subscription [assumption #6] |
 
 Flow 2A: Onboarding Step 2 — Follow Suggested KOLs (or Skip)  
@@ -620,7 +619,7 @@ Source: Screen #4 `/onboarding/sources`, Strategy onboarding 2-step
 | Action | Xem danh sách KOL `status='active'` phù hợp `my_categories`, follow ngay hoặc skip |
 | Precondition | User đã có `my_categories` (1-3 category IDs) |
 | Steps | 1. Mở `/onboarding/sources` → 2. System lấy source list theo `my_categories` → 3. User click Follow (gọi Flow 2 subscribe API) cho từng KOL muốn theo dõi → 4. User chọn Continue/Skip → vào `/digest` |
-| Guards | Chỉ nguồn `active`; apply cap Pro/Power như Flow 2; skip luôn khả dụng để không chặn onboarding |
+| Guards | Chỉ nguồn `active`; apply cap **Free 5 / Pro 10 / Power 50** như Flow 2; skip luôn khả dụng để không chặn onboarding |
 | Result | User có thể có My KOLs subscriptions ngay từ onboarding, hoặc bỏ qua để vào digest |
 | Error Cases | 0 nguồn phù hợp → hiển thị empty state + nút skip; cap exceeded → show upgrade/unfollow message |
 
@@ -632,23 +631,24 @@ Source: Section 3 (Pipeline), F07–F12
 | Actor | System (cron **4×/day** + queue workers) |
 | Action | Process raw tweets → ranked signals with drafts |
 | Precondition | ≥1 source in pool; twitterapi.io + LLM reachable |
-| Steps | 1. **Crawl:** fetch new tweets per source since `last_crawled_at` (twitterapi **advanced_search** / POC path), staggered loop, rate-limit safe → 2. Classify: signal_score (0–1), is_signal, threshold ≥0.7 [assumption #7] → 3. Cluster is_signal tweets **[prompt-based LLM — CHỐT 2026-04-06]** [assumption #8] → 4. Summarize: title (≤10 words), summary (50–100 words), topic_tags (1–3) → 5. Rank: rank_score = f(source_count, avg_signal_score, recency_decay) [assumption #9] — **initial weights in `config/signal_rank.php`, tune after dogfood** → 6. Draft ≤280 chars, category tone → 7. Create Signal + SignalSource + DraftTweet → 8. Attach to today’s Digest → 9. *(Sprint 2+)* Job: fill **`user_personal_feed_entries`** for Pro/Power |
+| Steps | 1. **Crawl:** fetch new tweets per source since `last_crawled_at` (twitterapi **advanced_search** / POC path), staggered loop, rate-limit safe → 2. Classify: signal_score (0–1), is_signal, threshold ≥0.7 [assumption #7] → 3. Cluster is_signal tweets **[prompt-based LLM — CHỐT 2026-04-06]** [assumption #8] → 4. Summarize: title (≤10 words), summary (50–100 words), topic_tags (1–3) → 5. Rank: rank_score = f(source_count, avg_signal_score, recency_decay) [assumption #9] — **initial weights in `config/signal_rank.php`, tune after dogfood** → 6. Draft ≤280 chars, category tone → 7. Create **`signals` rows `type=0`** + SignalSource + DraftTweet → 8. Attach to today’s Digest → 9. *(Sprint 2+)* Chạy **Flow 8** (job riêng — roadmap **2.6.x**): sinh **`signals` `type=1`** cho từng user Pro/Power có My KOLs |
 | Guards | Threshold ≥0.7; cluster ≥2 sources OR signal_score ≥0.9 single-source [assumption #10]; summary cites tweets; draft not exact copy [assumption #11] |
 | Result | ~5–15 signals/day (estimate), ranked, ready for digest |
 | Error Cases | Rate limit → retry + backoff, alert if &gt;3 consecutive fails; LLM error → skip cycle, alert, retry next; 0 signals 24h → alert; &gt;50 signals/day → alert |
 
 Flow 4: User Views My Sources Digest (Filtered)  
-Source: Section 5 (My Sources Digest View), F14, F15
+Source: Section 5 (My Sources Digest View), F14, F15  
+**CR 2026-04-16:** Free được dùng toggle với semantics lọc **shared** (`type=0`).
 
 | Field | Detail |
 |-------|--------|
-| Actor | Pro User, Power User |
+| Actor | Free, Pro, Power (có thể có subscriptions theo cap plan) |
 | Action | Toggle "My Sources Only" on digest |
-| Precondition | Authenticated, plan ∈ {pro, power}, ≥1 My Sources subscription |
-| Steps | 1. Open Digest (All, filtered by my_categories) → 2. Toggle My Sources Only → 3. Filter signals where SignalSources ∩ MySourceSubscriptions non-empty → 4. Stats: today count, top 3 sources, 7-day trend, per-category breakdown → 5. UI highlight matched sources |
-| Guards | ≥1 subscription (else empty state); stats on-demand, no pre-agg Phase 1 [assumption #12] |
-| Result | Filtered digest + stats overlay |
-| Error Cases | No signals today from my sources → empty state; zero subscriptions → redirect to My Sources CTA |
+| Precondition | Authenticated; **Pro/Power:** ≥1 subscription nếu muốn view `type=1`; **Free:** ≥1 subscription nếu muốn view subset shared |
+| Steps | 1. Open Digest (All, filtered by my_categories) → 2. Toggle My Sources Only → 3. Client gọi **`GET /api/signals?my_sources_only=true`** — **Free:** backend trả **`type=0`** có `source_id` ∈ follow list; **Pro/Power:** trả **`type=1`** (`user_id` = self, Flow 8) → 4. Stats / highlight sources |
+| Guards | 0 subscription → empty state hoặc CTA browse; stats on-demand [assumption #12] |
+| Result | **Free:** digest shared thu hẹp theo KOL đã follow (không Flow 8). **Pro/Power:** digest personal `type=1` khi toggle |
+| Error Cases | No matching signals → empty state |
 
 Flow 5: User Opens Twitter Composer with Draft  
 Source: Section 5 (Daily Creation), F19
@@ -697,11 +697,11 @@ Source: 2026-04-06 sếp feedback — personal signals for My KOLs
 
 | Field | Detail |
 |-------|--------|
-| Actor | System (cron daily after shared pipeline) |
+| Actor | System (scheduled **sau** shared pipeline — cùng ngày digest; chi tiết lịch trong `IMPLEMENTATION-ROADMAP` **2.6.2**) |
 | Action | Generate personal signals for each Pro/Power user from their My KOLs |
 | Precondition | Shared pipeline completed; ≥1 Pro/Power user with My KOLs subscriptions |
 | Steps | **FOR EACH Pro/Power user:** 1. Get My KOLs (my_source_subscriptions) → 2. Crawl tweets from My KOLs only (last 24h) → 3. Classify (signal_score ≥0.7) → 4. Cluster tweets (same as shared pipeline) → 5. Summarize clusters → 6. Rank → 7. Create Signal records with **`type=1`, `user_id=X`** → 8. Generate DraftTweets linked to personal signals |
-| Guards | Skip if user has 0 My KOLs; Skip if 0 tweets from My KOLs today; Use same classify threshold (≥0.7); Personal cluster_id format: `{user_id}_{date}_cluster_{N}` |
+| Guards | **Skip user nếu `plan=free`** (Free có follow vẫn **không** chạy Flow 8). Skip if user has 0 My KOLs; Skip if 0 tweets from My KOLs today; Use same classify threshold (≥0.7); Personal cluster_id format: `{user_id}_{date}_cluster_{N}` |
 | Result | Each Pro/Power user has personal signals (type=1) from their My KOLs in signals table |
 | Error Cases | LLM error → skip user, retry next cycle; User deletes all My KOLs mid-run → skip gracefully; 0 signals for user → empty state OK (no alert) |
 
@@ -709,9 +709,9 @@ Source: 2026-04-06 sếp feedback — personal signals for My KOLs
 - Personal signals are **separate** from shared signals (type=0)
 - Same clustering logic but per-user tweet pool (not 500 KOL pool)
 - Query: `WHERE type=1 AND user_id=X` for personal digest
-- Toggle behavior: 
-  - "All Sources" → Show `type=0` (shared)
-  - "My KOLs" → Show `type=1, user_id=X` (personal)
+- Toggle behavior (CR 2026-04-16): 
+  - **Free:** "All Sources" → `type=0` all; "My KOLs" → `type=0` filtered by follow list (no `type=1`)
+  - **Pro/Power:** "All Sources" → `type=0`; "My KOLs" → `type=1, user_id=X` (personal, Flow 8)
 
 Flow 9: User Saves Signal to Archive  
 Source: F20 + CR 2026-04-14 (Digest ↔ Archive sync)
@@ -1063,7 +1063,7 @@ Lifecycle Source: 2.2b Section 3 — MySourceSubscription, "Boolean existence = 
 Validation:
 
 Unique constraint on (user_id, source_id).
-Cap enforcement per 2.2a Flow 2 Guards: Pro max 10, Power max 50, Free = 0.
+Cap enforcement per 2.2a Flow 2 Guards: **Free max 5**, Pro max 10, Power max 50 (CR 2026-04-16).
 Per 2.2a Permission Matrix: Free users have no MySourceSubscription records.
 
 UserArchivedSignal (M:N junction — User ↔ Signal for Archive)  

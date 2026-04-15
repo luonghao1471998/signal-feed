@@ -32,7 +32,7 @@
 | # | Path | Why Critical | Source |
 |---|------|-------------|--------|
 | 1 | **Source state transitions — all paths** (Phase 1 Option B: user add → **pending_review**; admin approve → active; admin spam/deleted/restore) | State machine + review queue moderation. Flow 6 chặn crawl cho đến khi approve. | SPEC-core Section 4 Option B; 2.2a Flow 1 + Flow 6; CR 2026-04-13. |
-| 2 | **Subscription cap enforcement** (Pro max 10, Power max 50, Free = 0) | Money boundary — cap enforcement determines plan value. Race condition risk if not atomic (2.2e assumption #13). | 2.2a Flow 2 Guard (Pro ≤10, Power ≤50). 2.2d Constraint #10 (My KOLs cap enforcement). Permission Matrix (Free: no My KOLs). |
+| 2 | **Subscription cap enforcement** (Free max 5, Pro max 10, Power max 50) | Money boundary — cap enforcement determines plan value. Race condition risk if not atomic (2.2e assumption #13). | 2.2a Flow 2 Guard (Free ≤5, Pro ≤10, Power ≤50). 2.2d Constraint #10 (My KOLs cap enforcement). |
 | 3 | **Pipeline 6-step sequence** (crawl → classify → cluster → summarize → rank → draft) with failure recovery | Core product value. 6 sequential steps = high failure surface. Retry logic critical (2.2b Job Pattern). API quota waste if fail-retry wrong (Product Strategy budget constraint). | 2.2a Flow 3 (Pipeline — 6 steps). 2.2b Error Handling (Pipeline failures retry strategy). 2.2b assumption #14 (entire retry vs partial recovery). |
 | 3a | **Pipeline overlap / long run** (4× daily schedule: job duration may exceed slot) | With **4 runs/day**, overlap risk = same as before if one run exceeds time until next slot. Use **single-flight** lock (`Cache::lock` / `WithoutOverlapping`) on pipeline job; stagger source crawl inside run. | 2.2a Flow 3 (2026-04-06: **4× daily**). 2.2b Job/Queue Pattern. twitterapi stagger + `last_crawled_at`. |
 | 4 | **OAuth X.com flow end-to-end** (redirect → authorize → token exchange → user upsert → session create) | Auth boundary. Only auth method Phase 1 (2.1 NFR). Token refresh + revoke edge cases. Audit logging required (NFR #10). | 2.1 NFR OAuth X.com flow diagram. 2.2a CRUD summary (User registration/login). audit_logs table (2.2e schema). |
@@ -172,7 +172,7 @@ signalfeed/                          -- [Laravel project root]
 │   ├── migrations/                  -- [Migration files] — Source: 2.2b Tech Stack (Laravel migration convention)
 │   │   ├── YYYY_MM_DD_create_users_table.php
 │   │   ├── YYYY_MM_DD_create_sources_table.php
-│   │   └── ... [17+ tables: 2.2e schema + `user_personal_feed_entries` — 2026-04-06]
+│   │   └── ... [17+ tables: 2.2e schema; personal signals = `signals.type` + `user_id` — CR 2026-04-15 part 2]
 │   ├── factories/                   -- [Factory pattern for test data] — Source: 2.2f Phần 3.3 (seeding approach)
 │   └── seeders/                     -- [Seed scripts] — Source: 2.2f Phần 3.3
 │       ├── CategorySeeder.php       -- [10 categories hardcoded] — Source: 2.2a Entity Relationship (Category static)
@@ -254,11 +254,11 @@ signalfeed/                          -- [Laravel project root]
 | 3 | Onboarding Step 1: Category Selection | `/onboarding/categories` | Authenticated (new user, no my_categories) | Category | N/A — CRUD only (Category static) | 2.2a CRUD summary (User selects categories), Strategy V1 Rule #2 (onboarding ≤3 steps) |
 | 4 | Onboarding Step 2: Optional KOL Follow | `/onboarding/sources` (optional step) | Authenticated (new user) | Source | source.status = 'active' (only show active sources), list filtered by `my_categories`, actions: Follow or Skip | Flow 2A (onboarding follow/skip), Strategy V1 Rule #2 |
 | 5 | Digest View (All Sources) | `/digest` or `/digest/:date` | Authenticated (Free: Mon/Wed/Fri only, Pro/Power: daily) | Signal | N/A — CRUD only (signals shared, no user state) | 2.2a F13 (Digest Web — All), 2.2e List Signals endpoint, 2.2d Constraint #9 (Free tier schedule) |
-| 6 | Digest View (My KOLs Filter Toggle) | `/digest?my_sources_only=true` | Authenticated (Pro, Power only) | Signal + MySourceSubscription | N/A — filter state in query param | 2.2a F14 (Digest Web — My KOLs), Flow 4, 2.2e List Signals my_sources_only param |
+| 6 | Digest View (My KOLs Filter Toggle) | `/digest?my_sources_only=true` | Authenticated (all tiers; semantics theo plan) | Signal + MySourceSubscription | N/A — filter state in query param | 2.2a F14 (Digest Web — My KOLs), Flow 4, 2.2e List Signals my_sources_only param |
 | 7 | Signal Detail Modal | `/digest` (modal overlay, not separate route) | Authenticated (all tiers) | Signal | N/A — CRUD only | 2.2a CRUD summary (User views Signal detail), 2.2e Get Signal Detail endpoint |
-| 8 | My KOLs List | `/my-sources` | Authenticated (Pro, Power only) | MySourceSubscription (junction) | N/A — junction table, no state | 2.2a F06 (My KOLs personal list), 2.2e List My KOLs endpoint |
-| 9 | My KOLs Stats | `/my-sources/stats` | Authenticated (Pro, Power only) | Signal + MySourceSubscription (computed stats) | N/A — computed fields | 2.2a F15 (My KOLs Stats), Flow 4, 2.2e My KOLs Stats endpoint |
-| 10 | Browse Source Pool | `/sources` | Authenticated (all tiers. Free: read-only, Pro/Power: can add/subscribe) | Source | source.status = 'active' (default filter), source.type = 'default'/'user' | 2.2a F06 (Browse pool), 2.2e List Sources endpoint, Permission Matrix (Free: read-only) |
+| 8 | My KOLs List | `/my-sources` | Authenticated (all tiers) | MySourceSubscription (junction) | N/A — junction table, no state | 2.2a F06 (My KOLs personal list), 2.2e List My KOLs endpoint |
+| 9 | My KOLs Stats | `/my-sources/stats` | Authenticated (all tiers) | Signal + MySourceSubscription (computed stats) | N/A — computed fields | 2.2a F15 (My KOLs Stats), Flow 4, 2.2e My KOLs Stats endpoint |
+| 10 | Browse Source Pool | `/sources` | Authenticated (all tiers. Free: can subscribe ≤5, Pro/Power: can add/subscribe) | Source | source.status = 'active' (default filter), source.type = 'default'/'user' | 2.2a F06 (Browse pool), 2.2e List Sources endpoint, CR 2026-04-16 |
 | 11 | Add Source Form | `/sources/add` (modal OR separate page) | Authenticated (Pro, Power only) | Source | Sau submit: **`status='pending_review'`** (`type='user'`, Option B — chờ admin duyệt trước crawl) | 2.2a Flow 1, SPEC-core Section 4 Option B, `POST /api/sources` (SPEC-api) |
 | 12 | User Settings | `/settings` | Authenticated (self-owned) | User | plan = 'free'/'pro'/'power' (read-only, plan sync via Stripe webhook); locale persisted (`en`/`vi` baseline) | 2.2a CRUD summary (User updates preferences), 2.2e `GET/PATCH /api/settings`, 2.2d Constraint #7 |
 | 13 | Admin: Source moderation queue | `/admin/sources?type=user&status=pending_review` (optional `?status=`) | Admin only | Source | Queue chính `pending_review`; action chính `approve` để chuyển `active`, ngoài ra spam/deleted/restore | 2.2a Flow 6 Option B, `GET/PATCH /api/admin/sources` (SPEC-api) |
@@ -282,21 +282,21 @@ signalfeed/                          -- [Laravel project root]
 | Role | Screens Accessible | Source |
 |------|-------------------|--------|
 | **Unauthenticated** | #1 (Landing), #2 (OAuth callback), #15 (Privacy policy) | 2.2a Permission Matrix (Public = landing only) |
-| **Free User** | #3-7, #10, #12, #15, #16 (NOT: #8, #9, #11 = Pro+ features) | 2.2a Permission Matrix + F20 Archive |
+| **Free User** | #3-10, #12, #15, #16 (NOT: #11 add source) | 2.2a Permission Matrix + CR 2026-04-16 + F20 Archive |
 | **Pro User** | #3-12, #15, #16 (all user screens except admin) | 2.2a Permission Matrix (Pro: My KOLs cap 10, daily digest, drafts) |
 | **Power User** | #3-12, #15, #16 (same as Pro, cap difference = 50 My KOLs) | 2.2a Permission Matrix (Power: My KOLs cap 50, Telegram alerts Phase 2) |
 | **Admin** | #3-16 (all screens) | 2.2a Permission Matrix (Admin: source moderation queue + approve, pipeline monitor) |
 
 **Cross-Check:**
 - Every screen (#1-16) accessible by at least 1 role ✓
-- Free users CANNOT access #8 (My KOLs List), #9 (Stats), #11 (Add Source) — enforced by 403 FORBIDDEN per 2.2e endpoint guards ✓
+- Free users CANNOT access #11 (Add Source) — #8/#9 accessible nếu đã follow (CR 2026-04-16) ✓
 - Admin-only screens (#13 moderation, #14 pipeline) — enforced by **`users.is_admin`** + middleware per `SPEC-api` ✓
 
 ---
 
 ## Section 13 — Sprint Plan
 **Source:** 2.2g Output 1 (chỉ Sprint Plan; roadmap task-level → `IMPLEMENTATION-ROADMAP.md` theo playbook 2.2h)
-**Last confirmed:** 2026-04-06 (đồng bộ amendment: crawl 4×/ngày, personal feed Sprint 2+, admin `is_admin`)
+**Last confirmed:** 2026-04-06 + CR 2026-04-15 part 2 (personal signals `signals.type=1`, task **2.6.x** roadmap)
 
 ### Nội dung Sprint Plan (nguồn: SPRINT-PLAN.md)
 
@@ -314,10 +314,10 @@ signalfeed/                          -- [Laravel project root]
 | Sprint | Goal | Tag Distribution | Kill Gate |
 |--------|------|-----------------|-----------|
 | Sprint 1 | Deliver Wedge scope: crawl pipeline + AI processing + digest UI + drafts + onboarding 2-step hoàn chỉnh — sufficient to test kill checkpoint (founder dogfood + landing page signup + Reddit seeding) | 7 WEDGE + 7 SUPPORT | ✓ Kill Checkpoint |
-| Sprint 2 | Add My KOLs subscription + stats + user-added sources — complete Pro tier value proposition | 4 POST-WEDGE + 0 SUPPORT | — |
+| Sprint 2 | Add My KOLs subscription + stats + user-added sources + **personal signals pipeline (Flow 8, task 2.6.x)** — complete Pro tier value proposition | 4 POST-WEDGE + 0 SUPPORT | — |
 | Sprint 3 | Add plan enforcement + billing + Free tier restrictions + admin tools — production-ready multi-tier SaaS | 4 POST-WEDGE + 0 SUPPORT | — |
 
-**Đồng bộ số task (2026-04-15):** Chi tiết đánh số **`IMPLEMENTATION-ROADMAP.md`** — **69** task (Sprint 1: **36**; Sprint 2: **21**; Sprint 3: **14**). Bổ sung onboarding Step 2 hoàn chỉnh với task **1.3.4–1.3.5** (subscribe API sớm + UI `/onboarding/sources` filter theo `my_categories`, follow/skip). Nhóm admin **3.3.x** trong roadmap có thể lên lịch **song song / trước** Stripe nếu cần đóng vòng Option B — xem cột *Depends On* trong roadmap.
+**Đồng bộ số task (2026-04-15 + CR 2026-04-15 part 2):** Chi tiết đánh số **`IMPLEMENTATION-ROADMAP.md`** — **74** task (Sprint 1: **36**; Sprint 2: **24**; Sprint 3: **14**). Onboarding Step 2: **1.3.4–1.3.5**. Personal pipeline My KOLs (Flow 8): **2.6.1–2.6.3**. Nhóm admin **3.3.x** trong roadmap có thể lên lịch **song song / trước** Stripe nếu cần đóng vòng Option B — xem cột *Depends On* trong roadmap.
 
 ---
 
@@ -372,7 +372,7 @@ Copy từ PRODUCT-STRATEGY.md Section 3 Kill Test + Section 5 KILL SIGNAL:
 
 ## Sprint 2 — My KOLs (Pro Tier Value)
 
-**Goal:** Implement My KOLs personal subscription system + user-added sources + My KOLs filtered digest + stats. Completes Pro tier feature set ($9.9/mo value proposition). Enables testing subscription cap enforcement.
+**Goal:** Implement My KOLs personal subscription system + user-added sources + My KOLs filtered digest + stats + **personal signals pipeline (Flow 8)**. Completes Pro tier feature set ($9.9/mo value proposition). Enables testing subscription cap enforcement.
 
 | # | Feature | Tag | Entities | Key Flows | Source | Depends On |
 |---|---------|-----|----------|-----------|--------|------------|
@@ -380,6 +380,7 @@ Copy từ PRODUCT-STRATEGY.md Section 3 Kill Test + Section 5 KILL SIGNAL:
 | 2.2 | **My KOLs Subscribe/Unsubscribe** | [POST-WEDGE] | MySourceSubscription | 2.2a Flow 2 (User Subscribes to Source — cap enforcement: Pro ≤10, Power ≤50) | 2.2e POST /api/sources/{id}/subscribe, DELETE /api/sources/{id}/subscribe, 2.2a F06 | 2.1 |
 | 2.3 | **Browse Source Pool + Search** | [POST-WEDGE] | Source | 2.2a CRUD summary (User searches sources by @handle) | 2.2e GET /api/sources (browse pool endpoint), 2.2f UI Skeleton Screen #10, 2.2a F06 | 2.2 |
 | 2.4 | **My KOLs List + Stats UI** | [POST-WEDGE] | MySourceSubscription (list), Signal (stats) | 2.2a Flow 4 (User Views My Sources Digest — stats calculation) | 2.2e GET /api/my-sources, GET /api/my-sources/stats, 2.2f UI Skeleton Screens #8-9, 2.2a F15 | 2.2, 2.3 |
+| 2.6 | **Personal signals pipeline (My KOLs-only crawl → `signals` type=1)** | [POST-WEDGE] | Signal (`type=1`, `user_id`), Tweet, MySourceSubscription | SPEC-core **Flow 8** (job sau shared pipeline); `GET /api/signals?my_sources_only=true` | `IMPLEMENTATION-ROADMAP` **2.6.1–2.6.3**, `SPEC-api` §9 | 2.2 |
 
 ---
 
@@ -405,7 +406,7 @@ Copy từ PRODUCT-STRATEGY.md Section 3 Kill Test + Section 5 KILL SIGNAL:
 - ✓ SourceCategory (1.5, 2.1)
 - ✓ MySourceSubscription (2.2, 2.4)
 - ✓ Tweet (1.6, 1.7, 3.4)
-- ✓ Signal (1.8, 1.9, 1.10, 1.11, 2.4, 3.4)
+- ✓ Signal (1.8, 1.9, 1.10, 1.11, 2.4, 2.6, 3.4)
 - ✓ SignalSource (1.8, 1.11)
 - ✓ DraftTweet (1.9, 1.12)
 - ✓ Digest (1.10, 3.2)
@@ -460,7 +461,7 @@ Theo **playbook 2.2h:** task-level roadmap **không** nằm trong SPEC / Section
 **Status:** Cột Status trong bảng tổng hợp yêu cầu — do số lượng mục lớn và marker `#` chồng lấn giữa các file, bảng master một dòng/mục **không** được sinh tự động ở bước merge để tránh sai số hoặc mất dòng; thực hiện tra cứu theo từng khối Origin.  
 **Renumber:** Giữ số `#` nội bộ từng file trong khối tương ứng.
 
-**Amendment 2026-04-06:** Nhiều mục dưới đây đã được **chốt** trong `SPEC-core.md` / `SPEC-api.md` (lịch crawl 4×/ngày, twitterapi POC `advanced_search`, `sources.last_crawled_at`, clustering **prompt-based**, `users.is_admin`, bảng `user_personal_feed_entries`, ON DELETE, audit `event_type`). Ưu tiên đọc các file SPEC chính; khối Origin giữ nguyên làm lịch sử / trace.
+**Amendment 2026-04-06 + CR 2026-04-15 part 2 + CR 2026-04-16:** Nhiều mục dưới đây đã được **chốt** trong `SPEC-core.md` / `SPEC-api.md` (lịch crawl 4×/ngày, twitterapi POC `advanced_search`, `sources.last_crawled_at`, clustering **prompt-based**, `users.is_admin`, **personal signals = `signals.type` + `user_id`** — không dùng bảng `user_personal_feed_entries`, ON DELETE, audit `event_type`). **CR 2026-04-16:** Free **My KOLs follow cap 5** (chung bảng `my_source_subscriptions`); Flow 8 chỉ Pro/Power; digest `my_sources_only` khác semantics theo plan. Ưu tiên đọc các file SPEC chính; khối Origin giữ nguyên làm lịch sử / trace.
 
 ### Origin: 2.2a — Domain Foundation (Phần 5)
 
@@ -819,7 +820,7 @@ High-Impact Assumptions (validate during implementation):
 - ✓ SourceCategory (1.5, 2.1)
 - ✓ MySourceSubscription (2.2, 2.4)
 - ✓ Tweet (1.6, 1.7, 3.4)
-- ✓ Signal (1.8, 1.9, 1.10, 1.11, 2.4, 3.4)
+- ✓ Signal (1.8, 1.9, 1.10, 1.11, 2.4, 2.6, 3.4)
 - ✓ SignalSource (1.8, 1.11)
 - ✓ DraftTweet (1.9, 1.12)
 - ✓ Digest (1.10, 3.2)
@@ -855,7 +856,7 @@ High-Impact Assumptions (validate during implementation):
 
 | # | Check | Result | Issues |
 |---|-------|--------|--------|
-| 1 | Permission ↔ API Guards | ✅ PASS | Matrix (Section 6) defines role-entity permissions; Section 11 has Permission Guard per endpoint. All 21 endpoints verified: Free tier restrictions (signals 3x/week, no My KOLs, no drafts), Pro/Power caps (10/50 subscriptions), Admin-only routes (source moderation, pipeline monitor). Manual QA during implementation recommended to verify enforcement logic matches spec. |
+| 1 | Permission ↔ API Guards | ✅ PASS | Matrix (Section 6) defines role-entity permissions; Section 11 has Permission Guard per endpoint. All 21 endpoints verified: Free tier restrictions (signals 3x/week, no drafts), caps Free/Pro/Power = 5/10/50 subscriptions, Admin-only routes (source moderation, pipeline monitor). Manual QA recommended. |
 | 2 | State Machines ↔ Schema | ✅ PASS | Enum `pending_review` \| active \| spam \| deleted — **Option B:** happy-path add → pending_review; Flow 6 = approve-first moderation queue (SPEC-core Section 4 + SPEC-api). Admin rank override tracked in Open Questions #16 (acceptable Phase 1 skip). |
 | 3 | Schema ↔ Interaction Flows | ✅ PASS | **FIXED:** (1) audit_logs table added to Section 9 per NFR #10. (2) OAuth columns (x_user_id, x_username, x_access_token, etc.) added to users table per Sprint task 1.3.2. (3) email_valid column added per Resend bounce webhook. user_interactions table has all required columns (action, time_on_signal). Flow 3 guards map to schema. |
 | 4 | Data Model ↔ Schema | ✅ PASS | **FIXED:** OAuth-only auth now reflected in schema (x_user_id, x_access_token columns). Email/password fields nullable for Phase 2 compatibility. All 73 entity fields from Section 8 map to schema columns with correct types. |

@@ -15,8 +15,10 @@ interface FilterSheetProps {
   onMySourcesChange: (val: boolean) => void;
   /** Ẩn My KOLs cho Free tier. */
   userPlan?: "free" | "pro" | "power";
+  /** Chỉ hiển thị toggle khi user có ít nhất 1 subscription. */
+  showMySourcesToggle?: boolean;
   /** Tag hiển thị trong sheet (mặc định DIGEST_TOPIC_TAGS). */
-  topicTagOptions?: string[];
+  topicTagOptions?: readonly string[];
 }
 
 const FilterSheet: React.FC<FilterSheetProps> = ({
@@ -29,6 +31,7 @@ const FilterSheet: React.FC<FilterSheetProps> = ({
   mySourcesOnly,
   onMySourcesChange,
   userPlan = "free",
+  showMySourcesToggle = false,
   topicTagOptions,
 }) => {
   const tagOptions = topicTagOptions?.length ? topicTagOptions : DIGEST_TOPIC_TAGS;
@@ -122,12 +125,13 @@ const FilterSheet: React.FC<FilterSheetProps> = ({
             })}
           </div>
 
-          {userPlan !== "free" && (
+          {showMySourcesToggle && (
             <div className="flex items-center justify-between mt-4 py-2">
               <span className="text-sm text-slate-700">My KOLs only</span>
               <Switch checked={localMySources} onCheckedChange={setLocalMySources} />
             </div>
           )}
+
         </div>
 
         <div className="shrink-0 border-t border-slate-100 p-4 bg-white flex gap-2 pb-[max(1rem,env(safe-area-inset-bottom,0px))]">

@@ -392,7 +392,11 @@ export async function getMySourcesAPI(page = 1): Promise<MySourcesResponse> {
  */
 export async function getCurrentSubscriptionCount(): Promise<number> {
   const response = await getMySourcesAPI(1);
-  return response.total ?? 0;
+  if ((response.total ?? 0) > 0) {
+    return response.total;
+  }
+
+  return response.data.length;
 }
 
 /**
