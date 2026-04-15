@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\CurrentUserController;
 use App\Http\Controllers\Api\DraftController;
 use App\Http\Controllers\Api\MySourcesController;
 use App\Http\Controllers\Api\SignalController;
+use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\SourceController;
 use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\UpdateCurrentUserController;
@@ -36,6 +37,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/my-sources', [MySourcesController::class, 'index']);
     Route::get('/my-sources/stats', [MySourcesController::class, 'stats']);
     Route::get('/archive/signals', [ArchiveController::class, 'index']);
+    Route::get('/settings', [SettingsController::class, 'show']);
+    Route::patch('/settings', [SettingsController::class, 'update']);
     Route::get('/signals', [SignalController::class, 'index']);
     Route::post('/signals/{id}/archive', [ArchiveController::class, 'store'])->whereNumber('id');
     Route::delete('/signals/{id}/archive', [ArchiveController::class, 'destroy'])->whereNumber('id');

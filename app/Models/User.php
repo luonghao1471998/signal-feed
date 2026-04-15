@@ -21,13 +21,16 @@ class User extends Authenticatable
     protected $fillable = [
         'x_user_id',
         'x_username',
+        'display_name',
+        'email',
         'avatar_url',
         'x_access_token',
         'x_refresh_token',
         'x_token_expires_at',
-        'plan',
         'my_categories',
+        'locale',
         'delivery_preferences',
+        'telegram_connect_token',
         'is_admin',
         'stripe_customer_id',
         'stripe_subscription_id',
@@ -53,6 +56,7 @@ class User extends Authenticatable
             'delivery_preferences' => 'array',
             'x_token_expires_at' => 'datetime',
             'subscription_ends_at' => 'datetime',
+            'email_verified_at' => 'datetime',
             'is_admin' => 'boolean',
         ];
     }
