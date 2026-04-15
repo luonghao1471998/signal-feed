@@ -1,11 +1,11 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-15 (Task 2.5.1 Archive endpoints complete)
+**Last Updated:** 2026-04-15 (Task 2.5.2 GET `/api/archive/signals` complete)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 2 — My KOLs + Archive (2.5.x)
-**Completed Task:** **2.5.1** — POST/DELETE `/api/signals/{id}/archive` (backend) ✅ — 2026-04-15
-**Next Task:** **2.5.2** (GET `/api/archive/signals`) / **3.1.1** (Stripe) — xem `IMPLEMENTATION-ROADMAP.md`
-**Status:** Sprint 2 roadmap table (**14** tasks) — **14/14** ✅; backlog **2.5.x** (Archive / Settings) đang triển khai
+**Completed Task:** **2.5.2** — GET `/api/archive/signals` (list archived + filters) ✅ — 2026-04-15
+**Next Task:** **2.5.3** (Save to Archive button on Digest) / **3.1.1** (Stripe) — xem `IMPLEMENTATION-ROADMAP.md`
+**Status:** Sprint 2 roadmap table (**14** tasks) — **14/14** ✅; backlog **2.5.x** (Archive / Settings): **2/7** task archive+settings nhóm 2.5.x hoàn thành (2.5.1–2.5.2 ✅)
 
 ---
 
@@ -20,6 +20,7 @@
 ### Sprint 2 — Archive System
 
 - [x] 2.5.1: POST/DELETE /api/signals/{id}/archive (backend endpoints) — ✅ 2026-04-15
+- [x] 2.5.2 GET /api/archive/signals — list archived (filter date/category/search) ✅ 2026-04-15
 
 ### 2.4 Frontend - My KOLs Integration
 
@@ -219,7 +220,7 @@ _(Roadmap tiếp: **2.5.x** Archive / Settings — `IMPLEMENTATION-ROADMAP.md`.)
 
 ### In Progress / Next (roadmap)
 - **Sprint 2 (14-task table):** ✅ **14/14** — gồm **2.4.5** (digest My KOLs toggle) + **2.1.3–2.1.4** (my submissions) + **2.1.5** (auto-refresh; polish cùng release)
-- **Archive backlog:** ✅ **2.5.1** `POST/DELETE /api/signals/{id}/archive` (2026-04-15) — **Next:** **2.5.2** `GET /api/archive/signals` / **3.1.1** Stripe — `IMPLEMENTATION-ROADMAP.md`
+- **Archive backlog:** ✅ **2.5.1** `POST/DELETE /api/signals/{id}/archive` (2026-04-15); ✅ **2.5.2** `GET /api/archive/signals` (2026-04-15) — **Next:** **2.5.3** Digest save button / **3.1.1** Stripe — `IMPLEMENTATION-ROADMAP.md`
 - **Backlog (ngoài bảng Sprint 2):** **1.11.3** — metadata digest (tùy ưu tiên)
 
 ### Statistics
@@ -229,10 +230,11 @@ _(Roadmap tiếp: **2.5.x** Archive / Settings — `IMPLEMENTATION-ROADMAP.md`.)
 ### Progress Summary
 
 **Completed Tasks:** Sprint 1 **34/34** ✅; Sprint 2 **14/14** (thêm **2.1.3–2.1.5** 2026-04-15; **2.4.5** 2026-04-15; cùng các task 2.1.1–2.1.2, 2.2.x, 2.3.x, 2.4.1–2.4.4)
-**Current phase:** Sprint 2 — My KOLs **hoàn tất** (bundle 14 task); backlog **2.5.x** (Archive) — **2.5.1** ✅; next **2.5.2** / Sprint 3
+**Current phase:** Sprint 2 — My KOLs **hoàn tất** (bundle 14 task); backlog **2.5.x** (Archive) — **2.5.1** ✅ **2.5.2** ✅; next **2.5.3** / Sprint 3
 **Last Updated:** 2026-04-15
 
 **Recent Completions:**
+- ✅ Task **2.5.2:** GET `/api/archive/signals` — `ArchiveController@index`, filters + pagination — SESSION-LOG 2026-04-15
 - ✅ Task **2.5.1:** Archive save/unsave — `ArchiveController`, `user_archived_signals`, Tinker verify — SESSION-LOG 2026-04-15
 - ✅ Task 2.1.3–2.1.5: `GET /api/sources/my-submissions`, tab Submitted (Pro/Power), `getMySubmissionsAPI`, `AddSourceModal` `onSuccess` + refetch — SESSION-LOG 2026-04-15
 - ✅ Task 2.4.5: Digest My KOLs filter toggle — `SignalController` + `DigestPage` (2026-04-15)
@@ -331,18 +333,22 @@ _(Roadmap tiếp: **2.5.x** Archive / Settings — `IMPLEMENTATION-ROADMAP.md`.)
 
 ## Current Sprint Status
 
-**Completed Task:** Sprint 2 bundle **14/14** ✅ — gồm **2.1.3–2.1.5** (My Submissions + auto-refresh, 2026-04-15), **2.4.5** (digest toggle), các task 2.2.x / 2.3.x / 2.4.1–2.4.4; **2.5.1** (archive save/unsave API, 2026-04-15)  
-**Next Task:** **2.5.2** `GET /api/archive/signals` (hoặc nhánh Stripe **3.1.1**) — `IMPLEMENTATION-ROADMAP.md`  
-**Status:** Sprint 2 (14-task table) complete — archive backend 2.5.1 done — xem SESSION-LOG 2026-04-15  
+**Completed Task:** Sprint 2 bundle **14/14** ✅ — gồm **2.1.3–2.1.5** (My Submissions + auto-refresh, 2026-04-15), **2.4.5** (digest toggle), các task 2.2.x / 2.3.x / 2.4.1–2.4.4; **2.5.1** + **2.5.2** (archive APIs, 2026-04-15)  
+**Next Task:** **2.5.3** Save to Archive button (hoặc nhánh Stripe **3.1.1**) — `IMPLEMENTATION-ROADMAP.md`  
+**Status:** Sprint 2 (14-task table) complete — archive list API **2.5.2** done — xem SESSION-LOG 2026-04-15  
 **Previous:** Task 2.4.5 Digest My KOLs filter; Task 2.1.2 Add Source modal
 
 **Recent Completions:**
 
+- ✅ **2026-04-15:** Task **2.5.2** — GET `/api/archive/signals`
+  - List archived signals + date_range / category / search / pagination
+  - Manual curl + tinker verification (10/10)
+  - Ready for Task **2.5.3** (Digest save button) & **2.5.4** (Archive UI)
 - ✅ **2026-04-15:** Task **2.5.1** — POST/DELETE `/api/signals/{id}/archive`
   - Backend foundation cho Archive feature
   - Idempotent save/unsave signals
   - Verified qua Tinker (10/10 tests passed)
-  - Ready for Task **2.5.2** (list archived signals)
+  - Superseded by Task **2.5.2** (list archived signals) — ✅ 2026-04-15
 - ✅ 2026-04-10: Task 1.11.2 — `SignalDetailModal` / Sheet+Dialog; `SourceAttribution`; `fetchSignalDetail`; `DigestPage` + card `onClick`; Pro/Power draft block; SESSION-LOG
 - ✅ 2026-04-10: Task 1.11.1 — `GET /api/signals/{id}`; `SignalDetailResource`; full tweet attribution; Free draft strip; tested (SESSION-LOG)
 - ✅ 2026-04-10: Task 1.10.2 — `DigestPage` + `signalService` + map API → UI; `AuthContext`; hybrid category pills; `RightPanel`/stats aggregates; rank badges; `constants/categories.ts`; category assigner + backfill command (SESSION-LOG)
@@ -447,6 +453,7 @@ _(Roadmap tiếp: **2.5.x** Archive / Settings — `IMPLEMENTATION-ROADMAP.md`.)
 - `GET /api/signals/{id}` — signal detail + tweet attribution (Task **1.11.1** ✅, `auth:sanctum`)
 - `POST /api/signals/{id}/archive` — save signal to personal archive (Task **2.5.1** ✅, idempotent 201/200, `auth:sanctum`)
 - `DELETE /api/signals/{id}/archive` — remove from archive (Task **2.5.1** ✅, `204 No Content`, idempotent, `auth:sanctum`)
+- `GET /api/archive/signals` — list archived signals + filters (Task **2.5.2** ✅, `auth:sanctum`)
 - `POST /api/sources` — add user source (Task **2.1.1** ✅, Pro/Power, Option B `pending_review`)
 - `POST /api/sources/{id}/subscribe` — My KOLs subscribe (Task **2.2.1** ✅, `auth:sanctum`, cap Pro≤10 / Power≤50)
 - `DELETE /api/sources/{id}/subscribe` — unsubscribe (Task **2.2.2** ✅, `204 No Content`, idempotent)

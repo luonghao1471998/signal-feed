@@ -35,6 +35,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->whereNumber('sourceId');
     Route::get('/my-sources', [MySourcesController::class, 'index']);
     Route::get('/my-sources/stats', [MySourcesController::class, 'stats']);
+    Route::get('/archive/signals', [ArchiveController::class, 'index']);
     Route::get('/signals', [SignalController::class, 'index']);
     Route::post('/signals/{id}/archive', [ArchiveController::class, 'store'])->whereNumber('id');
     Route::delete('/signals/{id}/archive', [ArchiveController::class, 'destroy'])->whereNumber('id');

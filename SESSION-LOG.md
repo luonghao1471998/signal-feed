@@ -2,6 +2,118 @@
 
 ---
 
+## 2026-04-15 - Task 2.5.2: GET /api/archive/signals — ✅ COMPLETED
+
+**Status:** ✅ Completed (2026-04-15)  
+**Objective:** Implement endpoint trả danh sách signals user đã archive, hỗ trợ filter date_range + category + search + pagination. Đây là data source cho Archive UI (Screen #16, task 2.5.4).
+
+**Dependencies (đã thỏa):**
+- ✅ Task 2.5.1: user_archived_signals table + ArchiveController đã có
+- ✅ Task 1.10.1: signals table + SignalResource đã có
+- ✅ Task 1.2.4: schema migration complete
+
+**Implementation Summary:**
+
+**Files Modified:**
+1. `routes/api.php`
+   - Added route: `GET /archive/signals → ArchiveController@index`
+   - Placed within `auth:sanctum` middleware group
+   - Positioned before wildcard `/signals` route to avoid conflicts
+
+2. `app/Http/Controllers/Api/ArchiveController.php`
+   - Implemented `index()` method with full feature set:
+     - JOIN `user_archived_signals` (alias `uas`) + `signals` tables
+     - Filter: `uas.user_id = auth()->id()` (self-owned only)
+     - SELECT: `signals.*` + `uas.created_at as archived_at`
+     - Eager load: `with('digest')` for date retrieval
+
+   **Validation Rules:**
+   - `date_range`: nullable|in:today,yesterday,last7,last30
+   - `category_id[]`: nullable|array + exists:categories,id
+   - `search`: nullable|string|max:100
+   - `page`, `per_page` (max 50)
+
+   **Filters Implementation:**
+   - `date_range`: Applied on `uas.created_at` (archive date, NOT signal date)
+     - `today/yesterday`: `whereBetween()` for full day UTC
+     - `last7/last30`: `>=` operator
+   - `category_id`: Postgres array overlap `signals.categories && ?::integer[]`
+   - `search`: ILIKE on `signals.title` OR `signals.summary` (case-insensitive)
+
+   **Sorting:**
+   - `orderByDesc('uas.created_at')` - newest archived first
+
+   **Response Format:**
+   - `data[]`: Array of signal objects
+   - `meta{}`: Pagination info (current_page, per_page, total, last_page)
+   - Each item includes: id, title, summary, source_count, categories, topic_tags, date, archived_at
+   - Excludes: draft_tweets, sources array (only source_count)
+
+   **Helper Method:**
+   - `signalDisplayDate()`: Returns `signals.date` if exists, else `digest->date`, fallback `created_at`
+
+**Code Quality:**
+- ✅ Ran Laravel Pint (code formatting)
+- ✅ Verified route registration via `php artisan route:list`
+- ✅ Tested JOIN query in tinker (read-only)
+
+**Testing Results (Manual - No Automated Tests):**
+
+| Test Case | Method | Status | Details |
+|-----------|--------|--------|---------|
+| 1. Basic List | curl | ✅ PASS | Returned 2 archived signals for user_id=1 |
+| 2. date_range=today | curl | ✅ PASS | Filtered correctly by archive date |
+| 3. category_id filter | curl | ✅ PASS | Postgres array overlap works |
+| 4. search filter | curl | ✅ PASS | ILIKE case-insensitive match on title/summary |
+| 5. Combined filters | curl | ✅ PASS | AND logic stacks correctly (date+search+category) |
+| 6. Unauthenticated | curl | ✅ PASS | Returns 401 Unauthorized |
+| 7. User isolation | tinker | ✅ PASS | user_id=1 only sees own archives |
+| 8. Sort order | curl | ✅ PASS | archived_at DESC (newest first) |
+| 9. Pagination meta | curl | ✅ PASS | Correct current_page, per_page, total, last_page |
+| 10. Response format | curl | ✅ PASS | All required fields present, no draft/sources |
+
+**Sample Test Data:**
+- User ID: 1 (plan: free)
+- Archived Signals: 2 items (signal_id: 2, 3)
+- Test Token: Generated via `User::first()->createToken('test-archive')`
+
+**Test Commands Used:**
+```bash
+# Basic list
+curl -X GET "http://localhost:8000/api/archive/signals" \
+  -H "Authorization: Bearer {token}"
+
+# With filters
+curl -X GET "http://localhost:8000/api/archive/signals?date_range=today&search=nvidia&category_id[]=1" \
+  -H "Authorization: Bearer {token}"
+
+# Unauthenticated
+curl -X GET "http://localhost:8000/api/archive/signals"
+```
+
+**Tinker Verification:**
+```php
+>>> [\App\Models\User::count(), \App\Models\Signal::count(), \App\Models\UserArchivedSignal::count()]
+// Output: [6, 7, 2]
+
+>>> \App\Models\UserArchivedSignal::select('user_id', 'signal_id')->orderBy('created_at', 'desc')->get()
+// Verified sort order and user isolation
+```
+
+**Notes:**
+- Filter `date_range` applies to **archive date** (`uas.created_at`), NOT signal creation date
+- Category filter uses Postgres-specific array overlap operator (`&&`)
+- No automated test files created to preserve database integrity
+- All testing done via curl + tinker with existing data
+
+**Blockers:** None
+
+**Next Steps:**
+- ➡️ Task **2.5.3:** “Save to Archive” button on Digest cards (`IMPLEMENTATION-ROADMAP.md`; unsave đã có ở Task 2.5.1 `DELETE /api/signals/{id}/archive`)
+- ➡️ Task **2.5.4:** Archive Screen — wire `GET /api/archive/signals`
+
+---
+
 ## 2026-04-15 - Task 2.5.1: POST/DELETE /api/signals/{id}/archive — 📋 SPEC / IMPLEMENTATION PLAN
 
 **Status:** ✅ Completed (2026-04-15)  
