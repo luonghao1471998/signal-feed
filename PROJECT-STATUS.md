@@ -24,6 +24,20 @@
 - [x] Task 2.5.3: Save to Archive Button on Digest Cards ✅ 2026-04-15
 - [x] Task 2.5.4: Integrate Archive Screen with Real API ✅ 2026-04-15
 
+### Feature 2.5: Settings Page (Profile, Preferences, Plan)
+- **Status:** 🚧 In Progress
+- **Progress:** 2/5 tasks completed (40%)
+- **Components:**
+  - Task 2.5.1: ✅ Define settings schema & API contracts
+  - Task 2.5.2: ⏳ Pending — SettingsPage layout & tab navigation
+  - Task 2.5.3: ⏳ Pending — Profile & Digest Preferences tabs
+  - Task 2.5.4: ⏳ Pending — Plan & Billing + Telegram tabs
+  - Task 2.5.5: ✅ Completed — GET/PATCH /api/settings endpoints (Backend)
+    - Migration: add_settings_columns_to_users_table
+    - Controller: SettingsController (show, update)
+    - Routes: GET/PATCH /api/settings (auth:sanctum)
+    - Verified: 11/11 test cases passed
+
 ### 2.4 Frontend - My KOLs Integration
 
 - [x] 2.4.5 Add My KOLs filter toggle to Digest view ✅ COMPLETED 2026-04-15
