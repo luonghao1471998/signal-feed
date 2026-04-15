@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { DIGEST_FILTER_CATEGORIES, type CategoryFilterKey } from "@/contexts/CategoryFilterContext";
 import { Switch } from "@/components/ui/switch";
 import { DIGEST_TOPIC_TAGS } from "@/data/digestTopicTags";
+import { useLocale } from "@/i18n";
 
 interface FilterSheetProps {
   open: boolean;
@@ -34,6 +35,7 @@ const FilterSheet: React.FC<FilterSheetProps> = ({
   showMySourcesToggle = false,
   topicTagOptions,
 }) => {
+  const { t } = useLocale();
   const tagOptions = topicTagOptions?.length ? topicTagOptions : DIGEST_TOPIC_TAGS;
   const [localCat, setLocalCat] = useState(activeCategory);
   const [localTags, setLocalTags] = useState<string[]>(activeTags);
@@ -78,14 +80,14 @@ const FilterSheet: React.FC<FilterSheetProps> = ({
         </div>
 
         <div className="px-4 flex items-center gap-2 pb-3 shrink-0">
-          <h2 className="font-bold text-slate-900">Filter signals</h2>
+          <h2 className="font-bold text-slate-900">{t("filterSheet.title")}</h2>
           <button type="button" onClick={resetAll} className="text-sm text-blue-500 ml-auto font-medium">
-            Reset
+            {t("filterSheet.reset")}
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 min-h-0">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Category</p>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">{t("filterSheet.category")}</p>
           <div className="grid grid-cols-3 gap-2">
             {DIGEST_FILTER_CATEGORIES.map((cat) => {
               const active = localCat === cat.key;
@@ -105,7 +107,7 @@ const FilterSheet: React.FC<FilterSheetProps> = ({
             })}
           </div>
 
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mt-4 mb-2">Topic Tags</p>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mt-4 mb-2">{t("filterSheet.topicTags")}</p>
           <div className="flex flex-wrap gap-2">
             {tagOptions.map((tag) => {
               const active = localTags.includes(tag);
@@ -127,7 +129,7 @@ const FilterSheet: React.FC<FilterSheetProps> = ({
 
           {showMySourcesToggle && (
             <div className="flex items-center justify-between mt-4 py-2">
-              <span className="text-sm text-slate-700">My KOLs only</span>
+              <span className="text-sm text-slate-700">{t("filterSheet.myKolsOnly")}</span>
               <Switch checked={localMySources} onCheckedChange={setLocalMySources} />
             </div>
           )}
@@ -140,14 +142,14 @@ const FilterSheet: React.FC<FilterSheetProps> = ({
             onClick={resetAll}
             className="flex-1 mr-2 border border-slate-200 rounded-full py-3 text-sm font-medium text-slate-700 bg-white"
           >
-            Reset
+            {t("filterSheet.reset")}
           </button>
           <button
             type="button"
             onClick={apply}
             className="flex-1 bg-slate-900 text-white rounded-full py-3 text-sm font-bold"
           >
-            Apply filters
+            {t("filterSheet.applyFilters")}
           </button>
         </div>
       </div>

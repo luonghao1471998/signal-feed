@@ -15,6 +15,7 @@ import {
   SourceSubscriptionError,
   unsubscribeFromSource,
 } from "@/services/sourceService";
+import { useLocale } from "@/i18n";
 
 const FREE_CAP = 5;
 const ONBOARDING_RECOMMENDED_LIMIT = 10;
@@ -29,6 +30,7 @@ function avatarSrcForKol(handle: string, avatarUrl?: string | null): string {
 const OnboardingStep2: React.FC = () => {
   const navigate = useNavigate();
   const { user, authReady } = useAuth();
+  const { t } = useLocale();
   const [kols, setKols] = useState<BrowseSource[]>([]);
   const [loading, setLoading] = useState(true);
   const [followingIds, setFollowingIds] = useState<Set<number>>(new Set());
@@ -66,7 +68,7 @@ const OnboardingStep2: React.FC = () => {
         setCurrentCount(initialCount ?? mySources.total ?? ids.length);
       } catch (error) {
         if (!canceled) {
-          toast.error("Failed to load recommended KOLs");
+          toast.error(t("onboarding.failedLoadRecommended"));
         }
       } finally {
         if (!canceled) {
@@ -97,19 +99,19 @@ const OnboardingStep2: React.FC = () => {
           return next;
         });
         setCurrentCount((prev) => Math.max(0, prev - 1));
-        toast.success("Unfollowed");
+        toast.success(t("onboarding.unfollowed"));
         return;
       }
 
       const response = await subscribeToSource(sourceId);
       setFollowingIds((prev) => new Set([...prev, sourceId]));
       setCurrentCount(response.current_count);
-      toast.success("Following!");
+      toast.success(t("onboarding.followed"));
     } catch (error) {
       if (error instanceof SourceSubscriptionError && error.status === 400) {
-        toast.error("Subscription limit reached");
+        toast.error(t("onboarding.subscriptionLimit"));
       } else {
-        toast.error(isFollowingNow ? "Failed to unfollow KOL" : "Failed to follow KOL");
+        toast.error(isFollowingNow ? t("onboarding.failedUnfollow") : t("onboarding.failedFollow"));
       }
     } finally {
       setSubscribingId(null);
@@ -119,7 +121,7 @@ const OnboardingStep2: React.FC = () => {
   const handleFollowAll = async () => {
     const unfollowed = kols.filter((item) => !followingIds.has(item.id)).map((item) => item.id);
     if (unfollowed.length === 0) {
-      toast.info("Already following all recommended KOLs");
+      toast.info(t("onboarding.alreadyFollowingAll"));
       return;
     }
     if (hasReachedCap) {
@@ -133,12 +135,12 @@ const OnboardingStep2: React.FC = () => {
       const newIds = unfollowed.slice(0, followCount);
       setFollowingIds((prev) => new Set([...prev, ...newIds]));
       setCurrentCount(response.total_count);
-      toast.success(`Following ${response.subscribed_count} KOLs!`);
+      toast.success(t("onboarding.followedMany").replace("{count}", String(response.subscribed_count)));
     } catch (error) {
       if (error instanceof SourceSubscriptionError && error.status === 400) {
-        toast.error("Subscription limit reached");
+        toast.error(t("onboarding.subscriptionLimit"));
       } else {
-        toast.error("Failed to follow KOLs");
+        toast.error(t("onboarding.failedFollow"));
       }
     } finally {
       setBulkLoading(false);
@@ -152,7 +154,7 @@ const OnboardingStep2: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <p className="text-sm text-slate-500">Loading recommended KOLs...</p>
+        <p className="text-sm text-slate-500">{t("onboarding.loadingRecommended")}</p>
       </div>
     );
   }
@@ -168,14 +170,18 @@ const OnboardingStep2: React.FC = () => {
           <div className="h-full w-full bg-slate-900 rounded-full" />
         </div>
         <div className="flex items-center gap-2 whitespace-nowrap">
-          <span className="text-[13px] text-slate-400">{currentCount} following</span>
+          <span className="text-[13px] text-slate-400">
+            {currentCount} {t("onboarding.followingCount")}
+          </span>
           <button
             type="button"
             onClick={() => void handleFollowAll()}
             disabled={bulkLoading || hasReachedCap || kols.length === 0}
             className="text-xs text-blue-500 underline font-medium disabled:text-slate-300"
           >
-            {bulkLoading ? "Following..." : `Follow all (${Math.min(userLimit - currentCount, kols.filter((item) => !followingIds.has(item.id)).length)})`}
+            {bulkLoading
+              ? t("onboarding.followingNow")
+              : `${t("onboarding.followAll")} (${Math.min(userLimit - currentCount, kols.filter((item) => !followingIds.has(item.id)).length)})`}
           </button>
         </div>
       </div>
@@ -183,22 +189,22 @@ const OnboardingStep2: React.FC = () => {
       {/* Content */}
       <div className="max-w-[560px] w-full mx-auto flex-1 flex flex-col">
         <div className="px-6 mt-6">
-          <h1 className="text-2xl font-bold text-slate-900">Follow the voices you trust</h1>
+          <h1 className="text-2xl font-bold text-slate-900">{t("onboarding.followTrustVoices")}</h1>
           <p className="text-sm text-slate-500 mt-2">
-            Your digest is ready based on your categories. Follow specific KOLs to get a personal signal filter on top.
+            {t("onboarding.followHint")}
           </p>
         </div>
 
         {/* KOL grid */}
         {kols.length === 0 ? (
           <div className="px-6 mt-6 border-t border-slate-100 pt-8 text-center">
-            <p className="text-sm text-slate-600">No KOLs found in your selected categories.</p>
+            <p className="text-sm text-slate-600">{t("onboarding.noKolsFound")}</p>
             <button
               type="button"
               onClick={finish}
               className="mt-3 text-sm font-medium text-blue-600 underline"
             >
-              Skip to your digest
+              {t("onboarding.skipToDigest")}
             </button>
           </div>
         ) : (
@@ -276,13 +282,13 @@ const OnboardingStep2: React.FC = () => {
                           : "bg-slate-900 text-white hover:bg-slate-800",
                       )}
                     >
-                      {isSubscribing ? "Following..." : isFollowing ? (
+                      {isSubscribing ? t("onboarding.followingNow") : isFollowing ? (
                         <>
-                          <span className="group-hover:hidden">Following</span>
-                          <span className="hidden group-hover:inline text-red-500">Unfollow</span>
+                          <span className="group-hover:hidden">{t("onboarding.followingLabel")}</span>
+                          <span className="hidden group-hover:inline text-red-500">{t("onboarding.unfollowLabel")}</span>
                         </>
                       ) : (
-                        "Follow"
+                        t("onboarding.followLabel")
                       )}
                     </button>
                   </div>
@@ -306,11 +312,11 @@ const OnboardingStep2: React.FC = () => {
             onClick={finish}
             className="w-full bg-slate-900 text-white rounded-full py-3.5 font-bold text-base flex items-center justify-center gap-2 hover:bg-slate-800 transition-colors"
           >
-            View my digest
+            {t("onboarding.viewDigest")}
             <ArrowRight className="w-4 h-4" />
           </button>
           <button type="button" onClick={finish} className="text-sm text-slate-500 underline text-center mt-3 block mx-auto">
-            Skip for now
+            {t("onboarding.skipNow")}
           </button>
         </div>
       </div>

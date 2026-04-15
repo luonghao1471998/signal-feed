@@ -1,11 +1,80 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-15 (Task 2.5.6 Settings frontend integration complete)
+**Last Updated:** 2026-04-15 (Task 2.5.7 i18n foundation completed)
 **Current Phase:** Giai đoạn 3 - Implementation
-**Current Sprint:** Sprint 2 — My KOLs + Archive (2.5.x)
-**Completed Task:** **2.5.6** — Settings Screen Frontend Integration ✅ — 2026-04-15
-**Next Task:** **3.1.1** (Stripe) — xem `IMPLEMENTATION-ROADMAP.md`
-**Status:** Sprint 2 roadmap table (**14** tasks) — **14/14** ✅; backlog **2.5.x** (Archive / Settings): **6/7** task archive+settings nhóm 2.5.x hoàn thành (2.5.1–2.5.6 ✅)
+**Current Sprint:** Sprint 2.5 — Settings Page MVP + Language Support
+**Sprint Status:** ✅ COMPLETED (3/3 tasks done)
+**Next Sprint:** Sprint 2.6 — Personal Signals Pipeline (POST-WEDGE)
+**Next Sprint Status:** 📋 PLANNED — blocked by wedge strategy implementation
+**Blocker:** Wedge strategy (monetization foundation) chưa implement
+
+---
+
+## 🎯 Current Sprint (Tasks 2.5.5 → 2.5.7)
+
+### Task 2.5.5: Settings API (GET/PATCH `/api/settings`) — ✅ COMPLETED
+**Status:** ✅ Completed (2026-04-15)
+
+### Task 2.5.6: Settings Screen Integration (Frontend) — ✅ COMPLETED
+**Status:** ✅ Completed (2026-04-15)
+
+### Task 2.5.7: i18n Foundation + Language Persistence (Frontend) — ✅ COMPLETED
+**Status:** ✅ Completed (2026-04-15)
+**Priority:** Medium
+**Completed:** 2026-04-15
+**Time Taken:** ~4 hours
+**Outcome:** i18n infrastructure ready (en/vi), UI shell translated, locale persists across sessions
+
+**Implementation:**
+- Simple React Context pattern (NO external library)
+- Translation coverage: nav labels, filters, empty states, common actions
+- Locale flow: localStorage → API sync → persist
+- Signal content intentionally NOT translated (AI English)
+
+**Files Created:**
+- `resources/js/i18n/{index.ts, en.ts, vi.ts}`
+- `resources/js/components/LocaleSync.tsx`
+
+**Files Modified:**
+- App.tsx, LeftSidebar.tsx, MobileNav.tsx
+- DigestPage.tsx, ArchivePage.tsx, MyKOLsPage.tsx, SettingsPage.tsx
+
+**Verification:** Manual browser testing passed (7 test cases)
+
+**Next Steps:**
+- Incremental translation additions cho labels còn sót
+- Consider thêm languages (ja, ko) nếu có user demand
+- Future: AI multi-language signal generation
+
+---
+
+## 🎯 Current Sprint Summary
+
+**Sprint Goal:** Settings Page MVP + Language Support  
+**Timeline:** 2026-04-12 → 2026-04-15 (4 days)  
+**Status:** ✅ COMPLETED
+
+**Tasks:**
+- ✅ Task 2.5.5: Backend locale field (COMPLETED 2026-04-12)
+- ✅ Task 2.5.6: Language tab UI (COMPLETED 2026-04-13)
+- ✅ Task 2.5.7: i18n foundation (COMPLETED 2026-04-15)
+
+**Sprint Velocity:** 3 tasks / 4 days = 0.75 tasks/day  
+**Completion Rate:** 100% (3/3 tasks completed)
+
+**Key Achievements:**
+- Users can now switch language (en/vi) with full persistence
+- i18n infrastructure ready for future language additions
+- Zero external dependencies added
+- Clean separation: UI translated, AI content stays English
+
+**Lessons Learned:**
+- Simple Context pattern đủ dùng cho Phase 1 (không cần react-i18next)
+- LocaleSync component pattern giải quyết hook ordering elegantly
+- Manual browser testing hiệu quả cho i18n verification
+
+**Next Sprint Focus:**
+- [TBD based on product priorities]
 
 ---
 

@@ -26,6 +26,7 @@ import { getCurrentSubscriptionCount } from "@/services/sourceService";
 import { mapApiSignalToDigest } from "@/lib/mapApiSignalToDigest";
 import { categoryFilterKeyToDbSlug } from "@/lib/categorySlugMap";
 import type { DigestSignal } from "@/types/digestUi";
+import { useLocale } from "@/i18n";
 
 interface CategoryPill {
   id: number | null;
@@ -51,8 +52,8 @@ function shiftDateYmd(ymd: string, deltaDays: number): string {
   return `${yy}-${mm}-${dd}`;
 }
 
-function digestSubtitleFromParam(dateParam?: string): string {
-  if (!dateParam) return "Today";
+function digestSubtitleFromParam(dateParam: string | undefined, todayLabel: string): string {
+  if (!dateParam) return todayLabel;
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateParam);
   if (!m) return dateParam;
   const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
@@ -73,6 +74,7 @@ const DigestPage: React.FC = () => {
   const location = useLocation();
   const { date: dateParam } = useParams<{ date?: string }>();
   const { user, token, authReady } = useAuth();
+  const { t } = useLocale();
   const userPlan = user?.plan ?? "free";
 
   const [filterDate, setFilterDate] = useState(() => dateParam ?? todayYmd());
@@ -205,7 +207,7 @@ const DigestPage: React.FC = () => {
 
     } catch (e) {
       setRawSignals([]);
-      setError(e instanceof Error ? e.message : "Failed to load signals");
+      setError(e instanceof Error ? e.message : t("common.error"));
     } finally {
       setLoading(false);
     }
@@ -227,7 +229,7 @@ const DigestPage: React.FC = () => {
     }
     if (!user && !token) {
       setLoading(false);
-      setError("Authentication required. Please sign in.");
+      setError(t("digest.authRequired"));
       setRawSignals([]);
       return;
     }
@@ -330,13 +332,13 @@ const DigestPage: React.FC = () => {
     try {
       if (wasArchived) {
         await unarchiveSignal(id);
-        toast.success("Removed from archive");
+        toast.success(t("digest.archiveRemoved"));
       } else {
         await archiveSignal(id);
-        toast.success("Saved to archive");
+        toast.success(t("digest.archiveSaved"));
       }
     } catch {
-      toast.error("Failed to update archive");
+      toast.error(t("digest.archiveFailed"));
       setArchivedIds((prev) => {
         const n = new Set(prev);
         if (wasArchived) {
@@ -409,7 +411,7 @@ const DigestPage: React.FC = () => {
       return [
         {
           id: null,
-          name: "All",
+          name: t("common.all"),
           slug: "all",
           hasSignals: signals.length > 0,
         },
@@ -431,11 +433,11 @@ const DigestPage: React.FC = () => {
           hasSignals: true,
         }))
         .sort((a, b) => a.name.localeCompare(b.name));
-      return [{ id: null, name: "All", slug: "all", hasSignals: true }, ...rest];
+      return [{ id: null, name: t("common.all"), slug: "all", hasSignals: true }, ...rest];
     }
 
     return [
-      { id: null, name: "All", slug: "all", hasSignals: false },
+      { id: null, name: t("common.all"), slug: "all", hasSignals: false },
       ...ALL_CATEGORIES.map((cat) => ({
         id: cat.id,
         name: cat.name,
@@ -443,7 +445,7 @@ const DigestPage: React.FC = () => {
         hasSignals: false,
       })),
     ];
-  }, [rawSignals, user?.my_categories]);
+  }, [rawSignals, user?.my_categories, t]);
 
   const handleCategoryClick = useCallback(
     (categoryId: number | null) => {
@@ -463,7 +465,7 @@ const DigestPage: React.FC = () => {
     [categoryPills],
   );
 
-  const centerTitle = `Digest · ${digestSubtitleFromParam(filterDate)}`;
+  const centerTitle = `${t("nav.digest")} · ${digestSubtitleFromParam(filterDate, t("digest.today"))}`;
 
   const toggleTopicTag = (tag: string) => {
     setActiveTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
@@ -503,7 +505,7 @@ const DigestPage: React.FC = () => {
             type="button"
             onClick={() => setFilterSheetOpen(true)}
             className="flex min-h-[40px] min-w-[40px] shrink-0 items-center justify-center rounded-full p-2 text-[#536471] hover:bg-[#f7f9f9]"
-            aria-label="Filter signals"
+            aria-label={t("digest.filterSignals")}
           >
             <SlidersHorizontal className="h-5 w-5" />
           </button>
@@ -514,22 +516,24 @@ const DigestPage: React.FC = () => {
         {!isMobile && (
           <div className="sticky top-0 z-20 border-b border-[#eff3f4] bg-[rgba(255,255,255,0.85)] backdrop-blur-[12px]">
             <div className="flex items-center justify-between px-5 py-3">
-              <h1 className="text-xl font-extrabold text-[#0f1419]">Digest</h1>
+              <h1 className="text-xl font-extrabold text-[#0f1419]">{t("nav.digest")}</h1>
               <div className="flex items-center gap-1">
                 <button
                   type="button"
                   onClick={goPrevDay}
                   className="rounded-full border-none bg-transparent px-2 py-1.5 text-[#536471]"
-                  aria-label="Previous day"
+                  aria-label={t("digest.previousDay")}
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
-                <span className="px-1 text-sm font-semibold text-[#0f1419]">{digestSubtitleFromParam(filterDate)}</span>
+                <span className="px-1 text-sm font-semibold text-[#0f1419]">
+                  {digestSubtitleFromParam(filterDate, t("digest.today"))}
+                </span>
                 <button
                   type="button"
                   onClick={goNextDay}
                   className="rounded-full border-none bg-transparent px-2 py-1.5 text-[#536471]"
-                  aria-label="Next day"
+                  aria-label={t("digest.nextDay")}
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
@@ -538,7 +542,7 @@ const DigestPage: React.FC = () => {
                   onClick={goToday}
                   className="ml-1 rounded-full border-none bg-[#1d9bf0] px-4 py-1.5 text-[13px] font-bold text-white"
                 >
-                  Today
+                  {t("digest.today")}
                 </button>
               </div>
             </div>
@@ -554,7 +558,11 @@ const DigestPage: React.FC = () => {
                       key={cat.slug}
                       type="button"
                       disabled={isDisabled}
-                      title={isDisabled ? `No signals in ${cat.name} today` : undefined}
+                      title={
+                        isDisabled
+                          ? t("digest.noSignalsInCategoryToday").replace("{category}", cat.name)
+                          : undefined
+                      }
                       onClick={() => handleCategoryClick(cat.id)}
                       className={cn(
                         "shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-all duration-200",
@@ -596,7 +604,7 @@ const DigestPage: React.FC = () => {
                       )}
                     />
                   </span>
-                  <span className="whitespace-nowrap">My KOLs only</span>
+                  <span className="whitespace-nowrap">{t("digest.myKolsOnly")}</span>
                 </button>
               )}
             </div>
@@ -624,7 +632,9 @@ const DigestPage: React.FC = () => {
               })}
             </div>
 
-            <div className="px-5 pb-2.5 text-[13px] text-[#536471]">{signalCount} signals</div>
+            <div className="px-5 pb-2.5 text-[13px] text-[#536471]">
+              {signalCount} {t("digest.signalsCount")}
+            </div>
           </div>
         )}
 
@@ -644,9 +654,9 @@ const DigestPage: React.FC = () => {
           {!loading && error && (
             <div className="mx-auto mt-8 max-w-2xl rounded-lg border border-red-200 bg-red-50 p-6">
               <p className="font-medium text-red-800">{error}</p>
-              {error.includes("Authentication required") && (
+              {error === t("digest.authRequired") && (
                 <a href="/login" className="mt-4 inline-block rounded-full bg-[#0f1419] px-4 py-2 text-sm font-bold text-white no-underline">
-                  Sign in
+                  {t("digest.signIn")}
                 </a>
               )}
               {showUpgradeCta && (
@@ -655,7 +665,7 @@ const DigestPage: React.FC = () => {
                     href="/settings"
                     className="inline-block rounded-md bg-[#1d9bf0] px-4 py-2 text-sm font-bold text-white no-underline hover:bg-[#1a8cd8]"
                   >
-                    Upgrade to Pro for Daily Access
+                    {t("digest.upgradeToPro")}
                   </a>
                 </div>
               )}
@@ -668,17 +678,17 @@ const DigestPage: React.FC = () => {
                 <div className="mx-auto mt-8 max-w-2xl rounded-lg border border-[#eff3f4] bg-[#f7f9f9] p-8 text-center">
                   {myKolsOnly ? (
                     <>
-                      <p className="text-[#536471]">No signals from your KOLs today</p>
+                      <p className="text-[#536471]">{t("digest.noSignalsFromMyKols")}</p>
                       <button
                         type="button"
                         onClick={() => setMyKolsOnly(false)}
                         className="mt-3 rounded-full bg-[#0f1419] px-4 py-2 text-sm font-semibold text-white"
                       >
-                        View All Sources
+                        {t("digest.viewAllSources")}
                       </button>
                     </>
                   ) : (
-                    <p className="text-[#536471]">No signals found for this date</p>
+                    <p className="text-[#536471]">{t("digest.noSignalsForDate")}</p>
                   )}
                 </div>
               ) : (
@@ -710,10 +720,10 @@ const DigestPage: React.FC = () => {
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     className="rounded-full border border-[#eff3f4] px-4 py-2 text-sm font-semibold text-[#0f1419] disabled:opacity-40"
                   >
-                    Previous
+                    {t("digest.previous")}
                   </button>
                   <span className="text-sm text-[#536471]">
-                    Page {currentPage} / {lastPage}
+                    {t("digest.page")} {currentPage} / {lastPage}
                   </span>
                   <button
                     type="button"
@@ -721,7 +731,7 @@ const DigestPage: React.FC = () => {
                     onClick={() => setCurrentPage((p) => p + 1)}
                     className="rounded-full border border-[#eff3f4] px-4 py-2 text-sm font-semibold text-[#0f1419] disabled:opacity-40"
                   >
-                    Next
+                    {t("digest.next")}
                   </button>
                 </div>
               )}

@@ -2,14 +2,16 @@ import React from "react";
 import { NavLink } from "react-router-dom";
 import { Newspaper, Users, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const tabs = [
-  { to: "/digest", label: "Digest", icon: Newspaper },
-  { to: "/my-kols", label: "My KOLs", icon: Users },
-  { to: "/settings", label: "Settings", icon: Settings },
-];
+import { useLocale } from "@/i18n";
 
 const MobileNav: React.FC = () => {
+  const { t } = useLocale();
+  const tabs = [
+    { to: "/digest", label: t("nav.digest"), icon: Newspaper },
+    { to: "/my-kols", label: t("nav.myKols"), icon: Users },
+    { to: "/settings", label: t("nav.settings"), icon: Settings },
+  ];
+
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 h-14 border-t border-[#eff3f4] bg-white/95 backdrop-blur-md flex items-center justify-around px-2">
       {tabs.map((tab) => (

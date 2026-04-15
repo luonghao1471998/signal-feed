@@ -15,6 +15,7 @@ import { apiSlugToCategoryKey } from "@/lib/categorySlugMap";
 import { toast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useLocale } from "@/i18n";
 
 const X_CLIENT_MODE_KEY = "signalfeed_x_client_mode";
 
@@ -55,6 +56,7 @@ export function SignalDetailModal({
   onClose,
   userPlan,
 }: SignalDetailModalProps) {
+  const { t } = useLocale();
   const [signal, setSignal] = useState<Signal | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -97,15 +99,13 @@ export function SignalDetailModal({
       if (xClientMode === "browser_tab") {
         openIntentUrlInNewTab(result.twitter_intent_url);
         toast({
-          title: "Draft copied",
-          description:
-            "A new tab opens X with the draft pre-filled. Paste (⌘V / Ctrl+V) if the box is empty.",
+          title: t("signalDetail.draftCopied"),
+          description: t("signalDetail.draftCopiedBrowser"),
         });
       } else {
         toast({
-          title: "Draft copied",
-          description:
-            "Open the X desktop app or x.com, start a post, and paste (⌘V or Ctrl+V). No link is opened so the empty-composer issue in the installed app is avoided.",
+          title: t("signalDetail.draftCopied"),
+          description: t("signalDetail.draftCopiedApp"),
         });
       }
     } catch (err) {
@@ -117,18 +117,18 @@ export function SignalDetailModal({
           ? (err as { status: number }).status
           : undefined;
 
-      let errorMessage = "Failed to copy draft. Please try again.";
+      let errorMessage = t("signalDetail.failedCopyDraft");
       if (status === 403) {
-        errorMessage = "Upgrade to Pro to use draft feature";
+        errorMessage = t("signalDetail.upgradeProDraft");
       } else if (status === 404) {
-        errorMessage = "Draft not available for this signal";
+        errorMessage = t("signalDetail.draftUnavailable");
       } else if (err instanceof Error && err.message) {
         errorMessage = err.message;
       }
 
       setCopyError(errorMessage);
       toast({
-        title: "Error",
+        title: t("signalDetail.errorTitle"),
         description: errorMessage,
         variant: "destructive",
       });
@@ -154,7 +154,7 @@ export function SignalDetailModal({
         const data = await fetchSignalDetail(signalId);
         setSignal(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load signal");
+        setError(err instanceof Error ? err.message : t("signalDetail.failedLoadSignal"));
       } finally {
         setLoading(false);
       }
@@ -175,7 +175,7 @@ export function SignalDetailModal({
         <RankBadge score={signal.rank_score} rank={listRank} />
       ) : null}
       <span className="flex-1 text-left text-lg font-semibold leading-snug">
-        {loading ? "Loading…" : error && !signal ? "Error" : (signal?.title ?? "")}
+        {loading ? t("signalDetail.loading") : error && !signal ? t("signalDetail.errorTitle") : (signal?.title ?? "")}
       </span>
     </div>
   );
@@ -199,7 +199,7 @@ export function SignalDetailModal({
       {signal && !loading ? (
         <div className="space-y-6">
           <div>
-            <h3 className="mb-2 font-semibold">Summary</h3>
+            <h3 className="mb-2 font-semibold">{t("signalDetail.summary")}</h3>
             <p className="leading-relaxed text-gray-700">{signal.summary}</p>
           </div>
 
@@ -226,7 +226,7 @@ export function SignalDetailModal({
 
           <div>
             <h3 className="mb-4 font-semibold">
-              Sources ({signal.source_count})
+              {t("signalDetail.sources").replace("{count}", String(signal.source_count))}
             </h3>
             <div>
               {signal.sources.map((source, idx) => (
@@ -237,10 +237,10 @@ export function SignalDetailModal({
 
           {userPlan !== "free" && signal.draft_tweets.length > 0 ? (
             <div className="rounded-lg bg-blue-50 p-4">
-              <h3 className="mb-2 font-semibold">Ready to Share</h3>
+              <h3 className="mb-2 font-semibold">{t("signalDetail.readyToShare")}</h3>
               <p className="mb-3 text-sm text-gray-700">{signal.draft_tweets[0].text}</p>
               <div className="mb-4 space-y-2">
-                <p className="text-xs font-medium text-slate-800">How do you use X?</p>
+                <p className="text-xs font-medium text-slate-800">{t("signalDetail.howUseX")}</p>
                 <RadioGroup
                   value={xClientMode}
                   onValueChange={handleXContentModeChange}
@@ -249,18 +249,18 @@ export function SignalDetailModal({
                   <div className="flex items-start gap-2">
                     <RadioGroupItem value="browser_tab" id="signalfeed-x-browser" className="mt-0.5" />
                     <Label htmlFor="signalfeed-x-browser" className="cursor-pointer text-sm font-normal leading-snug">
-                      <span className="font-medium text-slate-900">Chrome / browser tab</span>
+                      <span className="font-medium text-slate-900">{t("signalDetail.browserTab")}</span>
                       <span className="block text-slate-600">
-                        Opens X in a new tab with the draft pre-filled (recommended).
+                        {t("signalDetail.browserTabHint")}
                       </span>
                     </Label>
                   </div>
                   <div className="flex items-start gap-2">
                     <RadioGroupItem value="x_desktop_app" id="signalfeed-x-pwa" className="mt-0.5" />
                     <Label htmlFor="signalfeed-x-pwa" className="cursor-pointer text-sm font-normal leading-snug">
-                      <span className="font-medium text-slate-900">X desktop app</span>
+                      <span className="font-medium text-slate-900">{t("signalDetail.desktopApp")}</span>
                       <span className="block text-slate-600">
-                        Installed from Chrome — we only copy the draft; open X and paste yourself.
+                        {t("signalDetail.desktopAppHint")}
                       </span>
                     </Label>
                   </div>
@@ -282,10 +282,10 @@ export function SignalDetailModal({
                 {copyLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-                    {xClientMode === "browser_tab" ? "Opening…" : "Copying…"}
+                    {xClientMode === "browser_tab" ? t("signalDetail.opening") : t("signalDetail.copying")}
                   </>
                 ) : (
-                  "Copy to X"
+                  t("signalDetail.copyToX")
                 )}
               </Button>
             </div>

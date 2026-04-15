@@ -32,6 +32,7 @@ import {
   unsubscribeFromSource,
 } from "@/services/sourceService";
 import { toast } from "sonner";
+import { useLocale } from "@/i18n";
 
 const formatSubscribedDate = (value: string): string => {
   const date = new Date(value);
@@ -79,13 +80,14 @@ const SUBMISSION_STATUS_STYLES: Record<string, string> = {
 };
 
 const SUBMISSION_STATUS_LABELS: Record<string, string> = {
-  pending_review: "Pending Review",
-  active: "Active",
-  spam: "Marked as Spam",
-  deleted: "Removed",
+  pending_review: "pending_review",
+  active: "active",
+  spam: "spam",
+  deleted: "deleted",
 };
 
 const MyKOLsPage = () => {
+  const { t: tr } = useLocale();
   const { user, authReady } = useAuth();
   const canAddSource = Boolean(user && (user.plan === "pro" || user.plan === "power"));
   const canViewSubmittedTab = Boolean(user && (user.plan === "pro" || user.plan === "power"));
@@ -133,7 +135,7 @@ const MyKOLsPage = () => {
       const rows = await fetchBrowseSources();
       setApiSources(rows);
     } catch (err) {
-      setApiError(err instanceof Error ? err.message : "Failed to load sources");
+      setApiError(err instanceof Error ? err.message : tr("myKols.failedLoadSources"));
     } finally {
       setApiLoading(false);
     }
@@ -154,7 +156,7 @@ const MyKOLsPage = () => {
         }
       } catch {
         if (!cancelled) {
-          toast.error("Failed to load categories");
+          toast.error(tr("common.error"));
           setBrowseCategories([]);
         }
       } finally {
@@ -218,8 +220,8 @@ const MyKOLsPage = () => {
         return merged;
       });
     } catch (error) {
-      setFollowingError(error instanceof Error ? error.message : "Failed to load following list");
-      toast.error("Failed to load following list");
+      setFollowingError(error instanceof Error ? error.message : tr("common.error"));
+      toast.error(tr("common.error"));
     } finally {
       setFollowingLoading(false);
     }
@@ -241,7 +243,7 @@ const MyKOLsPage = () => {
   };
 
   const handleUnfollowFromFollowing = async (source: MySource) => {
-    const confirmed = window.confirm(`Unfollow ${source.handle}?`);
+    const confirmed = window.confirm(tr("myKols.confirmUnfollow").replace("{handle}", source.handle));
     if (!confirmed) {
       return;
     }
@@ -255,13 +257,13 @@ const MyKOLsPage = () => {
 
     try {
       await unsubscribeFromSource(source.id);
-      toast.success(`Unfollowed ${source.handle}`);
+      toast.success(tr("myKols.unfollowedHandle").replace("{handle}", source.handle));
     } catch {
       setFollowingSources(previousFollowing);
       setApiSources((prev) =>
         prev.map((item) => (item.id === source.id ? { ...item, is_subscribed: true } : item)),
       );
-      toast.error("Failed to unfollow. Please try again.");
+      toast.error(tr("common.error"));
     } finally {
       setFollowingBusySourceId((prev) => (prev === source.id ? null : prev));
     }
@@ -276,7 +278,7 @@ const MyKOLsPage = () => {
       setSubmissionsMeta(response.meta);
       setSubmissionsPage(response.meta.current_page);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to load submitted sources";
+      const message = error instanceof Error ? error.message : tr("myKols.failedLoadSubmitted");
       setSubmissionsError(message);
       toast.error(message);
     } finally {
@@ -324,7 +326,7 @@ const MyKOLsPage = () => {
 
     try {
       await subscribeToSource(source.id);
-      toast.success(`Following ${source.handle}`);
+      toast.success(tr("myKols.followingHandle").replace("{handle}", source.handle));
     } catch (error) {
       setSubmissions((prev) =>
         prev.map((item) => (item.id === source.id ? { ...item, is_subscribed: false } : item)),
@@ -335,7 +337,7 @@ const MyKOLsPage = () => {
       if (error instanceof SourceSubscriptionError) {
         toast.error(error.message);
       } else {
-        toast.error("Failed to follow source");
+        toast.error(tr("common.error"));
       }
     } finally {
       setSubmissionsBusySourceId((prev) => (prev === source.id ? null : prev));
@@ -349,7 +351,7 @@ const MyKOLsPage = () => {
       const response = await getMySourcesStatsAPI();
       setStatsData(response.data);
     } catch (error) {
-      setStatsError(error instanceof Error ? error.message : "Failed to load stats. Please try again.");
+      setStatsError(error instanceof Error ? error.message : tr("myKols.failedToLoadStats"));
     } finally {
       setStatsLoading(false);
     }
@@ -370,7 +372,7 @@ const MyKOLsPage = () => {
     const isSubscribed = source.is_subscribed;
 
     if (!user) {
-      toast.error("Please sign in to manage subscriptions");
+      toast.error(tr("digest.authRequired"));
       return;
     }
 
@@ -378,10 +380,10 @@ const MyKOLsPage = () => {
     if (atLimit) {
       toast.error(
         user.plan === "free"
-          ? "Subscription limit reached (5). Upgrade to Pro for up to 10 follows."
+          ? tr("myKols.limitReached5")
           : user.plan === "pro"
-            ? "Subscription limit reached. Upgrade to Power to follow more KOLs."
-            : "Subscription limit reached for your plan.",
+            ? tr("myKols.limitReached10")
+            : tr("myKols.limitReached50"),
       );
       return;
     }
@@ -394,11 +396,11 @@ const MyKOLsPage = () => {
     try {
       if (isSubscribed) {
         await unsubscribeFromSource(source.id);
-        toast.success(`Unfollowed ${sourceHandle}`);
+        toast.success(tr("myKols.unfollowedHandle").replace("{handle}", sourceHandle));
         setFollowingSources((prev) => prev.filter((item) => item.id !== source.id));
       } else {
         await subscribeToSource(source.id);
-        toast.success(`Following ${sourceHandle}`);
+        toast.success(tr("myKols.followingHandle").replace("{handle}", sourceHandle));
         if (
           user.plan === "power" &&
           subscriptionLimit === 50 &&
@@ -417,7 +419,7 @@ const MyKOLsPage = () => {
       if (error instanceof SourceSubscriptionError) {
         toast.error(error.message);
       } else {
-        toast.error("Failed to update subscription");
+        toast.error(tr("common.error"));
       }
     } finally {
       setBusySourceId((prev) => (prev === source.id ? null : prev));
@@ -428,7 +430,7 @@ const MyKOLsPage = () => {
     <div className="min-h-screen bg-white">
       <div className="mx-auto max-w-2xl px-5 py-6">
         <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-[#0f1419]">My KOLs</h1>
+          <h1 className="text-xl font-bold text-[#0f1419]">{tr("nav.myKols")}</h1>
           {authReady && canAddSource ? (
             <button
               type="button"
@@ -437,7 +439,7 @@ const MyKOLsPage = () => {
             >
               <span className="inline-flex items-center gap-2">
                 <Plus className="h-4 w-4" />
-                Add KOL
+                {tr("myKols.addKol")}
               </span>
             </button>
           ) : null}
@@ -455,12 +457,12 @@ const MyKOLsPage = () => {
               )}
             >
               {t === "browse"
-                ? "Browse"
+                ? tr("myKols.browse")
                 : t === "following"
-                  ? "Following"
+                  ? tr("myKols.following")
                   : t === "submitted"
-                    ? "Submitted"
-                    : "Stats"}
+                    ? tr("myKols.submitted")
+                    : tr("myKols.stats")}
             </button>
           ))}
         </div>
@@ -472,20 +474,20 @@ const MyKOLsPage = () => {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by @handle or name..."
+                placeholder={tr("myKols.searchPlaceholder")}
                 className="w-full rounded-full border border-[#eff3f4] bg-[#f7f9f9] py-2.5 pl-9 pr-4 text-sm text-[#0f1419] placeholder:text-[#536471] focus:border-[#1d9bf0] focus:outline-none focus:ring-0"
               />
             </div>
 
             <div className="mb-3 flex items-center justify-between text-sm">
               <span className="text-[#536471]">
-                Following: <span className="font-semibold text-[#0f1419]">{followingQuotaLabel}</span>
+                {tr("myKols.followingPrefix")} <span className="font-semibold text-[#0f1419]">{followingQuotaLabel}</span>
               </span>
             </div>
 
             <div className="mb-3 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
               {categoriesLoading ? (
-                <span className="shrink-0 px-2 py-1 text-sm text-[#536471]">Loading categories…</span>
+                <span className="shrink-0 px-2 py-1 text-sm text-[#536471]">{tr("myKols.loadingCategories")}</span>
               ) : (
                 <>
                   <button
@@ -504,7 +506,7 @@ const MyKOLsPage = () => {
                         selectedCategoryIds.length === 0 ? categoryDotActiveClass() : "bg-[#1d9bf0]",
                       )}
                     />
-                    All
+                    {tr("myKols.all")}
                   </button>
                   {browseCategories.map((cat) => {
                     const active = selectedCategoryIds.includes(cat.id);
@@ -535,13 +537,13 @@ const MyKOLsPage = () => {
             </div>
 
             {apiLoading ? (
-              <p className="py-8 text-center text-sm text-[#536471]">Loading sources…</p>
+              <p className="py-8 text-center text-sm text-[#536471]">{tr("myKols.loadingSources")}</p>
             ) : null}
             {apiError ? (
               <p className="py-4 text-center text-sm text-red-600">{apiError}</p>
             ) : null}
             {!apiLoading && !apiError && filteredApi.length === 0 ? (
-              <p className="py-8 text-center text-sm text-[#536471]">No sources match your filters.</p>
+              <p className="py-8 text-center text-sm text-[#536471]">{tr("myKols.noSourcesMatch")}</p>
             ) : null}
             {!apiLoading && !apiError && filteredApi.length > 0 ? (
               <TooltipProvider>
@@ -556,13 +558,13 @@ const MyKOLsPage = () => {
                   const isBlocked = blockedByCap;
                   const shouldShowTooltip = !user || blockedByCap;
                   const tooltipLabel = !user
-                    ? "Please sign in to follow KOLs"
+                    ? tr("myKols.pleaseSignInFollow")
                     : blockedByCap
                       ? user.plan === "free"
-                        ? "Limit reached (5). Upgrade to Pro for more follows."
+                    ? tr("myKols.limitReached5")
                         : user.plan === "pro"
-                          ? "Limit reached (10). Upgrade to Power."
-                          : "Limit reached (50)."
+                          ? tr("myKols.limitReached10")
+                          : tr("myKols.limitReached50")
                       : "";
                   return (
                     <div key={source.id} className="flex items-center gap-3 py-4">
@@ -599,17 +601,17 @@ const MyKOLsPage = () => {
                               {isBusy ? (
                                 <>
                                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  {isSubscribed ? "Unfollowing..." : "Following..."}
+                                  {isSubscribed ? tr("myKols.unfollowing") : tr("myKols.followingProgress")}
                                 </>
                               ) : isSubscribed ? (
                                 <>
                                   <Check className="h-3.5 w-3.5" />
-                                  Following
+                                  {tr("myKols.following")}
                                 </>
                               ) : (
                                 <>
                                   <UserPlus className="h-3.5 w-3.5" />
-                                  Follow
+                                  {tr("myKols.followBtn")}
                                 </>
                               )}
                             </Button>
@@ -630,7 +632,7 @@ const MyKOLsPage = () => {
           <div>
             <div className="mb-4 flex items-center justify-between">
               <span className="text-sm text-[#536471]">
-                {followingSources.length} / {subscriptionLimit > 0 ? subscriptionLimit : "—"} KOLs
+                {followingSources.length} / {subscriptionLimit > 0 ? subscriptionLimit : "—"} {tr("myKols.kols")}
               </span>
               <div className="mx-3 h-1 flex-1 rounded-full bg-[#eff3f4]">
                 <div
@@ -641,12 +643,16 @@ const MyKOLsPage = () => {
                 />
               </div>
               <span className="text-[13px] font-medium text-[#1d9bf0]">
-                {user?.plan === "power" ? "Power plan" : user?.plan === "pro" ? "Pro plan" : "Free plan"}
+                {user?.plan === "power"
+                  ? tr("myKols.planPower")
+                  : user?.plan === "pro"
+                    ? tr("myKols.planPro")
+                    : tr("myKols.planFree")}
               </span>
             </div>
 
             {followingLoading && followingSources.length === 0 ? (
-              <p className="py-8 text-center text-sm text-[#536471]">Loading following list...</p>
+              <p className="py-8 text-center text-sm text-[#536471]">{tr("myKols.loadingFollowing")}</p>
             ) : null}
 
             {followingError ? <p className="py-4 text-center text-sm text-red-600">{followingError}</p> : null}
@@ -654,12 +660,12 @@ const MyKOLsPage = () => {
             {!followingLoading && !followingError && followingSources.length === 0 ? (
               <div className="rounded-xl border border-dashed border-[#dbe2e8] px-4 py-10 text-center">
                 <Users className="mx-auto mb-3 h-10 w-10 text-[#536471]" />
-                <h3 className="text-base font-bold text-[#0f1419]">You haven&apos;t followed any KOLs yet</h3>
+                <h3 className="text-base font-bold text-[#0f1419]">{tr("myKols.noFollowingYet")}</h3>
                 <p className="mt-2 text-sm text-[#536471]">
-                  Browse the source pool to find and follow KOLs that match your interests.
+                  {tr("myKols.noFollowingHint")}
                 </p>
                 <Button type="button" className="mt-4 rounded-full px-5" onClick={() => setTab("browse")}>
-                  Browse KOLs
+                  {tr("myKols.browseKols")}
                 </Button>
               </div>
             ) : null}
@@ -672,11 +678,11 @@ const MyKOLsPage = () => {
                   const signalCount = source.stats.signal_count;
                   const statsText =
                     signalCount > 0
-                      ? `${signalCount} signal${signalCount > 1 ? "s" : ""} (last 7 days)`
-                      : "No recent signals";
+                      ? tr("myKols.signalsLast7Days").replace("{count}", String(signalCount))
+                      : tr("myKols.noRecentSignals");
                   const lastActiveText = source.stats.last_active_date
                     ? `last active ${source.stats.last_active_date}`
-                    : "No recent activity";
+                    : tr("myKols.noRecentActivity");
                   const isBusy = followingBusySourceId === source.id;
 
                   return (
@@ -700,8 +706,8 @@ const MyKOLsPage = () => {
                         <p className="mt-1 text-[13px] text-[#0f1419]">{statsText}</p>
                         <p className="text-[13px] text-[#536471]">{lastActiveText}</p>
                         <p className="text-[12px] text-[#536471]">
-                          Following since{" "}
-                          {source.subscribed_at ? formatSubscribedDate(source.subscribed_at) : "Unknown"}
+                          {tr("myKols.followingSince")}{" "}
+                          {source.subscribed_at ? formatSubscribedDate(source.subscribed_at) : tr("common.unknown")}
                         </p>
                       </div>
                       <Button
@@ -712,7 +718,7 @@ const MyKOLsPage = () => {
                         onClick={() => void handleUnfollowFromFollowing(source)}
                         className="shrink-0 rounded-full px-4"
                       >
-                        {isBusy ? "Unfollowing..." : "Unfollow"}
+                        {isBusy ? tr("myKols.unfollowing") : tr("myKols.unfollow")}
                       </Button>
                     </div>
                   );
@@ -729,7 +735,7 @@ const MyKOLsPage = () => {
                   disabled={followingLoading}
                   className="rounded-full px-5"
                 >
-                  {followingLoading ? "Loading..." : "Load More"}
+                  {followingLoading ? tr("archive.loading") : tr("myKols.loadMore")}
                 </Button>
               </div>
             ) : null}
@@ -739,7 +745,7 @@ const MyKOLsPage = () => {
         {tab === "submitted" && canViewSubmittedTab && (
           <div>
             {submissionsLoading ? (
-              <p className="py-8 text-center text-sm text-[#536471]">Loading submitted sources...</p>
+              <p className="py-8 text-center text-sm text-[#536471]">{tr("myKols.loadingSubmitted")}</p>
             ) : null}
 
             {!submissionsLoading && submissionsError ? (
@@ -753,7 +759,7 @@ const MyKOLsPage = () => {
                   onClick={() => void loadSubmissions(submissionsPage)}
                 >
                   <RefreshCw className="mr-2 h-4 w-4" />
-                  Retry
+                  {tr("common.retry")}
                 </Button>
               </div>
             ) : null}
@@ -761,9 +767,9 @@ const MyKOLsPage = () => {
             {!submissionsLoading && !submissionsError && submissions.length === 0 ? (
               <div className="rounded-xl border border-dashed border-[#dbe2e8] px-4 py-10 text-center">
                 <Users className="mx-auto mb-3 h-10 w-10 text-[#536471]" />
-                <h3 className="text-base font-bold text-[#0f1419]">You haven&apos;t submitted any KOLs yet</h3>
+                <h3 className="text-base font-bold text-[#0f1419]">{tr("myKols.noSubmittedYet")}</h3>
                 <p className="mt-2 text-sm text-[#536471]">
-                  Use the &quot;Add KOL&quot; button to contribute sources to the community.
+                  {tr("myKols.noSubmittedHint")}
                 </p>
               </div>
             ) : null}
@@ -775,7 +781,17 @@ const MyKOLsPage = () => {
                   const statusStyle =
                     SUBMISSION_STATUS_STYLES[source.status] ??
                     "border border-gray-300 bg-gray-100 text-gray-800";
-                  const statusLabel = SUBMISSION_STATUS_LABELS[source.status] ?? source.status;
+                  const statusKey = SUBMISSION_STATUS_LABELS[source.status] ?? source.status;
+                  const statusLabel =
+                    statusKey === "pending_review"
+                      ? tr("myKols.statusPendingReview")
+                      : statusKey === "active"
+                        ? tr("myKols.statusActive")
+                        : statusKey === "spam"
+                          ? tr("myKols.statusMarkedSpam")
+                          : statusKey === "deleted"
+                            ? tr("myKols.statusRemoved")
+                            : statusKey;
                   const isBusy = submissionsBusySourceId === source.id;
 
                   return (
@@ -802,7 +818,7 @@ const MyKOLsPage = () => {
                           </div>
                         ) : null}
                         <p className="mt-1 text-[12px] text-[#536471]">
-                          Submitted: {formatSubmissionDate(source.submitted_at)}
+                          {tr("myKols.submittedPrefix")}: {formatSubmissionDate(source.submitted_at)}
                         </p>
                       </div>
                       {source.status === "active" && !source.is_subscribed ? (
@@ -813,7 +829,7 @@ const MyKOLsPage = () => {
                           onClick={() => void handleFollowSubmission(source)}
                           className="shrink-0 rounded-full px-4"
                         >
-                          {isBusy ? "Following..." : "Follow"}
+                          {isBusy ? tr("myKols.followingProgress") : tr("myKols.followBtn")}
                         </Button>
                       ) : null}
                     </div>
@@ -878,7 +894,7 @@ const MyKOLsPage = () => {
                   onClick={() => void loadStatsData()}
                 >
                   <RefreshCw className="mr-2 h-4 w-4" />
-                  Retry
+                  {tr("common.retry")}
                 </Button>
               </div>
             ) : null}
@@ -891,12 +907,12 @@ const MyKOLsPage = () => {
                 statsData.per_category_breakdown.length === 0)) ? (
               <div className="rounded-xl border border-dashed border-[#dbe2e8] px-4 py-10 text-center">
                 <BarChart3 className="mx-auto mb-3 h-10 w-10 text-[#536471]" />
-                <h3 className="text-base font-bold text-[#0f1419]">No stats available yet</h3>
+                <h3 className="text-base font-bold text-[#0f1419]">{tr("myKols.noStatsYet")}</h3>
                 <p className="mt-2 text-sm text-[#536471]">
-                  Follow KOLs to see your personalized stats dashboard with signal trends and insights.
+                  {tr("myKols.noStatsHint")}
                 </p>
                 <Button type="button" className="mt-4 rounded-full px-5" onClick={() => setTab("browse")}>
-                  Browse KOLs
+                  {tr("myKols.browseKols")}
                 </Button>
               </div>
             ) : null}
@@ -906,19 +922,19 @@ const MyKOLsPage = () => {
                 <div className="rounded-xl border border-[#eff3f4] bg-white p-4">
                   <div className="mb-2 flex items-center gap-2 text-sm font-medium text-[#536471]">
                     <TrendingUp className="h-4 w-4 text-[#1d9bf0]" />
-                    Signals Today
+                    {tr("myKols.signalsToday")}
                   </div>
                   <div className="text-4xl font-bold text-[#0f1419]">
                     {statsData.total_signals_today.toLocaleString()}
                   </div>
-                  <p className="mt-1 text-sm text-[#536471]">from your followed KOLs</p>
+                  <p className="mt-1 text-sm text-[#536471]">{tr("myKols.fromFollowedKols")}</p>
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="rounded-xl border border-[#eff3f4] bg-white p-4">
-                    <h3 className="mb-3 text-sm font-semibold text-[#0f1419]">Top Active Sources (7 days)</h3>
+                    <h3 className="mb-3 text-sm font-semibold text-[#0f1419]">{tr("myKols.topActiveSources")}</h3>
                     {statsData.top_active_sources.length === 0 ? (
-                      <p className="text-sm text-[#536471]">No active sources this week.</p>
+                      <p className="text-sm text-[#536471]">{tr("myKols.noActiveSourcesWeek")}</p>
                     ) : (
                       <div className="space-y-2">
                         {statsData.top_active_sources.slice(0, 3).map((source, index) => {
@@ -932,7 +948,7 @@ const MyKOLsPage = () => {
                                 <p className="truncate text-xs text-[#536471]">{source.handle}</p>
                               </div>
                               <span className="shrink-0 rounded-full bg-[#e8f5fd] px-2.5 py-0.5 text-xs font-medium text-[#1d9bf0]">
-                                {source.signal_count} signals
+                                {source.signal_count} {tr("myKols.signalsUnit")}
                               </span>
                             </div>
                           );
@@ -942,9 +958,9 @@ const MyKOLsPage = () => {
                   </div>
 
                   <div className="rounded-xl border border-[#eff3f4] bg-white p-4">
-                    <h3 className="mb-3 text-sm font-semibold text-[#0f1419]">Signals by Category (7 days)</h3>
+                    <h3 className="mb-3 text-sm font-semibold text-[#0f1419]">{tr("myKols.signalsByCategory")}</h3>
                     {statsData.per_category_breakdown.length === 0 ? (
-                      <p className="text-sm text-[#536471]">No category data available.</p>
+                      <p className="text-sm text-[#536471]">{tr("myKols.noCategoryData")}</p>
                     ) : (
                       <div className="space-y-2.5">
                         {[...statsData.per_category_breakdown]
@@ -980,7 +996,7 @@ const MyKOLsPage = () => {
                 </div>
 
                 <div className="rounded-xl border border-[#eff3f4] bg-white p-4">
-                  <h3 className="mb-3 text-sm font-semibold text-[#0f1419]">7-Day Signal Trend</h3>
+                  <h3 className="mb-3 text-sm font-semibold text-[#0f1419]">{tr("myKols.signalTrend7d")}</h3>
                   <div className="h-64 w-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart
@@ -994,8 +1010,8 @@ const MyKOLsPage = () => {
                         <XAxis dataKey="display_date" tick={{ fontSize: 12, fill: "#536471" }} />
                         <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: "#536471" }} />
                         <RechartsTooltip
-                          formatter={(value: number) => [`${value} signals`, "Count"]}
-                          labelFormatter={(label) => `Date: ${label}`}
+                          formatter={(value: number) => [`${value} ${tr("myKols.signalsUnit")}`, tr("myKols.countLabel")]}
+                          labelFormatter={(label) => `${tr("myKols.dateLabel")}: ${label}`}
                         />
                         <Line
                           type="monotone"
@@ -1023,7 +1039,7 @@ const MyKOLsPage = () => {
         <AlertDialog open={powerCapDialogOpen} onOpenChange={setPowerCapDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>The maximum of 50 KOLs has been reached.</AlertDialogTitle>
+              <AlertDialogTitle>{tr("myKols.capReached50")}</AlertDialogTitle>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogAction type="button" onClick={() => setPowerCapDialogOpen(false)}>

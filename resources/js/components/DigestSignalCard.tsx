@@ -5,6 +5,7 @@ import { Av, AvStack, avatarUrlForHandle } from "./Avatar";
 import { cn } from "@/lib/utils";
 import type { CategoryKey } from "./CategoryBadge";
 import type { DigestSignal } from "@/types/digestUi";
+import { useLocale } from "@/i18n";
 
 const CATEGORY_KEYS = new Set<string>([
   "ai-ml",
@@ -55,6 +56,7 @@ const DigestSignalCard: React.FC<Props> = ({
   archiveLoading = false,
   onArchiveToggle,
 }) => {
+  const { t } = useLocale();
   const [inlineExpanded, setInlineExpanded] = useState(sheetMode ? false : (signal.defaultExpanded ?? false));
   const [copied, setCopied] = useState(false);
   const modalMode = Boolean(onClick);
@@ -146,8 +148,8 @@ const DigestSignalCard: React.FC<Props> = ({
                     "rounded-full p-1.5 transition-opacity",
                     archiveLoading ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:bg-[#eff3f4]",
                   )}
-                  title={isArchived ? "Remove from archive" : "Save to archive"}
-                  aria-label={isArchived ? "Remove from archive" : "Save to archive"}
+                  title={isArchived ? t("signalCard.removeFromArchive") : t("signalCard.saveToArchive")}
+                  aria-label={isArchived ? t("signalCard.removeFromArchive") : t("signalCard.saveToArchive")}
                 >
                   {isArchived ? (
                     <BookmarkCheck className="h-[18px] w-[18px] text-[#1d9bf0]" aria-hidden />
@@ -162,10 +164,10 @@ const DigestSignalCard: React.FC<Props> = ({
 
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[13px] text-[#536471]">
             <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[12px] font-semibold", rankBadgeClass)}>
-              Rank: {score.toFixed(2)}
+              {t("signalCard.rank")}: {score.toFixed(2)}
             </span>
             <span aria-hidden>•</span>
-            <span>{sourceCount} sources</span>
+            <span>{sourceCount} {t("signalCard.sources")}</span>
           </div>
 
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
@@ -188,7 +190,7 @@ const DigestSignalCard: React.FC<Props> = ({
 
           <div className="mt-2.5 flex items-center gap-2.5">
             <AvStack sources={signal.sources} max={5} />
-            <span className="text-[13px] text-[#536471]">{signal.kolCount} KOLs</span>
+            <span className="text-[13px] text-[#536471]">{signal.kolCount} {t("signalCard.kols")}</span>
           </div>
         </div>
       </div>
@@ -217,7 +219,7 @@ const DigestSignalCard: React.FC<Props> = ({
                         marginLeft: 6,
                       }}
                     >
-                      ★ My KOL
+                      ★ {t("signalCard.myKol")}
                     </span>
                   ) : null}{" "}
                   <span className="text-[15px] text-[#536471]">{source.handle}</span>{" "}
@@ -233,7 +235,7 @@ const DigestSignalCard: React.FC<Props> = ({
                   className="mt-1 inline-block text-[13px] font-medium text-[#1d9bf0] no-underline"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  View original ↗
+                  {t("signalCard.viewOriginal")}
                 </a>
               </div>
             </div>
@@ -253,7 +255,7 @@ const DigestSignalCard: React.FC<Props> = ({
               marginTop: 4,
             }}
           >
-            View all {sourceCount} sources →
+            {t("signalCard.viewAllSources").replace("{count}", String(sourceCount))}
           </a>
 
           {showDraft && signal.draftTweet ? (
@@ -262,7 +264,7 @@ const DigestSignalCard: React.FC<Props> = ({
                 <svg width={16} height={16} viewBox="0 0 24 24" fill="#1d9bf0" aria-hidden>
                   <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
                 </svg>
-                <span className="text-[13px] font-bold text-[#1d9bf0]">Draft tweet</span>
+                <span className="text-[13px] font-bold text-[#1d9bf0]">{t("signalCard.draftTweet")}</span>
                 <span className="ml-auto text-[12px] text-[#536471]">{signal.draftTweet.length}/280</span>
               </div>
               <p className="mb-3.5 mt-0 text-[15px] leading-[1.55] text-[#0f1419]">{signal.draftTweet}</p>
@@ -274,10 +276,10 @@ const DigestSignalCard: React.FC<Props> = ({
                 >
                   {copied ? (
                     <span className="inline-flex items-center gap-1">
-                      <Check className="h-4 w-4 text-emerald-600" /> Copied
+                      <Check className="h-4 w-4 text-emerald-600" /> {t("signalCard.copied")}
                     </span>
                   ) : (
-                    "Copy"
+                    t("signalCard.copy")
                   )}
                 </button>
                 <a
@@ -287,7 +289,7 @@ const DigestSignalCard: React.FC<Props> = ({
                   className="inline-flex cursor-pointer items-center rounded-full bg-[#0f1419] px-5 py-2 text-[14px] font-bold text-white no-underline"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  Post on 𝕏 ↗
+                  {t("signalCard.postOnX")}
                 </a>
               </div>
             </div>

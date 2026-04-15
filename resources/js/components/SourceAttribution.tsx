@@ -2,6 +2,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ExternalLink } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import type { SignalSource } from "@/types/signal";
+import { useLocale } from "@/i18n";
 
 interface SourceAttributionProps {
   source: SignalSource;
@@ -21,6 +22,7 @@ function initialsFromSource(source: SignalSource): string {
 }
 
 export function SourceAttribution({ source }: SourceAttributionProps) {
+  const { t } = useLocale();
   const initials = initialsFromSource(source);
 
   const relativeTime = source.posted_at
@@ -59,7 +61,7 @@ export function SourceAttribution({ source }: SourceAttributionProps) {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
           >
-            View on X
+            {t("signalCard.viewOriginal")}
             <ExternalLink className="h-3 w-3" />
           </a>
         </div>

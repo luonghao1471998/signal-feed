@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import CategoryBadge from "@/components/CategoryBadge";
 import { AvStack } from "@/components/Avatar";
 import { categoryLabelToBadgeKey } from "./categoryFilter";
+import { useLocale } from "@/i18n";
 
 export interface ArchiveSignalCardItem {
   id: number;
@@ -29,6 +30,7 @@ const ArchiveSignalCard: React.FC<ArchiveSignalCardProps> = ({
   onUnsave,
   unsaveLoading = false,
 }) => {
+  const { t } = useLocale();
   const rankIsTop = signal.rank <= 3;
   const tagsLine = signal.tags.join("  ");
 
@@ -71,7 +73,7 @@ const ArchiveSignalCard: React.FC<ArchiveSignalCardProps> = ({
 
           <div className="mt-2.5 flex items-center gap-2.5">
             <AvStack sources={signal.stackSources} max={5} />
-            <span className="text-[13px] text-[#536471]">{signal.kolCount} KOLs</span>
+            <span className="text-[13px] text-[#536471]">{signal.kolCount} {t("archive.kolsUnit")}</span>
           </div>
         </div>
 
@@ -84,7 +86,7 @@ const ArchiveSignalCard: React.FC<ArchiveSignalCardProps> = ({
               "flex min-h-[36px] min-w-[36px] items-center justify-center rounded-full p-1.5 hover:bg-[#eff3f4]",
               unsaveLoading && "cursor-not-allowed opacity-50",
             )}
-            aria-label="Unsave signal"
+            aria-label={t("archive.unsaveSignal")}
           >
             <BookmarkCheck className="h-4 w-4 fill-[#1d9bf0] text-[#1d9bf0]" />
           </button>
@@ -96,7 +98,7 @@ const ArchiveSignalCard: React.FC<ArchiveSignalCardProps> = ({
               }
             }}
             className="flex min-h-[36px] min-w-[36px] items-center justify-center rounded-full p-1.5 hover:bg-[#eff3f4]"
-            aria-label="Open link"
+            aria-label={t("archive.openLink")}
             disabled={!signal.openUrl}
           >
             <ExternalLink className="h-4 w-4 text-[#536471]" />

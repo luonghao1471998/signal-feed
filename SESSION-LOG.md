@@ -2,6 +2,91 @@
 
 ---
 
+## 2026-04-15 - Task 2.5.7: i18n Foundation + Language Persistence — ✅ COMPLETED
+
+**Status:** ✅ Completed & Verified
+**Completion Time:** 2026-04-15
+**Objective:** Setup i18n infrastructure (en/vi baseline), locale provider đọc từ settings.preferences.locale, apply translation vào UI shell (nav, common labels). Switch language → persist qua PATCH /api/settings → reload giữ nguyên.
+
+**Implementation Summary:**
+
+**Architecture:**
+- Simple React Context pattern (NO external i18n library)
+- Dictionary structure: `resources/js/i18n/{index.ts, en.ts, vi.ts}`
+- LocaleProvider wraps App.tsx, provides `locale`, `t(key)`, `setLocale()`
+- LocaleSync component syncs locale từ API settings khi user authenticated
+- Locale persistence: localStorage (immediate) + API (backend)
+
+**Files Created:**
+1. `resources/js/i18n/index.ts` — LocaleContext, LocaleProvider, useLocale hook
+2. `resources/js/i18n/en.ts` — English dictionary (nav, digest, myKols, archive, settings, common)
+3. `resources/js/i18n/vi.ts` — Vietnamese dictionary (same structure)
+4. `resources/js/components/LocaleSync.tsx` — Sync locale từ API settings on user login
+
+**Files Modified:**
+1. `resources/js/App.tsx` — Added LocaleProvider wrapper + LocaleSync component
+2. `resources/js/components/LeftSidebar.tsx` — Nav labels dùng t('nav.*')
+3. `resources/js/components/MobileNav.tsx` — Nav labels dùng t('nav.*')
+4. `resources/js/pages/DigestPage.tsx` — Filter buttons + empty states translated
+5. `resources/js/pages/ArchivePage.tsx` — Empty states translated
+6. `resources/js/pages/MyKOLsPage.tsx` — Tabs + buttons + empty states translated
+7. `resources/js/pages/SettingsPage.tsx` — Language tab labels + save button translated
+
+**Translation Coverage (Phase 1 Baseline):**
+- ✅ Navigation labels (Digest, My KOLs, Archive, Settings)
+- ✅ Digest page filters ("All Sources", "My KOLs only")
+- ✅ Empty states (Digest, Archive, MyKOLs)
+- ✅ Settings tabs + buttons
+- ✅ Common actions (Save, Cancel, Loading, Error)
+- ❌ Signal content (titles/summaries) — intentionally NOT translated (AI-generated English)
+- ❌ Category names — kept in English for consistency
+
+**Locale Flow:**
+1. App load → LocaleProvider reads from localStorage (fallback 'en')
+2. User authenticated → LocaleSync fetches GET /api/settings → syncs `preferences.locale`
+3. User changes language in Settings → PATCH /api/settings + setLocale() → UI updates immediately
+4. Reload → locale persists via localStorage + API
+
+**Verification (Manual Browser Testing):**
+- ✅ Default load với locale='en' → nav labels English
+- ✅ Switch to Vietnamese → nav labels "Bảng tin", "KOL của tôi", "Đã lưu", "Cài đặt"
+- ✅ Reload → locale persists (both localStorage + API)
+- ✅ Switch back to English → labels update immediately
+- ✅ Signal content KHÔNG bị translate (giữ nguyên English)
+- ✅ Empty states translate theo locale
+- ✅ Missing keys fallback to key string (không crash)
+
+**Technical Decisions:**
+- **NO react-i18next:** Quá heavy cho scope Phase 1 (chỉ 2 locales, limited translation keys)
+- **Simple Context pattern:** Đủ performant, dễ maintain, TypeScript-friendly
+- **localStorage + API dual persistence:** localStorage cho immediate UX, API cho cross-device sync
+- **LocaleSync component:** Giải quyết hook ordering issue (AuthProvider vs LocaleProvider)
+- **Dot notation keys:** `t('nav.digest')` — clean, IDE autocomplete-friendly
+
+**Future Extensions (Out of Scope Phase 1):**
+- Plural forms handling (e.g., "1 signal" vs "2 signals")
+- Date/time formatting per locale
+- Additional languages (ja, ko, th, etc.)
+- Translate signal content (AI multi-language generation)
+- RTL language support
+- Number formatting per locale
+
+**Dependencies Met:**
+- ✅ Task 2.5.5: PATCH /api/settings với locale field
+- ✅ Task 2.5.6: Language tab save locale working
+- ✅ settingsService.ts đã có fetchSettings() + updateSettings()
+- ✅ AuthContext.tsx đã có user context
+
+**Notes:**
+- Translation coverage tương đối đầy đủ cho Phase 1 baseline
+- Còn sót một số labels → sẽ bổ sung incremental trong en.ts/vi.ts sau
+- Performance impact minimal (simple object lookup, no regex)
+- Zero external dependencies added
+- Backend locale field đã ready từ Task 2.5.5
+
+**Outcome:**  
+i18n foundation hoàn chỉnh, ready cho users switch ngôn ngữ. UI shell translated (en/vi), signal content giữ nguyên English. Locale persists across sessions. Cơ sở vững chắc để extend thêm languages hoặc translation scope sau này.
+
 ## 2026-04-15 - Task 2.5.6: Integrate Settings Screen with Settings APIs — 📋 SPEC / IMPLEMENTATION PLAN
 
 **Status:** ✅ COMPLETED — frontend integrated với backend APIs, manual tested, 4 UI issues fixed

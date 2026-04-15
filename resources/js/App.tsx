@@ -22,6 +22,8 @@ import { useMediaQuery } from "./hooks/useMediaQuery";
 import PWALayout from "./layouts/PWALayout";
 import DesktopLayout from "./layouts/DesktopLayout";
 import { SyncDocumentTitle } from "./components/SyncDocumentTitle";
+import { LocaleProvider } from "@/i18n";
+import { LocaleSync } from "./components/LocaleSync";
 
 const queryClient = new QueryClient();
 
@@ -64,10 +66,13 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <CategoryFilterProvider>
-            <SyncDocumentTitle />
-            <AppRoutes />
-          </CategoryFilterProvider>
+          <LocaleProvider>
+            <LocaleSync />
+            <CategoryFilterProvider>
+              <SyncDocumentTitle />
+              <AppRoutes />
+            </CategoryFilterProvider>
+          </LocaleProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

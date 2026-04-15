@@ -4,13 +4,7 @@ import { Zap, Users, Bookmark, Settings, MoreHorizontal, Shield } from "lucide-r
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { authFetchHeaders, ensureSanctumCsrf } from "@/services/authService";
-
-const navItems = [
-  { to: "/digest", label: "Digest", icon: Zap },
-  { to: "/my-kols", label: "My KOLs", icon: Users },
-  { to: "/archive", label: "Archive", icon: Bookmark },
-  { to: "/settings", label: "Settings", icon: Settings },
-];
+import { useLocale } from "@/i18n";
 
 const LogoBolt = () => (
   <svg width={28} height={28} viewBox="0 0 24 24" fill="#1d9bf0" aria-hidden className="shrink-0">
@@ -21,7 +15,15 @@ const LogoBolt = () => (
 const LeftSidebar: React.FC = () => {
   const navigate = useNavigate();
   const { user, setSession } = useAuth();
+  const { t } = useLocale();
   const [menuOpen, setMenuOpen] = useState(false);
+  const navItems = [
+    { to: "/digest", label: t("nav.digest"), icon: Zap },
+    { to: "/my-kols", label: t("nav.myKols"), icon: Users },
+    { to: "/archive", label: t("nav.archive"), icon: Bookmark },
+    { to: "/settings", label: t("nav.settings"), icon: Settings },
+  ];
+
   const [loggingOut, setLoggingOut] = useState(false);
   const [avatarBroken, setAvatarBroken] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -30,7 +32,12 @@ const LeftSidebar: React.FC = () => {
   const displayName = username.startsWith("@") ? username : `@${username}`;
   const avatarInitial = (user?.x_username?.[0] ?? "U").toUpperCase();
   const showAvatarImage = Boolean(user?.avatar_url) && !avatarBroken;
-  const planLabel = user?.plan ? `${user.plan.charAt(0).toUpperCase()}${user.plan.slice(1)} plan` : "Free plan";
+  const planLabel =
+    user?.plan === "power"
+      ? t("sidebar.powerPlan")
+      : user?.plan === "pro"
+        ? t("sidebar.proPlan")
+        : t("sidebar.freePlan");
 
   useEffect(() => {
     setAvatarBroken(false);
@@ -165,7 +172,7 @@ const LeftSidebar: React.FC = () => {
           <button
             type="button"
             className="ml-auto shrink-0 rounded-full p-1 text-[#536471] hover:bg-[#eff3f4]"
-            aria-label="More"
+            aria-label={t("sidebar.more")}
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((prev) => !prev)}
           >
@@ -180,7 +187,7 @@ const LeftSidebar: React.FC = () => {
                 disabled={loggingOut}
                 className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-medium text-[#0f1419] hover:bg-[#f7f9f9] disabled:opacity-60"
               >
-                {loggingOut ? "Logging out..." : "Logout"}
+                {loggingOut ? t("sidebar.loggingOut") : t("sidebar.logout")}
               </button>
             </div>
           )}

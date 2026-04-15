@@ -13,16 +13,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCategories, type Category } from "@/services/categoryService";
 import { fetchSettings, type SettingsData, updateSettings } from "@/services/settingsService";
+import { useLocale, type Locale } from "@/i18n";
 
 type SettingsTab = "profile" | "digest" | "billing" | "telegram" | "language";
-
-const navItems: { id: SettingsTab; label: string }[] = [
-  { id: "profile", label: "Profile" },
-  { id: "digest", label: "Digest Preferences" },
-  { id: "billing", label: "Plan & Billing" },
-  { id: "telegram", label: "Telegram" },
-  { id: "language", label: "Language" },
-];
 
 const MOBILE_TABS: SettingsTab[] = ["profile", "digest"];
 
@@ -103,6 +96,7 @@ const SettingsPage: React.FC = () => {
   const isMobile = useMediaQuery("(max-width: 767px)");
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t, setLocale: setAppLocale } = useLocale();
 
   const [activeTab, setActiveTab] = useState<SettingsTab>("digest");
   const [settings, setSettings] = useState<SettingsData | null>(null);
@@ -114,7 +108,7 @@ const SettingsPage: React.FC = () => {
   const [email, setEmail] = useState("");
   const [emailDigestEnabled, setEmailDigestEnabled] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
-  const [locale, setLocale] = useState("en");
+  const [locale, setLocale] = useState<Locale>("en");
   const [categories, setCategories] = useState<Category[]>([]);
 
   useEffect(() => {
@@ -133,10 +127,10 @@ const SettingsPage: React.FC = () => {
         setSettings(normalizeSettings(settingsData));
         setCategories(categoryData);
       } catch {
-        setError("Could not load settings");
+        setError(t("common.error"));
         toast({
-          title: "Error",
-          description: "Could not load settings",
+          title: t("common.error"),
+          description: t("common.error"),
           variant: "destructive",
         });
       } finally {
@@ -156,7 +150,7 @@ const SettingsPage: React.FC = () => {
     setEmail(settings.profile.email ?? "");
     setEmailDigestEnabled(Boolean(settings.preferences.email_digest_enabled));
     setSelectedCategories(settings.preferences.my_categories ?? []);
-    setLocale(settings.preferences.locale ?? "en");
+    setLocale(settings.preferences.locale === "vi" ? "vi" : "en");
   }, [settings]);
 
   const navButtonClass = (active: boolean) =>
@@ -192,13 +186,13 @@ const SettingsPage: React.FC = () => {
       });
       setSettings(normalizeSettings(updated));
       toast({
-        title: "Success",
-        description: "Profile updated successfully",
+        title: t("settings.saveChanges"),
+        description: t("settings.settingsSaved"),
       });
     } catch {
       toast({
-        title: "Error",
-        description: "Failed to update profile",
+        title: t("common.error"),
+        description: t("common.error"),
         variant: "destructive",
       });
     } finally {
@@ -216,13 +210,13 @@ const SettingsPage: React.FC = () => {
       });
       setSettings(normalizeSettings(updated));
       toast({
-        title: "Success",
-        description: "Preferences updated successfully",
+        title: t("settings.saveChanges"),
+        description: t("settings.settingsSaved"),
       });
     } catch {
       toast({
-        title: "Error",
-        description: "Failed to update preferences",
+        title: t("common.error"),
+        description: t("common.error"),
         variant: "destructive",
       });
     } finally {
@@ -237,14 +231,15 @@ const SettingsPage: React.FC = () => {
         locale,
       });
       setSettings(normalizeSettings(updated));
+      setAppLocale(locale);
       toast({
-        title: "Success",
-        description: "Language preference updated",
+        title: t("settings.saveChanges"),
+        description: t("settings.languageUpdated"),
       });
     } catch {
       toast({
-        title: "Error",
-        description: "Failed to update language",
+        title: t("common.error"),
+        description: t("common.error"),
         variant: "destructive",
       });
     } finally {
@@ -274,13 +269,13 @@ const SettingsPage: React.FC = () => {
     try {
       await navigator.clipboard.writeText(settings.telegram.connect_token);
       toast({
-        title: "Copied!",
-        description: "Token copied to clipboard",
+        title: t("common.copied"),
+        description: t("common.tokenCopied"),
       });
     } catch {
       toast({
-        title: "Error",
-        description: "Could not copy token",
+        title: t("common.error"),
+        description: t("common.couldNotCopyToken"),
         variant: "destructive",
       });
     }
@@ -288,7 +283,7 @@ const SettingsPage: React.FC = () => {
 
   function showComingSoonToast(description: string) {
     toast({
-      title: "Coming Soon",
+      title: t("common.comingSoon"),
       description,
     });
   }
@@ -298,7 +293,7 @@ const SettingsPage: React.FC = () => {
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="flex items-center gap-2 text-slate-600">
           <Loader2 className="h-5 w-5 animate-spin" />
-          <span>Loading settings...</span>
+          <span>{t("settings.loading")}</span>
         </div>
       </div>
     );
@@ -308,9 +303,9 @@ const SettingsPage: React.FC = () => {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <p className="text-slate-700 font-medium">{error ?? "Could not load settings."}</p>
+          <p className="text-slate-700 font-medium">{error ?? t("common.error")}</p>
           <Button type="button" className="mt-4" onClick={() => window.location.reload()}>
-            Reload
+            {t("common.retry")}
           </Button>
         </div>
       </div>
@@ -334,7 +329,7 @@ const SettingsPage: React.FC = () => {
                   activeTab === "profile" ? "border-blue-500 text-blue-500" : "border-transparent text-slate-400"
                 }`}
               >
-                Profile
+                {t("settings.profile")}
               </button>
               <button
                 type="button"
@@ -343,14 +338,20 @@ const SettingsPage: React.FC = () => {
                   activeTab === "digest" ? "border-blue-500 text-blue-500" : "border-transparent text-slate-400"
                 }`}
               >
-                Digest Preferences
+                {t("settings.digestPrefs")}
               </button>
             </div>
           </div>
         ) : (
           <nav className="border-b border-slate-100 md:border-b-0 md:border-r w-full md:w-[200px] shrink-0 pt-4 md:pt-6 px-3 md:space-y-1 flex flex-col">
             <div className="flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-visible [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {navItems.map((item) => (
+              {[
+                { id: "profile" as const, label: t("settings.profile") },
+                { id: "digest" as const, label: t("settings.digestPrefs") },
+                { id: "billing" as const, label: t("settings.planBilling") },
+                { id: "telegram" as const, label: t("settings.telegram") },
+                { id: "language" as const, label: t("settings.language") },
+              ].map((item) => (
                 <button
                   key={item.id}
                   type="button"
@@ -382,17 +383,17 @@ const SettingsPage: React.FC = () => {
                 value={displayName}
                 className="mt-4"
                 onChange={(event) => setDisplayName(event.target.value)}
-                placeholder="Display name"
+                placeholder={t("settings.displayNamePlaceholder")}
               />
               <Input value={profileUsername} className="mt-3 bg-gray-100 cursor-not-allowed" disabled readOnly />
               <Input
                 value={email}
-                placeholder="Add email for digest delivery"
+                placeholder={t("settings.emailPlaceholder")}
                 className="mt-4"
                 type="email"
                 onChange={(event) => setEmail(event.target.value)}
               />
-              <p className="text-xs text-slate-400 mt-1">Optional — used for daily digest</p>
+              <p className="text-xs text-slate-400 mt-1">{t("settings.optionalDigestEmail")}</p>
               <Button
                 className="mt-6 rounded-full bg-slate-900 text-white px-6 font-bold hover:bg-slate-800"
                 onClick={() => void handleSaveProfile()}
@@ -404,7 +405,7 @@ const SettingsPage: React.FC = () => {
                     Saving...
                   </span>
                 ) : (
-                  "Save changes"
+                  t("settings.saveChanges")
                 )}
               </Button>
               {isMobile && mobileDesktopNote}
@@ -413,15 +414,15 @@ const SettingsPage: React.FC = () => {
 
           {activeTab === "digest" && (
             <section>
-              <h2 className="text-sm font-bold text-slate-900 mb-3">Email Digest</h2>
+              <h2 className="text-sm font-bold text-slate-900 mb-3">{t("settings.emailDigest")}</h2>
               <div className="flex items-center justify-between gap-4 py-2">
-                <span className="text-sm text-slate-700">Daily digest email</span>
+                <span className="text-sm text-slate-700">{t("settings.dailyDigestEmail")}</span>
                 <Switch checked={emailDigestEnabled} onCheckedChange={setEmailDigestEnabled} />
               </div>
 
               {user?.plan === "free" && (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-3 text-sm text-slate-700">
-                  <p>Free plan: digest delivered Monday, Wednesday, Friday only. Upgrade to Pro for daily digests.</p>
+                  <p>{t("settings.freePlanDigestNotice")}</p>
                   <a
                     href="#"
                     onClick={(event) => {
@@ -430,13 +431,13 @@ const SettingsPage: React.FC = () => {
                     }}
                     className="text-blue-500 text-sm font-medium mt-1 inline-block"
                   >
-                    Upgrade to Pro →
+                    {t("settings.upgradeToPro")}
                   </a>
                 </div>
               )}
 
-              <h2 className="text-sm font-bold text-slate-900 mt-8 mb-0">My Categories</h2>
-              <p className="text-sm text-slate-500 mb-3 mt-1">Receive signals from:</p>
+              <h2 className="text-sm font-bold text-slate-900 mt-8 mb-0">{t("settings.myCategories")}</h2>
+              <p className="text-sm text-slate-500 mb-3 mt-1">{t("settings.receiveSignalsFrom")}</p>
               <div className="grid grid-cols-2 gap-3">
                 {categories.map((category) => (
                   <label
@@ -464,7 +465,7 @@ const SettingsPage: React.FC = () => {
                     Saving...
                   </span>
                 ) : (
-                  "Save preferences"
+                  t("settings.savePreferences")
                 )}
               </Button>
               {isMobile && mobileDesktopNote}
@@ -477,7 +478,7 @@ const SettingsPage: React.FC = () => {
                 <Badge className="bg-slate-100 text-slate-600 rounded-full border-0 font-medium">
                   {normalizedPlan.charAt(0).toUpperCase() + normalizedPlan.slice(1)} Plan
                 </Badge>
-                <p style={{ fontSize: 13, color: "#536471", marginTop: 4 }}>Current active plan</p>
+                <p style={{ fontSize: 13, color: "#536471", marginTop: 4 }}>{t("settings.currentActivePlan")}</p>
                 <div className="mt-4 space-y-2">
                   {planFeatures.length > 0 ? (
                     planFeatures.map((feature) => (
@@ -486,7 +487,7 @@ const SettingsPage: React.FC = () => {
                       </FeatureRow>
                     ))
                   ) : (
-                    <FeatureRow ok={false}>No features configured</FeatureRow>
+                    <FeatureRow ok={false}>{t("settings.noFeaturesConfigured")}</FeatureRow>
                   )}
                 </div>
               </div>
@@ -497,7 +498,7 @@ const SettingsPage: React.FC = () => {
                   {upgradePrice}
                   <span className="text-sm font-normal text-slate-400"> / month</span>
                 </p>
-                <p className="text-xs text-slate-400">billed monthly · cancel anytime</p>
+                <p className="text-xs text-slate-400">{t("settings.billedMonthly")}</p>
                 <Button
                   className="w-full mt-4 rounded-full bg-blue-500 text-white py-3 font-bold hover:bg-blue-600"
                   type="button"
@@ -508,21 +509,21 @@ const SettingsPage: React.FC = () => {
               </div>
 
               <div>
-                <p className="font-semibold text-sm mb-3">Billing History</p>
+                <p className="font-semibold text-sm mb-3">{t("settings.billingHistory")}</p>
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
-                        <th className="px-4 py-2 font-medium">Date</th>
-                        <th className="px-4 py-2 font-medium">Description</th>
-                        <th className="px-4 py-2 font-medium">Amount</th>
-                        <th className="px-4 py-2 font-medium">Status</th>
+                        <th className="px-4 py-2 font-medium">{t("settings.date")}</th>
+                        <th className="px-4 py-2 font-medium">{t("settings.description")}</th>
+                        <th className="px-4 py-2 font-medium">{t("settings.amount")}</th>
+                        <th className="px-4 py-2 font-medium">{t("settings.status")}</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr>
                         <td colSpan={4} className="text-center text-slate-400 py-8">
-                          No billing history yet
+                          {t("settings.noBillingHistoryYet")}
                         </td>
                       </tr>
                     </tbody>
@@ -549,7 +550,7 @@ const SettingsPage: React.FC = () => {
           {activeTab === "telegram" && (
             <section className="text-center max-w-sm mx-auto pt-4">
               <TelegramIcon />
-              <p className="text-lg font-semibold mt-3 text-slate-900">Connect Telegram</p>
+              <p className="text-lg font-semibold mt-3 text-slate-900">{t("settings.connectTelegram")}</p>
               <div className="mt-3">
                 <Badge
                   className={cn(
@@ -557,24 +558,25 @@ const SettingsPage: React.FC = () => {
                     settings.telegram.connected ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600",
                   )}
                 >
-                  {settings.telegram.connected ? "Connected" : "Not connected"}
+                  {settings.telegram.connected ? t("settings.connected") : t("settings.notConnected")}
                 </Badge>
               </div>
-              <p className="text-sm text-slate-500 mt-2">Get real-time signal alerts on Telegram.</p>
+              <p className="text-sm text-slate-500 mt-2">{t("settings.getTelegramAlerts")}</p>
 
               <div className="text-left mt-6 space-y-4">
                 <div className="flex gap-3">
                   <span className="w-6 h-6 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center shrink-0">1</span>
-                  <span className="text-sm text-slate-700">Open Telegram and search for @SignalFeedBot</span>
+                  <span className="text-sm text-slate-700">{t("settings.telegramStep1")}</span>
                 </div>
                 <div className="flex gap-3">
                   <span className="w-6 h-6 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center shrink-0">2</span>
-                  <span className="text-sm text-slate-700">Copy your unique connection token below</span>
+                  <span className="text-sm text-slate-700">{t("settings.telegramStep2")}</span>
                 </div>
                 <div className="flex gap-3">
                   <span className="w-6 h-6 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center shrink-0">3</span>
                   <span className="text-sm text-slate-700">
-                    Send <code>/connect {settings.telegram.connect_token}</code> to the bot
+                    {t("settings.telegramStep3Prefix")} <code>/connect {settings.telegram.connect_token}</code>{" "}
+                    {t("settings.telegramStep3Suffix")}
                   </span>
                 </div>
               </div>
@@ -583,20 +585,20 @@ const SettingsPage: React.FC = () => {
                 <Input value={settings.telegram.connect_token} readOnly className="text-sm text-slate-600 flex-1" />
                 <Button variant="outline" size="sm" className="rounded-lg text-xs shrink-0" type="button" onClick={() => void handleCopyToken()}>
                   <Copy className="h-3 w-3 mr-1" />
-                  Copy token
+                  {t("settings.copyToken")}
                 </Button>
               </div>
 
               <Button asChild className="w-full mt-4 rounded-full bg-[#2AABEE] text-white py-3 font-bold hover:bg-[#229ed9]">
                 <a href="https://t.me/SignalFeedBot" target="_blank" rel="noreferrer">
-                  Open Telegram Bot →
+                  {t("settings.openTelegramBot")}
                 </a>
               </Button>
 
               {user?.plan !== "power" && (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-4 text-left">
                   <p className="text-sm text-slate-700">
-                    ⚡ Telegram alerts require Power plan ($30/mo). Upgrade to unlock real-time notifications.
+                    ⚡ {t("settings.telegramPowerNotice")}
                   </p>
                   <a
                     href="#"
@@ -606,7 +608,7 @@ const SettingsPage: React.FC = () => {
                     }}
                     className="text-blue-500 text-sm font-medium mt-1 block"
                   >
-                    Upgrade to Power →
+                    {t("settings.upgradeToPower")}
                   </a>
                 </div>
               )}
@@ -615,8 +617,13 @@ const SettingsPage: React.FC = () => {
 
           {activeTab === "language" && (
             <section>
-              <p className="text-lg font-semibold mb-6 text-slate-900">Display Language</p>
-              <RadioGroup value={locale} onValueChange={setLocale} className="space-y-3">
+              <p className="text-lg font-semibold mb-2 text-slate-900">{t("settings.displayLanguage")}</p>
+              <p className="text-sm text-slate-500 mb-6">{t("settings.selectLanguage")}</p>
+              <RadioGroup
+                value={locale}
+                onValueChange={(value) => setLocale(value === "vi" ? "vi" : "en")}
+                className="space-y-3"
+              >
                 <div className="flex items-center gap-3">
                   <RadioGroupItem value="en" id="lang-en" />
                   <Label htmlFor="lang-en" className="font-normal cursor-pointer">
@@ -686,7 +693,7 @@ const SettingsPage: React.FC = () => {
                     Saving...
                   </span>
                 ) : (
-                  "Save"
+                  t("common.save")
                 )}
               </Button>
             </section>

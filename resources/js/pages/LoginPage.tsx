@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useLocale } from "@/i18n";
 
 const XIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg viewBox="0 0 24 24" className={className} fill="currentColor">
@@ -8,6 +9,7 @@ const XIcon: React.FC<{ className?: string }> = ({ className }) => (
 
 const LoginPage: React.FC = () => {
   const [isStandalone, setIsStandalone] = useState(false);
+  const { t } = useLocale();
 
   useEffect(() => {
     setIsStandalone(window.matchMedia("(display-mode: standalone)").matches);
@@ -37,10 +39,10 @@ const LoginPage: React.FC = () => {
         </div>
 
         <h1 className="text-2xl font-bold text-center mt-4 text-foreground">
-          Sign in to SignalFeed
+          {t("login.title")}
         </h1>
         <p className="text-sm text-muted-foreground text-center mt-2 max-w-xs mx-auto">
-          Connect your X account to receive your daily signal digest.
+          {t("login.subtitle")}
         </p>
 
         <a
@@ -50,15 +52,15 @@ const LoginPage: React.FC = () => {
           className={`mt-8 w-full bg-slate-900 text-white rounded-full ${isStandalone ? "py-4" : "py-3.5"} font-bold text-base flex items-center justify-center gap-2 hover:bg-slate-800 transition-colors no-underline`}
         >
           <XIcon className="w-[18px] h-[18px]" />
-          Continue with X
+          {t("login.continueWithX")}
         </a>
 
         <div className="border-t border-border/50 mt-6" />
 
         <p className="text-xs text-muted-foreground text-center mt-4">
-          By signing in you agree to our{" "}
-          <a href="#" className="text-blue-500 underline font-medium">Terms</a> and{" "}
-          <a href="#" className="text-blue-500 underline font-medium">Privacy Policy</a>
+          {t("login.agreementPrefix")}{" "}
+          <a href="#" className="text-blue-500 underline font-medium">{t("login.terms")}</a> and{" "}
+          <a href="#" className="text-blue-500 underline font-medium">{t("login.privacyPolicy")}</a>
         </p>
       </div>
 

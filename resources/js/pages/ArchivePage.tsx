@@ -13,24 +13,18 @@ import {
   type ArchiveResponse,
   type ArchivedSignalApi,
 } from "@/services/signalService";
+import { useLocale } from "@/i18n";
 
 type DateRangeFilter = "today" | "yesterday" | "last7" | "last30";
 
-const datePills: { id: DateRangeFilter; label: string }[] = [
-  { id: "today", label: "Today" },
-  { id: "yesterday", label: "Yesterday" },
-  { id: "last7", label: "Last 7 days" },
-  { id: "last30", label: "Last 30 days" },
-];
-
-function formatDateGroupHeader(groupKey: string): string {
+function formatDateGroupHeader(groupKey: string, todayLabel: string, yesterdayLabel: string, datePrefix: string): string {
   const d = new Date(`${groupKey}T00:00:00`);
   const today = new Date();
   const todayKey = today.toISOString().slice(0, 10);
   const y = new Date(today);
   y.setDate(y.getDate() - 1);
   const yesterdayKey = y.toISOString().slice(0, 10);
-  const prefix = groupKey === todayKey ? "Today" : groupKey === yesterdayKey ? "Yesterday" : "Date";
+  const prefix = groupKey === todayKey ? todayLabel : groupKey === yesterdayKey ? yesterdayLabel : datePrefix;
   const formatted = Number.isNaN(d.getTime())
     ? groupKey
     : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -94,6 +88,7 @@ function mapArchivedSignalToCard(
 }
 
 const ArchivePage: React.FC = () => {
+  const { t } = useLocale();
   const [searchQuery, setSearchQuery] = useState("");
   const [dateRange, setDateRange] = useState<DateRangeFilter>("last30");
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
@@ -106,9 +101,15 @@ const ArchivePage: React.FC = () => {
   const [unsaveLoadingIds, setUnsaveLoadingIds] = useState<Set<number>>(new Set());
   const [reloadTick, setReloadTick] = useState(0);
   const categoryPills = useMemo(
-    () => [{ id: null as number | null, label: "All" }, ...apiCategories.map((c) => ({ id: c.id, label: c.name }))],
-    [apiCategories],
+    () => [{ id: null as number | null, label: t("archive.all") }, ...apiCategories.map((c) => ({ id: c.id, label: c.name }))],
+    [apiCategories, t],
   );
+  const datePills: { id: DateRangeFilter; label: string }[] = [
+    { id: "today", label: t("archive.today") },
+    { id: "yesterday", label: t("archive.yesterday") },
+    { id: "last7", label: t("archive.last7Days") },
+    { id: "last30", label: t("archive.last30Days") },
+  ];
 
   useEffect(() => {
     let cancelled = false;
@@ -153,7 +154,7 @@ const ArchivePage: React.FC = () => {
         setArchivedSignals((prev) => (currentPage === 1 ? response.data : [...prev, ...response.data]));
       } catch (e) {
         if (!cancelled) {
-          setError(e instanceof Error ? e.message : "Failed to load archive. Please try again.");
+          setError(e instanceof Error ? e.message : t("archive.failedToLoad"));
           if (currentPage === 1) {
             setArchivedSignals([]);
           }
@@ -201,7 +202,7 @@ const ArchivePage: React.FC = () => {
     setUnsaveLoadingIds((prev) => new Set(prev).add(id));
     try {
       await unarchiveSignal(id);
-      toast.success("Removed from archive");
+      toast.success(t("digest.archiveRemoved"));
       setMeta((prev) =>
         prev
           ? {
@@ -212,7 +213,7 @@ const ArchivePage: React.FC = () => {
       );
     } catch {
       setArchivedSignals(previous);
-      toast.error("Failed to remove from archive");
+      toast.error(t("digest.archiveFailed"));
     } finally {
       setUnsaveLoadingIds((prev) => {
         const next = new Set(prev);
@@ -226,12 +227,12 @@ const ArchivePage: React.FC = () => {
     <div className="min-h-screen bg-white">
       <div className="w-full max-w-none px-4 py-6">
           <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-0">
-            <h1 className="text-xl font-bold text-slate-900">Archive</h1>
+            <h1 className="text-xl font-bold text-slate-900">{t("nav.archive")}</h1>
             <Input
               type="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search archived signals..."
+              placeholder={t("archive.searchPlaceholder")}
               className="rounded-full w-64 max-w-full bg-[#EFF3F4] border-none placeholder:text-slate-400 focus-visible:bg-white focus-visible:border focus-visible:border-blue-400 focus-visible:ring-0"
             />
           </header>
@@ -274,7 +275,7 @@ const ArchivePage: React.FC = () => {
 
             {!loading && error ? (
               <div className="flex flex-col items-center py-12 text-center px-4">
-                <p className="text-slate-900 font-bold">Failed to load archive. Please try again.</p>
+                <p className="text-slate-900 font-bold">{t("archive.failedToLoad")}</p>
                 <Button
                   variant="outline"
                   className="rounded-full mt-4 border-slate-300 text-slate-900 font-bold hover:bg-slate-50"
@@ -284,7 +285,7 @@ const ArchivePage: React.FC = () => {
                     setReloadTick((x) => x + 1);
                   }}
                 >
-                  Retry
+                  {t("archive.retry")}
                 </Button>
               </div>
             ) : null}
@@ -294,22 +295,22 @@ const ArchivePage: React.FC = () => {
                 <Archive className="w-12 h-12 text-slate-300 mb-3" strokeWidth={1.25} />
                 {isFilterActive ? (
                   <>
-                    <p className="text-slate-900 font-bold">No signals match your filters.</p>
-                    <p className="text-sm text-slate-400 mt-1">Try adjusting your search or filters</p>
+                    <p className="text-slate-900 font-bold">{t("archive.noSignalsMatchFilters")}</p>
+                    <p className="text-sm text-slate-400 mt-1">{t("archive.adjustFilters")}</p>
                     <Button
                       variant="outline"
                       className="rounded-full mt-4 border-slate-300 text-slate-900 font-bold hover:bg-slate-50"
                       type="button"
                       onClick={clearFilters}
                     >
-                      Clear filters
+                      {t("archive.clearFilters")}
                     </Button>
                   </>
                 ) : (
                   <>
-                    <p className="text-slate-900 font-bold">No saved signals yet.</p>
+                    <p className="text-slate-900 font-bold">{t("archive.empty")}</p>
                     <p className="text-sm text-slate-400 mt-1">
-                      Bookmark signals from your digest to save them here.
+                      {t("archive.emptyHint")}
                     </p>
                   </>
                 )}
@@ -318,7 +319,7 @@ const ArchivePage: React.FC = () => {
               groupedSignals.map((group) => (
                 <section key={group.date}>
                   <p className="text-xs text-slate-400 font-medium uppercase py-2 px-4">
-                    {formatDateGroupHeader(group.date)}
+                    {formatDateGroupHeader(group.date, t("archive.today"), t("archive.yesterday"), t("archive.datePrefix"))}
                   </p>
                   <div className="border-t border-slate-100">
                     {group.signals.map((signal) => (
@@ -343,7 +344,7 @@ const ArchivePage: React.FC = () => {
                   onClick={() => setCurrentPage((p) => p + 1)}
                   disabled={loading}
                 >
-                  {loading ? "Loading..." : "Load more"}
+                  {loading ? t("archive.loading") : t("archive.loadMore")}
                 </Button>
               </div>
             ) : null}

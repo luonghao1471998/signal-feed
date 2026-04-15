@@ -1,4 +1,5 @@
 import React from "react";
+import { useLocale } from "@/i18n";
 
 export interface MySourcesStatsBarProps {
   /** Tổng signal (meta.total) hoặc số card sau filter client */
@@ -13,10 +14,11 @@ const MySourcesStatsBar: React.FC<MySourcesStatsBarProps> = ({
   topHandles,
   loading = false,
 }) => {
+  const { t } = useLocale();
   const topLine =
     topHandles.length > 0
-      ? `Top active: ${topHandles.slice(0, 3).join(" · ")}`
-      : "No KOL matches on this page yet.";
+      ? `${t("myKols.topActiveSources")}: ${topHandles.slice(0, 3).join(" · ")}`
+      : t("rightPanel.noKolsToday");
 
   return (
     <div className="my-2 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
@@ -24,16 +26,16 @@ const MySourcesStatsBar: React.FC<MySourcesStatsBarProps> = ({
       <div className="min-w-0 flex-1">
         <p className="text-sm font-bold text-emerald-800">
           {loading ? (
-            "Loading My KOLs signals…"
+            t("myKols.loadingSources")
           ) : (
             <>
-              {signalCount} signal{signalCount === 1 ? "" : "s"} today from My KOLs
+              {signalCount} {t("myKols.signalsUnit")} {t("digest.today").toLowerCase()} ({t("nav.myKols")})
             </>
           )}
         </p>
         <p className="mt-0.5 text-[13px] text-emerald-700">{loading ? "—" : topLine}</p>
         <p className="mt-1 text-[12px] text-emerald-600/90">
-          Only signals that cite at least one source you follow.
+          {t("myKols.fromFollowedKols")}
         </p>
       </div>
     </div>

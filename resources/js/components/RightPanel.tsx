@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Av, avatarUrlForHandle } from "@/components/Avatar";
 import { cn } from "@/lib/utils";
 import { useDigestSidebar } from "@/contexts/DigestSidebarContext";
+import { useLocale } from "@/i18n";
 
 const KOL_PREVIEW_COUNT = 4;
 
@@ -11,6 +12,7 @@ function xProfileUrlFromHandle(handle: string): string {
 }
 
 const RightPanel: React.FC = () => {
+  const { t } = useLocale();
   const { snapshot } = useDigestSidebar();
   const loading = snapshot?.loading ?? false;
   const signalTotal = snapshot?.signalTotal ?? 0;
@@ -34,30 +36,30 @@ const RightPanel: React.FC = () => {
       aria-label="Digest sidebar"
     >
       <div className="mt-2 rounded-2xl bg-[#f7f9f9] p-4">
-        <h2 className="mb-3 text-[19px] font-extrabold text-[#0f1419]">Today</h2>
+        <h2 className="mb-3 text-[19px] font-extrabold text-[#0f1419]">{t("rightPanel.today")}</h2>
         <div className="flex gap-6">
           <div>
             <p className="text-[28px] font-extrabold leading-none text-[#0f1419]">
               {loading ? "—" : signalTotal}
             </p>
-            <p className="mt-1 text-[13px] text-[#536471]">signals</p>
+            <p className="mt-1 text-[13px] text-[#536471]">{t("rightPanel.signals")}</p>
           </div>
           <div>
             <p className="text-[28px] font-extrabold leading-none text-[#0f1419]">
               {loading ? "—" : kolsActive}
             </p>
-            <p className="mt-1 text-[13px] text-[#536471]">KOLs active</p>
+            <p className="mt-1 text-[13px] text-[#536471]">{t("rightPanel.kolsActive")}</p>
           </div>
         </div>
       </div>
 
       <div className="mb-4 mt-4 max-h-none overflow-visible rounded-2xl bg-[#f7f9f9] p-4">
-        <h2 className="mb-3.5 text-[19px] font-extrabold text-[#0f1419]">KOLs in today&apos;s digest</h2>
+        <h2 className="mb-3.5 text-[19px] font-extrabold text-[#0f1419]">{t("rightPanel.kolsInTodayDigest")}</h2>
         <div className="max-h-none space-y-0 overflow-visible">
           {loading && kolRows.length === 0 ? (
-            <p className="py-2 text-[14px] text-[#536471]">Loading…</p>
+            <p className="py-2 text-[14px] text-[#536471]">{t("rightPanel.loading")}</p>
           ) : kolRows.length === 0 ? (
-            <p className="py-2 text-[14px] text-[#536471]">No KOLs in today&apos;s digest yet.</p>
+            <p className="py-2 text-[14px] text-[#536471]">{t("rightPanel.noKolsToday")}</p>
           ) : (
             visibleKolRows.map((row, i) => (
               <a
@@ -80,7 +82,7 @@ const RightPanel: React.FC = () => {
                   className="shrink-0 rounded-full text-[13px] text-[#1d9bf0]"
                   style={{ background: "#e8f5fd", padding: "2px 10px" }}
                 >
-                  {row.signalCount} signals
+                  {row.signalCount} {t("rightPanel.signals")}
                 </span>
               </a>
             ))
@@ -92,13 +94,13 @@ const RightPanel: React.FC = () => {
             className="mt-2 block w-full cursor-pointer border-none bg-transparent py-1 text-left text-[15px] text-[#1d9bf0] hover:underline"
             onClick={() => setKolListExpanded((v) => !v)}
           >
-            {kolListExpanded ? "Show less" : "Show more"}
+            {kolListExpanded ? t("rightPanel.showLess") : t("rightPanel.showMore")}
           </button>
         ) : null}
       </div>
 
       <footer className="mt-auto px-1 py-1 text-[13px] leading-[1.8] text-[#536471]">
-        <p>Terms · Privacy · About</p>
+        <p>{t("rightPanel.termsPrivacyAbout")}</p>
         <p>© 2026 SignalFeed</p>
       </footer>
     </aside>

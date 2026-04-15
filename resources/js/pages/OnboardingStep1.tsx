@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchCategories, type ApiCategory } from "@/services/signalService";
 import { updateCurrentUserMyCategories } from "@/services/authService";
+import { useLocale } from "@/i18n";
 
 /** Emoji gợi ý theo slug DB (CategorySeeder). */
 const SLUG_EMOJI: Record<string, string> = {
@@ -22,6 +23,7 @@ const SLUG_EMOJI: Record<string, string> = {
 const OnboardingStep1: React.FC = () => {
   const navigate = useNavigate();
   const { user, authReady, refreshUser } = useAuth();
+  const { t } = useLocale();
 
   const [categories, setCategories] = useState<ApiCategory[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -52,7 +54,7 @@ const OnboardingStep1: React.FC = () => {
         }
       } catch {
         if (!cancelled) {
-          setLoadError("Could not load categories. Please refresh.");
+          setLoadError(t("onboarding.loadError"));
         }
       }
     })();
@@ -86,7 +88,7 @@ const OnboardingStep1: React.FC = () => {
       await refreshUser();
       navigate("/onboarding/follow");
     } catch (e) {
-      setSaveError(e instanceof Error ? e.message : "Could not save. Try again.");
+      setSaveError(e instanceof Error ? e.message : t("onboarding.saveError"));
     } finally {
       setSaving(false);
     }
@@ -95,7 +97,7 @@ const OnboardingStep1: React.FC = () => {
   if (!authReady || !user) {
     return (
       <div className="min-h-screen bg-surface flex items-center justify-center">
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <p className="text-sm text-muted-foreground">{t("onboarding.loadingCategories")}</p>
       </div>
     );
   }
@@ -107,25 +109,27 @@ const OnboardingStep1: React.FC = () => {
           type="button"
           onClick={() => navigate("/digest")}
           className="p-1 hover:bg-secondary rounded-lg transition-colors"
-          aria-label="Back"
+          aria-label={t("onboarding.back")}
         >
           <ArrowLeft className="w-5 h-5 text-muted-foreground" />
         </button>
         <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
           <div className="h-full w-1/2 bg-slate-900 rounded-full" />
         </div>
-        <span className="text-xs text-primary font-medium hidden md:block whitespace-nowrap">50% Complete</span>
+        <span className="text-xs text-primary font-medium hidden md:block whitespace-nowrap">
+          {t("onboarding.progressHalf")}
+        </span>
       </div>
 
       <div className="max-w-[560px] w-full mx-auto flex-1 flex flex-col">
         <p className="text-xs font-medium text-slate-400 tracking-widest uppercase mt-6 px-6 block w-full">
-          STEP 1 OF 2
+          {t("onboarding.step1Of2")}
         </p>
 
         <div className="px-6 mt-3">
-          <h1 className="text-3xl font-bold text-foreground">What do you follow on X?</h1>
+          <h1 className="text-3xl font-bold text-foreground">{t("onboarding.title")}</h1>
           <p className="text-sm text-muted-foreground mt-2 max-w-sm">
-            Pick 1–3 categories to personalize your SignalFeed and cut through the noise.
+            {t("onboarding.subtitle")}
           </p>
         </div>
 
@@ -176,7 +180,7 @@ const OnboardingStep1: React.FC = () => {
               !canContinue || saving || categories.length === 0 ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-800"
             }`}
           >
-            {saving ? "Saving…" : "Continue"}
+            {saving ? t("onboarding.saving") : t("onboarding.continue")}
             {!saving ? <ArrowRight className="w-4 h-4" /> : null}
           </button>
         </div>
