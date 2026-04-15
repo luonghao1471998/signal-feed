@@ -49,3 +49,26 @@ Schedule::call(function () {
             'timestamp' => now()->toDateTimeString(),
         ]);
     });
+
+Schedule::command('sources:backfill-avatars --only-missing --limit=10 --sleep=2')
+    ->name('sources:avatar-backfill')
+    ->dailyAt('12:00')
+    ->timezone('Asia/Ho_Chi_Minh')
+    ->withoutOverlapping(120)
+    ->before(function () {
+        Log::channel('scheduler')->info('Avatar backfill starting', [
+            'scheduled_time' => now()->toDateTimeString(),
+            'timezone' => 'Asia/Ho_Chi_Minh',
+        ]);
+    })
+    ->onSuccess(function () {
+        Log::channel('scheduler')->info('Avatar backfill completed successfully', [
+            'completed_at' => now()->toDateTimeString(),
+        ]);
+    })
+    ->onFailure(function () {
+        Log::channel('scheduler')->error('Avatar backfill scheduled run failed', [
+            'failed_at' => now()->toDateTimeString(),
+            'check' => 'See crawler-errors.log for details',
+        ]);
+    });

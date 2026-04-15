@@ -11,6 +11,41 @@ export interface FetchSignalsParams {
   perPage?: number;
 }
 
+export interface ArchiveFilters {
+  date_range?: "today" | "yesterday" | "last7" | "last30";
+  category_id?: number[];
+  search?: string;
+  page?: number;
+  per_page?: number;
+}
+
+export interface ArchivedSignalApi {
+  id: number;
+  title: string;
+  summary: string;
+  source_count: number;
+  // API hiện có thể trả object categories hoặc mảng id từ backend hiện tại
+  categories: Array<{ id: number; name: string; slug: string } | number>;
+  topic_tags: string[];
+  sources?: Array<{
+    handle: string;
+    display_name: string;
+    avatar_url?: string | null;
+  }>;
+  date: string;
+  archived_at: string;
+}
+
+export interface ArchiveResponse {
+  data: ArchivedSignalApi[];
+  meta: {
+    current_page: number;
+    per_page: number;
+    total: number;
+    last_page: number;
+  };
+}
+
 function getAuthToken(): string | null {
   return localStorage.getItem("auth_token");
 }
@@ -174,6 +209,45 @@ export async function copyDraft(signalId: number): Promise<CopyDraftResult> {
 
 export async function fetchCategories(): Promise<ApiCategory[]> {
   return getCategories();
+}
+
+/** GET /api/archive/signals — archived list with filters + pagination */
+export async function fetchArchivedSignals(filters: ArchiveFilters = {}): Promise<ArchiveResponse> {
+  await ensureSanctumCsrf();
+
+  const searchParams = new URLSearchParams();
+  if (filters.date_range) {
+    searchParams.append("date_range", filters.date_range);
+  }
+  if (filters.category_id?.length) {
+    filters.category_id.forEach((id) => searchParams.append("category_id[]", String(id)));
+  }
+  if (filters.search && filters.search.trim() !== "") {
+    searchParams.append("search", filters.search.trim());
+  }
+  if (filters.page && filters.page > 1) {
+    searchParams.append("page", String(filters.page));
+  }
+  if (filters.per_page && filters.per_page !== 20) {
+    searchParams.append("per_page", String(filters.per_page));
+  }
+
+  const qs = searchParams.toString();
+  const response = await fetch(qs ? `/api/archive/signals?${qs}` : "/api/archive/signals", {
+    method: "GET",
+    headers: authFetchHeaders(),
+    credentials: "same-origin",
+  });
+
+  if (response.status === 401) {
+    throw new Error("Authentication required. Please sign in.");
+  }
+
+  if (!response.ok) {
+    throw new Error(await parseErrorMessage(response));
+  }
+
+  return (await response.json()) as ArchiveResponse;
 }
 
 /** POST /api/signals/{id}/archive — idempotent 201/200 */

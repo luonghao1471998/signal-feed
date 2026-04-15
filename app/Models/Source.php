@@ -22,6 +22,8 @@ class Source extends Model
         'x_user_id',
         'display_name',
         'account_url',
+        'avatar_url',
+        'avatar_synced_at',
         'last_crawled_at',
         'added_by_user_id',
         'tenant_id',
@@ -34,6 +36,7 @@ class Source extends Model
     {
         return [
             'last_crawled_at' => 'datetime',
+            'avatar_synced_at' => 'datetime',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
             'deleted_at' => 'datetime',

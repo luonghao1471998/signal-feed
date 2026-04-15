@@ -52,6 +52,7 @@ class SignalDetailResource extends JsonResource
                 return [
                     'handle' => $handle,
                     'display_name' => $source->display_name,
+                    'avatar_url' => $source->avatar_url,
                     'tweet_url' => $tweet?->url,
                     'tweet_text' => $tweet?->text ?? '',
                     'posted_at' => $tweet?->posted_at

@@ -8,11 +8,12 @@ function normalizeUser(data: Record<string, unknown>): AuthUser | null {
   }
   const p = plan === "pro" || plan === "power" || plan === "free" ? plan : "free";
   const x_username = typeof data.x_username === "string" ? data.x_username : undefined;
+  const avatar_url = typeof data.avatar_url === "string" ? data.avatar_url : undefined;
   const my_categories = Array.isArray(data.my_categories)
     ? data.my_categories.filter((x): x is number => typeof x === "number")
     : [];
   const is_admin = data.is_admin === true;
-  return { id, plan: p, x_username, my_categories, is_admin };
+  return { id, plan: p, x_username, avatar_url, my_categories, is_admin };
 }
 
 /** Session Sanctum hoặc Bearer — cookie gửi kèm same-origin. */

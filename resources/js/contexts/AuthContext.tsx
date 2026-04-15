@@ -5,6 +5,7 @@ export interface AuthUser {
   id: number;
   plan: "free" | "pro" | "power";
   x_username?: string;
+  avatar_url?: string;
   my_categories?: number[];
   /** Chỉ từ GET /api/me khi user là admin (SPEC `users.is_admin`). */
   is_admin?: boolean;

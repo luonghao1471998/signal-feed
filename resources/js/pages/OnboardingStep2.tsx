@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Av, KOL_AVATARS } from "../components/Avatar";
+import { Av } from "../components/Avatar";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -19,10 +19,9 @@ import {
 const FREE_CAP = 5;
 const ONBOARDING_RECOMMENDED_LIMIT = 10;
 
-function avatarSrcForKol(handle: string): string {
-  const normalized = handle.replace("@", "").toLowerCase() as keyof typeof KOL_AVATARS;
-  if (normalized in KOL_AVATARS) {
-    return KOL_AVATARS[normalized];
+function avatarSrcForKol(handle: string, avatarUrl?: string | null): string {
+  if (avatarUrl && avatarUrl.trim() !== "") {
+    return avatarUrl;
   }
   return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(handle)}&backgroundColor=b6e3f4`;
 }
@@ -220,7 +219,7 @@ const OnboardingStep2: React.FC = () => {
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
                   <div style={{ flexShrink: 0 }}>
-                    <Av src={avatarSrcForKol(kol.x_handle)} name={kol.display_name ?? kol.x_handle} size={48} />
+                    <Av src={avatarSrcForKol(kol.x_handle, kol.avatar_url)} name={kol.display_name ?? kol.x_handle} size={48} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p

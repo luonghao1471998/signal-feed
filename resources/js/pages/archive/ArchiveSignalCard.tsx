@@ -1,16 +1,34 @@
 import React from "react";
-import { Bookmark, ExternalLink } from "lucide-react";
+import { BookmarkCheck, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import CategoryBadge from "@/components/CategoryBadge";
 import { AvStack } from "@/components/Avatar";
-import type { ArchivedSignal } from "./archivedSignals";
 import { categoryLabelToBadgeKey } from "./categoryFilter";
 
-interface ArchiveSignalCardProps {
-  signal: ArchivedSignal;
+export interface ArchiveSignalCardItem {
+  id: number;
+  rank: number;
+  title: string;
+  categories: string[];
+  tags: string[];
+  summary: string;
+  kolCount: number;
+  timeAgo: string;
+  stackSources: { handle: string; name: string; avatar?: string }[];
+  openUrl?: string;
 }
 
-const ArchiveSignalCard: React.FC<ArchiveSignalCardProps> = ({ signal }) => {
+interface ArchiveSignalCardProps {
+  signal: ArchiveSignalCardItem;
+  onUnsave?: (id: number) => void;
+  unsaveLoading?: boolean;
+}
+
+const ArchiveSignalCard: React.FC<ArchiveSignalCardProps> = ({
+  signal,
+  onUnsave,
+  unsaveLoading = false,
+}) => {
   const rankIsTop = signal.rank <= 3;
   const tagsLine = signal.tags.join("  ");
 
@@ -60,15 +78,26 @@ const ArchiveSignalCard: React.FC<ArchiveSignalCardProps> = ({ signal }) => {
         <div className="flex shrink-0 flex-col gap-1.5">
           <button
             type="button"
-            className="flex min-h-[36px] min-w-[36px] items-center justify-center rounded-full p-1.5 hover:bg-[#eff3f4]"
-            aria-label="Bookmarked"
+            onClick={() => onUnsave?.(signal.id)}
+            disabled={unsaveLoading}
+            className={cn(
+              "flex min-h-[36px] min-w-[36px] items-center justify-center rounded-full p-1.5 hover:bg-[#eff3f4]",
+              unsaveLoading && "cursor-not-allowed opacity-50",
+            )}
+            aria-label="Unsave signal"
           >
-            <Bookmark className="h-4 w-4 fill-[#1d9bf0] text-[#1d9bf0]" />
+            <BookmarkCheck className="h-4 w-4 fill-[#1d9bf0] text-[#1d9bf0]" />
           </button>
           <button
             type="button"
+            onClick={() => {
+              if (signal.openUrl) {
+                window.open(signal.openUrl, "_self");
+              }
+            }}
             className="flex min-h-[36px] min-w-[36px] items-center justify-center rounded-full p-1.5 hover:bg-[#eff3f4]"
             aria-label="Open link"
+            disabled={!signal.openUrl}
           >
             <ExternalLink className="h-4 w-4 text-[#536471]" />
           </button>

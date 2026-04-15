@@ -9,7 +9,10 @@ export type ArchiveCategoryFilter =
   | "startup-vc"
   | "crypto";
 
-const labelToFilterKey = (label: string): ArchiveCategoryFilter | null => {
+const labelToFilterKey = (label: string | null | undefined): ArchiveCategoryFilter | null => {
+  if (!label || typeof label !== "string") {
+    return null;
+  }
   const n = label.toLowerCase().replace(/\s+/g, " ").trim();
   const map: Record<string, ArchiveCategoryFilter> = {
     "ai/ml": "ai-ml",

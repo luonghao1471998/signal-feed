@@ -1,11 +1,11 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-15 (Task 2.5.3 Save to Archive button complete)
+**Last Updated:** 2026-04-15 (Task 2.5.4 Archive Screen integration complete)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 2 — My KOLs + Archive (2.5.x)
-**Completed Task:** **2.5.3** — Save to Archive button on Digest cards (optimistic UI) ✅ — 2026-04-15
-**Next Task:** **2.5.4** (Integrate Archive Screen with real API) / **3.1.1** (Stripe) — xem `IMPLEMENTATION-ROADMAP.md`
-**Status:** Sprint 2 roadmap table (**14** tasks) — **14/14** ✅; backlog **2.5.x** (Archive / Settings): **3/7** task archive+settings nhóm 2.5.x hoàn thành (2.5.1–2.5.3 ✅)
+**Completed Task:** **2.5.4** — Integrate Archive Screen with real API ✅ — 2026-04-15
+**Next Task:** **2.5.5** (GET/PATCH /api/settings) / **3.1.1** (Stripe) — xem `IMPLEMENTATION-ROADMAP.md`
+**Status:** Sprint 2 roadmap table (**14** tasks) — **14/14** ✅; backlog **2.5.x** (Archive / Settings): **4/7** task archive+settings nhóm 2.5.x hoàn thành (2.5.1–2.5.4 ✅)
 
 ---
 
@@ -22,6 +22,7 @@
 - [x] 2.5.1: POST/DELETE /api/signals/{id}/archive (backend endpoints) — ✅ 2026-04-15
 - [x] 2.5.2 GET /api/archive/signals — list archived (filter date/category/search) ✅ 2026-04-15
 - [x] Task 2.5.3: Save to Archive Button on Digest Cards ✅ 2026-04-15
+- [x] Task 2.5.4: Integrate Archive Screen with Real API ✅ 2026-04-15
 
 ### 2.4 Frontend - My KOLs Integration
 
@@ -221,7 +222,7 @@ _(Roadmap tiếp: **2.5.x** Archive / Settings — `IMPLEMENTATION-ROADMAP.md`.)
 
 ### In Progress / Next (roadmap)
 - **Sprint 2 (14-task table):** ✅ **14/14** — gồm **2.4.5** (digest My KOLs toggle) + **2.1.3–2.1.4** (my submissions) + **2.1.5** (auto-refresh; polish cùng release)
-- **Archive backlog:** ✅ **2.5.1** `POST/DELETE /api/signals/{id}/archive` (2026-04-15); ✅ **2.5.2** `GET /api/archive/signals` (2026-04-15); ✅ **2.5.3** Save to Archive button (2026-04-15) — **Next:** **2.5.4** Archive UI integration / **3.1.1** Stripe — `IMPLEMENTATION-ROADMAP.md`
+- **Archive backlog:** ✅ **2.5.1** `POST/DELETE /api/signals/{id}/archive` (2026-04-15); ✅ **2.5.2** `GET /api/archive/signals` (2026-04-15); ✅ **2.5.3** Save to Archive button (2026-04-15); ✅ **2.5.4** Archive UI integration real API (2026-04-15) — **Next:** **2.5.5** Settings API / **3.1.1** Stripe — `IMPLEMENTATION-ROADMAP.md`
 - **Backlog (ngoài bảng Sprint 2):** **1.11.3** — metadata digest (tùy ưu tiên)
 
 ### Statistics
@@ -231,10 +232,11 @@ _(Roadmap tiếp: **2.5.x** Archive / Settings — `IMPLEMENTATION-ROADMAP.md`.)
 ### Progress Summary
 
 **Completed Tasks:** Sprint 1 **34/34** ✅; Sprint 2 **14/14** (thêm **2.1.3–2.1.5** 2026-04-15; **2.4.5** 2026-04-15; cùng các task 2.1.1–2.1.2, 2.2.x, 2.3.x, 2.4.1–2.4.4)
-**Current phase:** Sprint 2 — My KOLs **hoàn tất** (bundle 14 task); backlog **2.5.x** (Archive) — **2.5.1** ✅ **2.5.2** ✅ **2.5.3** ✅; next **2.5.4** / Sprint 3
+**Current phase:** Sprint 2 — My KOLs **hoàn tất** (bundle 14 task); backlog **2.5.x** (Archive) — **2.5.1** ✅ **2.5.2** ✅ **2.5.3** ✅ **2.5.4** ✅; next **2.5.5** / Sprint 3
 **Last Updated:** 2026-04-15
 
 **Recent Completions:**
+- ✅ Task **2.5.4:** Archive Screen integrated with real API — `ArchivePage` fetch/filter/pagination/unsave + error/empty/loading states + category pills from DB + TypeError fix + deep-link support — SESSION-LOG 2026-04-15
 - ✅ Task **2.5.3:** Save to Archive button on Digest cards — `is_archived` API field + optimistic UI + rollback/toast — SESSION-LOG 2026-04-15
 - ✅ Task **2.5.2:** GET `/api/archive/signals` — `ArchiveController@index`, filters + pagination — SESSION-LOG 2026-04-15
 - ✅ Task **2.5.1:** Archive save/unsave — `ArchiveController`, `user_archived_signals`, Tinker verify — SESSION-LOG 2026-04-15

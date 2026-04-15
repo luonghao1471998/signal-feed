@@ -30,6 +30,7 @@ class CurrentUserController extends Controller
             'id' => $user->id,
             'plan' => $plan,
             'x_username' => $user->x_username,
+            'avatar_url' => $user->avatar_url,
             'my_categories' => $user->my_categories ?? [],
             'is_admin' => (bool) $user->is_admin,
         ]);

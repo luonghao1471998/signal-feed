@@ -2,6 +2,71 @@
 
 ---
 
+## 2026-04-15 - Task 2.5.4: Integrate Archive Screen with Real API — ✅ COMPLETED
+
+**Status:** ✅ Completed (2026-04-15)  
+**Objective:** Thay thế hoàn toàn mock data ở `ArchivePage.tsx` bằng API thật `GET /api/archive/signals`, đồng thời hoàn thiện flow filter/unsave/pagination/loading/error/empty state theo màn hình production.
+
+**Dependencies (đã thỏa):**
+- ✅ Task 2.5.1: POST/DELETE `/api/signals/{id}/archive`
+- ✅ Task 2.5.2: GET `/api/archive/signals` (date_range/category/search/pagination)
+- ✅ Task 2.5.3: `archiveSignal()` + `unarchiveSignal()` đã có trong `signalService.ts`
+
+### Work Completed
+
+1. Removed mock data khỏi `ArchivePage.tsx`, chuyển sang API thật `GET /api/archive/signals`.
+2. Connected filter UI vào API query params:
+   - `date_range`: `today|yesterday|last7|last30`
+   - `category_id[]`
+   - `search`
+   - `page`, `per_page`
+3. Added full state management cho Archive screen:
+   - `archivedSignals`, `meta`, `loading`, `error`, `currentPage`, `unsaveLoadingIds`, `reloadTick`
+4. Mapped API data sang UI card model:
+   - `title`, `summary`, `source_count`, `topic_tags`, `categories`, `archived_at`, `date`
+5. Grouped data theo ngày archive để render section headers.
+6. Implemented Unsave behavior (bookmark button):
+   - Optimistic remove khỏi UI
+   - `DELETE /api/signals/{id}/archive`
+   - Rollback khi API fail + toast error
+7. Added loading/error/empty states đầy đủ:
+   - Skeleton loading
+   - Retry khi error
+   - Tách empty state “no data” vs “no match filters”
+8. Implemented `Load more` pagination theo `meta.last_page`.
+9. Changed category pills từ hardcoded sang DB-fetched (`fetchCategories()`).
+10. Fixed TypeError crash (`toLowerCase` trên undefined):
+    - Guard `null|undefined` cho label/category
+    - Support `categories` dạng `object[]` hoặc `number[]`
+11. Added external-link navigation:
+    - Ban đầu `/digest/{date}`
+    - Nâng cấp sang deep-link `?signal_id=` cho flow mở modal signal.
+
+### Results Achieved
+
+- Archive screen no longer uses mock data.
+- Data, filters, pagination, unsave đều chạy với real API.
+- Tránh blank page do category mapping error.
+- Archive UX gần production hơn (retry, empty states, load more, DB-driven filters).
+
+### Post-Implementation Smoke Testing (2026-04-15)
+
+| Test Case | Method | Status | Details |
+|---|---|---|---|
+| DB verification | Tinker | ✅ PASS | Có 2 archived signals cho `user_id=1` |
+| Data integrity | Tinker | ✅ PASS | Verified titles: “Lex Fridman...” và “ARC Prize...” |
+| Browser UI | Manual `/archive` | ✅ PASS | UI render đúng, không console errors |
+
+### Files touched (Task 2.5.4 scope)
+
+- `resources/js/pages/ArchivePage.tsx`
+- `resources/js/pages/archive/ArchiveSignalCard.tsx`
+- `resources/js/pages/archive/categoryFilter.ts`
+- `resources/js/services/signalService.ts`
+- `app/Http/Controllers/Api/ArchiveController.php` (payload support for UI integration)
+
+---
+
 ## 2026-04-15 - Task 2.5.3: Add "Save to Archive" Button on Digest Cards — ✅ COMPLETED
 
 **Status:** ✅ Completed — 2026-04-15  

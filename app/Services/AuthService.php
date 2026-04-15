@@ -16,12 +16,18 @@ class AuthService
     {
         return DB::transaction(function () use ($twitterUser) {
             $nickname = $twitterUser->getNickname() ?? $twitterUser->getName() ?? '';
+            $xUserId = (string) $twitterUser->getId();
+            $existingUser = User::query()
+                ->where('x_user_id', $xUserId)
+                ->first();
+            $resolvedAvatarUrl = $this->resolveAvatarUrl($twitterUser);
             $user = User::updateOrCreate(
                 [
-                    'x_user_id' => (string) $twitterUser->getId(),
+                    'x_user_id' => $xUserId,
                 ],
                 [
-                    'x_username' => $nickname !== '' ? $nickname : 'user_'.$twitterUser->getId(),
+                    'x_username' => $nickname !== '' ? $nickname : ($existingUser?->x_username ?? 'user_'.$xUserId),
+                    'avatar_url' => $resolvedAvatarUrl ?? $existingUser?->avatar_url,
                     'x_access_token' => $twitterUser->token,
                     'x_refresh_token' => $twitterUser->refreshToken,
                     'x_token_expires_at' => $twitterUser->expiresIn
@@ -55,5 +61,23 @@ class AuthService
 
             return $user;
         });
+    }
+
+    private function resolveAvatarUrl(SocialiteUser $twitterUser): ?string
+    {
+        $avatar = trim((string) ($twitterUser->getAvatar() ?? ''));
+        if ($avatar !== '') {
+            return $avatar;
+        }
+
+        /** @var array<string, mixed> $raw */
+        $raw = $twitterUser->getRaw();
+        $rawAvatar = $raw['profile_image_url'] ?? $raw['profile_image_url_https'] ?? null;
+        if (! is_string($rawAvatar)) {
+            return null;
+        }
+        $rawAvatar = trim($rawAvatar);
+
+        return $rawAvatar !== '' ? $rawAvatar : null;
     }
 }

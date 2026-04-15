@@ -19,7 +19,7 @@ function mapSources(s: Signal): KOLSource[] {
   return s.sources.map((src) => ({
     handle: src.handle,
     name: src.display_name || src.handle,
-    avatar: "",
+    avatar: src.avatar_url ?? "",
     tweetPreview: undefined,
     timeAgo: "—",
     category: s.categories[0]?.name ?? "",

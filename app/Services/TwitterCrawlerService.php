@@ -14,8 +14,34 @@ use Illuminate\Support\Facades\Log;
 
 class TwitterCrawlerService
 {
+    public function refreshSourceProfile(Source $source): bool
+    {
+        try {
+            $userName = ltrim(trim($source->x_handle), '@');
+            $fetchResult = $this->fetchTweetsFromAPI($userName, 1);
+
+            DB::transaction(function () use ($source, $fetchResult): void {
+                $this->syncSourceProfile($source, [
+                    'avatar_url' => $fetchResult['avatar_url'],
+                    'x_user_id' => $fetchResult['x_user_id'],
+                ], true);
+                $source->save();
+            });
+
+            return true;
+        } catch (\Throwable $e) {
+            Log::channel('crawler-errors')->warning('TwitterCrawlerService::refreshSourceProfile failed', [
+                'source_id' => $source->id,
+                'x_handle' => $source->x_handle,
+                'message' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
+    }
+
     /**
-     * Crawl tweets for one source (by handle only; does not populate {@see Source::$x_user_id}).
+     * Crawl tweets for one source and sync profile metadata (avatar/x_user_id).
      * Callers should load the source via {@see Source::scopeForCrawl} (only `status = active`).
      *
      * @return array{success: bool, tweets_count: int, new_tweets_count: int, message: string, affected_tweet_ids: list<int>}
@@ -34,14 +60,20 @@ class TwitterCrawlerService
                 'mode' => $isIncremental ? 'incremental' : 'initial',
             ]);
 
-            $allNormalized = $this->fetchTweetsFromAPI($userName, $maxResults);
+            $fetchResult = $this->fetchTweetsFromAPI($userName, $maxResults);
+            $allNormalized = $fetchResult['tweets'];
+            $profile = [
+                'avatar_url' => $fetchResult['avatar_url'],
+                'x_user_id' => $fetchResult['x_user_id'],
+            ];
 
             if ($allNormalized === []) {
                 Log::channel('crawler')->info('TwitterCrawlerService: no tweets from API', [
                     'source_id' => $source->id,
                 ]);
 
-                DB::transaction(function () use ($source): void {
+                DB::transaction(function () use ($source, $profile): void {
+                    $this->syncSourceProfile($source, $profile);
                     $source->last_crawled_at = now('UTC');
                     $source->save();
                 });
@@ -73,8 +105,9 @@ class TwitterCrawlerService
                 'errors' => 0,
             ];
 
-            DB::transaction(function () use ($source, $toStore, &$storeResult): void {
+            DB::transaction(function () use ($source, $toStore, $profile, &$storeResult): void {
                 $storeResult = $this->storeTweets($source, $toStore);
+                $this->syncSourceProfile($source, $profile);
                 $source->last_crawled_at = now('UTC');
                 $source->save();
             });
@@ -111,7 +144,11 @@ class TwitterCrawlerService
     }
 
     /**
-     * @return list<array{tweet_id: string, text: string, posted_at: string, url: string}>
+     * @return array{
+     *   tweets: list<array{tweet_id: string, text: string, posted_at: string, url: string}>,
+     *   avatar_url: ?string,
+     *   x_user_id: ?string
+     * }
      *
      * @throws \RuntimeException
      */
@@ -123,6 +160,7 @@ class TwitterCrawlerService
 
         $items = $this->extractTweetsList($payload);
         $items = array_slice($items, 0, $maxResults);
+        $profile = $this->extractSourceProfile($payload, $items);
 
         $normalized = [];
 
@@ -154,7 +192,104 @@ class TwitterCrawlerService
             ];
         }
 
-        return $normalized;
+        return [
+            'tweets' => $normalized,
+            'avatar_url' => $profile['avatar_url'],
+            'x_user_id' => $profile['x_user_id'],
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $tweets
+     * @return array{avatar_url: ?string, x_user_id: ?string}
+     */
+    private function extractSourceProfile(array $payload, array $tweets): array
+    {
+        $candidates = [];
+        $xUserCandidates = [];
+
+        $dataUser = $payload['data']['user'] ?? null;
+        if (is_array($dataUser)) {
+            $candidates[] = $dataUser['profilePicture'] ?? $dataUser['profile_image_url'] ?? $dataUser['avatar'] ?? null;
+            $xUserCandidates[] = $dataUser['id'] ?? $dataUser['rest_id'] ?? $dataUser['userId'] ?? null;
+        }
+
+        foreach ($tweets as $tweet) {
+            if (! is_array($tweet)) {
+                continue;
+            }
+            $author = $tweet['author'] ?? $tweet['user'] ?? null;
+            if (is_array($author)) {
+                $candidates[] = $author['profilePicture'] ?? $author['profile_image_url'] ?? $author['avatar'] ?? null;
+                $xUserCandidates[] = $author['id'] ?? $author['rest_id'] ?? $author['userId'] ?? null;
+            }
+        }
+
+        $avatarUrl = null;
+        foreach ($candidates as $candidate) {
+            $normalized = $this->normalizeAvatarUrl($candidate);
+            if ($normalized !== null) {
+                $avatarUrl = $normalized;
+                break;
+            }
+        }
+
+        $xUserId = null;
+        foreach ($xUserCandidates as $candidate) {
+            if ($candidate === null) {
+                continue;
+            }
+            $candidateStr = trim((string) $candidate);
+            if ($candidateStr !== '') {
+                $xUserId = $candidateStr;
+                break;
+            }
+        }
+
+        return [
+            'avatar_url' => $avatarUrl,
+            'x_user_id' => $xUserId,
+        ];
+    }
+
+    /**
+     * @param  mixed  $value
+     */
+    private function normalizeAvatarUrl(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+        $url = trim($value);
+        if ($url === '') {
+            return null;
+        }
+        if (! str_starts_with($url, 'http://') && ! str_starts_with($url, 'https://')) {
+            return null;
+        }
+
+        return $url;
+    }
+
+    /**
+     * @param  array{avatar_url: ?string, x_user_id: ?string}  $profile
+     */
+    private function syncSourceProfile(Source $source, array $profile, bool $forceRefresh = false): void
+    {
+        $shouldRefresh = $forceRefresh
+            || $source->avatar_synced_at === null
+            || Carbon::parse($source->avatar_synced_at)->utc()->lte(now('UTC')->subDay());
+
+        if ($profile['x_user_id'] !== null && (string) $source->x_user_id === '') {
+            $source->x_user_id = $profile['x_user_id'];
+        }
+
+        if ($shouldRefresh && $profile['avatar_url'] !== null) {
+            if ((string) $source->avatar_url !== $profile['avatar_url']) {
+                $source->avatar_url = $profile['avatar_url'];
+            }
+            $source->avatar_synced_at = now('UTC');
+        }
     }
 
     /**

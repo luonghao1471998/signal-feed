@@ -48,6 +48,7 @@ class SignalResource extends JsonResource
                 return [
                     'handle' => $handle,
                     'display_name' => $source->display_name,
+                    'avatar_url' => $source->avatar_url,
                     'tweet_url' => $source->relationLoaded('attribution_tweet') && $source->attribution_tweet
                         ? $source->attribution_tweet->url
                         : null,

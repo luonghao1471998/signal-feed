@@ -566,7 +566,7 @@ const MyKOLsPage = () => {
                       : "";
                   return (
                     <div key={source.id} className="flex items-center gap-3 py-4">
-                      <Av src={avatarUrlForHandle(handle)} name={title} size={40} />
+                      <Av src={source.avatar_url ?? avatarUrlForHandle(handle)} name={title} size={40} />
                       <div className="min-w-0 flex-1">
                         <div className="text-[15px] font-bold text-[#0f1419]">{title}</div>
                         <div className="text-sm text-[#536471]">{handle}</div>
@@ -681,7 +681,7 @@ const MyKOLsPage = () => {
 
                   return (
                     <div key={source.id} className="flex items-center gap-3 py-4">
-                      <Av src={avatarUrlForHandle(sourceHandle)} name={sourceName} size={40} />
+                      <Av src={source.avatar_url ?? avatarUrlForHandle(sourceHandle)} name={sourceName} size={40} />
                       <div className="min-w-0 flex-1">
                         <div className="text-[15px] font-bold text-[#0f1419]">{sourceName}</div>
                         <div className="text-sm text-[#536471]">{sourceHandle}</div>
@@ -780,7 +780,7 @@ const MyKOLsPage = () => {
 
                   return (
                     <div key={source.id} className="flex items-center gap-3 py-4">
-                      <Av src={avatarUrlForHandle(source.handle)} name={sourceName} size={40} />
+                      <Av src={source.avatar_url ?? avatarUrlForHandle(source.handle)} name={sourceName} size={40} />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-[15px] font-bold text-[#0f1419]">{source.handle}</span>

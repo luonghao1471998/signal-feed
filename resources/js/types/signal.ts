@@ -9,6 +9,7 @@ export interface SignalCategory {
 export interface SignalSource {
   handle: string;
   display_name: string;
+  avatar_url?: string | null;
   tweet_url: string | null;
   /** Chi tiết GET /api/signals/{id} (SignalDetailResource). */
   tweet_text?: string | null;

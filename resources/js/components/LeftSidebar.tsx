@@ -23,12 +23,18 @@ const LeftSidebar: React.FC = () => {
   const { user, setSession } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [avatarBroken, setAvatarBroken] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const username = user?.x_username ?? "User";
   const displayName = username.startsWith("@") ? username : `@${username}`;
   const avatarInitial = (user?.x_username?.[0] ?? "U").toUpperCase();
+  const showAvatarImage = Boolean(user?.avatar_url) && !avatarBroken;
   const planLabel = user?.plan ? `${user.plan.charAt(0).toUpperCase()}${user.plan.slice(1)} plan` : "Free plan";
+
+  useEffect(() => {
+    setAvatarBroken(false);
+  }, [user?.avatar_url]);
 
   useEffect(() => {
     if (!menuOpen) {
@@ -140,9 +146,18 @@ const LeftSidebar: React.FC = () => {
 
       <div className="p-3" ref={menuRef}>
         <div className="relative flex w-full items-center gap-3 rounded-full p-2 transition-colors hover:bg-[#eff3f4]">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1d9bf0] text-[15px] font-bold text-white">
-            {avatarInitial}
-          </div>
+          {showAvatarImage ? (
+            <img
+              src={user.avatar_url}
+              alt={displayName}
+              className="h-10 w-10 shrink-0 rounded-full object-cover"
+              onError={() => setAvatarBroken(true)}
+            />
+          ) : (
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1d9bf0] text-[15px] font-bold text-white">
+              {avatarInitial}
+            </div>
+          )}
           <div className="min-w-0 flex-1">
             <p className="truncate text-[15px] font-bold text-[#0f1419]">{displayName}</p>
             <p className="text-[13px] text-[#536471]">{planLabel}</p>

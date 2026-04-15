@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ChevronLeft, ChevronRight, SlidersHorizontal, Zap } from "lucide-react";
 import DigestSignalCard from "../components/DigestSignalCard";
 import PipelineFooter from "../components/PipelineFooter";
@@ -70,6 +70,7 @@ function resolveCategoryId(activeCategory: CategoryFilterKey, categories: ApiCat
 
 const DigestPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { date: dateParam } = useParams<{ date?: string }>();
   const { user, token, authReady } = useAuth();
   const userPlan = user?.plan ?? "free";
@@ -92,6 +93,7 @@ const DigestPage: React.FC = () => {
   const [subscriptionCount, setSubscriptionCount] = useState(0);
   const [archivedIds, setArchivedIds] = useState<Set<number>>(new Set());
   const [archiveLoadingIds, setArchiveLoadingIds] = useState<Set<number>>(new Set());
+  const [deepLinkHandledSignalId, setDeepLinkHandledSignalId] = useState<number | null>(null);
 
   const isMobile = useMediaQuery("(max-width: 767px)");
   const { activeCategory, selectCategory } = useCategoryFilter();
@@ -283,6 +285,29 @@ const DigestPage: React.FC = () => {
   useEffect(() => {
     setArchivedIds(new Set(rawSignals.filter((s) => s.isArchived).map((s) => Number(s.id))));
   }, [rawSignals]);
+
+  useEffect(() => {
+    const qp = new URLSearchParams(location.search);
+    const target = Number(qp.get("signal_id") ?? "");
+    if (!Number.isFinite(target) || target <= 0) {
+      if (deepLinkHandledSignalId !== null) {
+        setDeepLinkHandledSignalId(null);
+      }
+      return;
+    }
+    if (deepLinkHandledSignalId === target) {
+      return;
+    }
+    const idx = rawSignals.findIndex((s) => Number(s.id) === target);
+    if (idx < 0) {
+      return;
+    }
+    const found = rawSignals[idx];
+    setSelectedSignalId(target);
+    setSelectedListRank(found.rank ?? idx + 1);
+    setIsDetailModalOpen(true);
+    setDeepLinkHandledSignalId(target);
+  }, [location.search, rawSignals, deepLinkHandledSignalId]);
 
   useEffect(() => {
     return () => {
@@ -733,6 +758,12 @@ const DigestPage: React.FC = () => {
           setIsDetailModalOpen(false);
           setSelectedSignalId(null);
           setSelectedListRank(null);
+          const qp = new URLSearchParams(location.search);
+          if (qp.has("signal_id")) {
+            qp.delete("signal_id");
+            const next = qp.toString();
+            navigate({ pathname: location.pathname, search: next ? `?${next}` : "" }, { replace: true });
+          }
         }}
         userPlan={userPlan}
       />

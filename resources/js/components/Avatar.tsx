@@ -137,6 +137,7 @@ export const Av: React.FC<AvProps> = ({ src, name, size = 40, f = false, classNa
 interface AvStackSource {
   handle: string;
   name?: string;
+  avatar?: string;
 }
 
 interface AvStackProps {
@@ -153,7 +154,7 @@ export const AvStack: React.FC<AvStackProps> = ({ sources, max = 5, className })
     <div className={cn("flex items-center", className)} style={{ display: "flex", alignItems: "center" }}>
       {shown.map((source, i) => {
         const displayName = source.name ?? source.handle;
-        const src = avatarUrlForHandle(source.handle);
+        const src = source.avatar && source.avatar.trim() !== "" ? source.avatar : avatarUrlForHandle(source.handle);
         return (
           <div
             key={`${source.handle}-${i}`}

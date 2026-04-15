@@ -11,6 +11,7 @@ export interface BrowseSource {
   id: number;
   x_handle: string;
   display_name: string | null;
+  avatar_url?: string | null;
   account_url: string;
   type: string;
   status: string;
@@ -93,6 +94,7 @@ export interface Source {
   id: number;
   handle: string;
   display_name: string | null;
+  avatar_url?: string | null;
   account_url: string;
   type: "default" | "user";
   status: SourceStatus;
@@ -120,6 +122,7 @@ export interface CreatedSourcePayload {
   id: number;
   handle: string;
   display_name: string | null;
+  avatar_url?: string | null;
   account_url: string;
   type: string;
   status: SourceStatus;

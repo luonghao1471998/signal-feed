@@ -20,6 +20,7 @@ class SourceResource extends JsonResource
             'id' => $this->id,
             'x_handle' => $this->x_handle,
             'display_name' => $this->display_name,
+            'avatar_url' => $this->avatar_url,
             'account_url' => $this->account_url,
             'type' => $this->type,
             'status' => $this->status,

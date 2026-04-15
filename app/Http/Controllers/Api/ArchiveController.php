@@ -34,7 +34,7 @@ class ArchiveController extends Controller
             ->join('user_archived_signals as uas', 'signals.id', '=', 'uas.signal_id')
             ->where('uas.user_id', $user->id)
             ->select('signals.*', 'uas.created_at as archived_at')
-            ->with('digest');
+            ->with(['digest', 'sources']);
 
         if ($request->filled('date_range')) {
             $this->applyDateRangeFilter($query, (string) $request->input('date_range'));
@@ -70,6 +70,18 @@ class ArchiveController extends Controller
                 'source_count' => (int) $signal->source_count,
                 'categories' => $signal->categories,
                 'topic_tags' => $signal->topic_tags,
+                'sources' => $signal->sources->map(static function ($source): array {
+                    $handle = (string) $source->x_handle;
+                    if ($handle !== '' && ! str_starts_with($handle, '@')) {
+                        $handle = '@'.$handle;
+                    }
+
+                    return [
+                        'handle' => $handle,
+                        'display_name' => $source->display_name,
+                        'avatar_url' => $source->avatar_url,
+                    ];
+                })->values()->all(),
                 'date' => $this->signalDisplayDate($signal),
                 'archived_at' => $signal->archived_at !== null
                     ? Carbon::parse($signal->archived_at)->utc()->toIso8601String()
