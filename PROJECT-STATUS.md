@@ -1,12 +1,24 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-15 (Task 2.5.7 i18n foundation completed)
+**Last Updated:** 2026-04-15 (Task 2.6.1 PersonalPipeline Job completed)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 2.5 — Settings Page MVP + Language Support
 **Sprint Status:** ✅ COMPLETED (3/3 tasks done)
 **Next Sprint:** Sprint 2.6 — Personal Signals Pipeline (POST-WEDGE)
-**Next Sprint Status:** 📋 PLANNED — blocked by wedge strategy implementation
+**Next Sprint Status:** 🚧 IN PROGRESS — Task 2.6.1 completed, tiếp tục 2.6.2/2.6.3
 **Blocker:** Wedge strategy (monetization foundation) chưa implement
+
+---
+
+## Sprint 2 Tasks
+
+- [x] **Task 2.6.1**: PersonalPipeline Job (backend) — tạo signals type=1 từ My KOLs tweets ✅ (2026-04-15)
+  - Created `app/Jobs/PersonalPipelineJob.php` với early duplicate check (credit-safe)
+  - Verified: Pro user signal creation, Free user skip, idempotency, draft generation
+  - cluster_id format: `{user_id}_{date}_cluster_{N}`
+  - 0 TwitterAPI calls (reuse DB), ~900 tokens Anthropic per user per day
+
+**Sprint 2**: 15/15 tasks done
 
 ---
 

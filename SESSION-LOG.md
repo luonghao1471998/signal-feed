@@ -2,6 +2,142 @@
 
 ---
 
+## 2026-04-15 - Task 2.6.1: Implement PersonalSignals Pipeline Job (Flow 8) — 📋 SPEC / IMPLEMENTATION PLAN
+
+**Status:** ✅ Done — verified với full flow test
+**Objective:** Job chạy sau shared PipelineCrawlJob, tạo signals type=1 riêng cho từng Pro/Power user
+dựa trên tweets đã crawl (không gọi twitterapi.io thêm — reuse tweets trong DB).
+
+**Dependencies (đã thỏa):**
+- ✅ Task 1.6.x: tweets table có data, TweetFetchProviderInterface, TwitterCrawlerService
+- ✅ Task 1.7.x: TweetClassifierService (classify, signal_score, is_signal)
+- ✅ Task 1.8.x: TweetClusterService + SignalSummarizerService
+- ✅ Task 1.9.x: SignalRankingService + DraftTweetService
+- ✅ Task 2.2.1: my_source_subscriptions table có data
+- ✅ signals table có type + user_id columns (migration Task 2.4.5)
+
+**Completed:**
+
+### Implementation
+1. ✅ Created `app/Jobs/PersonalPipelineJob.php`
+   - Constructor: `int $userId`
+   - Services injected: TweetClusterService, SignalSummarizerService, SignalRankingService, DraftTweetService
+   - Hard guard: skip free users (`plan === 'free'`)
+   - Query tweets: `WHERE source_id IN (my subscriptions) AND is_signal=true AND posted_at >= last 24h`
+   - Cluster → Summarize → Create Signal (type=1) → Rank → Draft
+   - cluster_id format: `{user_id}_{date}_cluster_{N}` (e.g., "3_2026-04-15_cluster_1")
+   - Shared digest: `Digest::firstOrCreate(['date' => today()])`
+   - Per-cluster transaction với error handling
+   - Early duplicate check (credit-safe): skip BEFORE summarize nếu signal exists
+   - Idempotency: UNIQUE constraint `(cluster_id, digest_id)` + early check
+   - `tries=1`, `timeout=600`, có `failed()` method
+   - Log channels: 'crawler' (info), 'crawler-errors' (errors)
+
+2. ✅ Verified runtime safety (no data loss)
+   - Test với `dispatchSync` và direct `handle()` call
+   - Không dùng migrate:fresh/refresh/test commands
+   - Minimal data updates (3 tweets UPDATE để test)
+
+### Testing Results (Manual - Tinker)
+
+**Test Case 1: Pro User với My KOL subscriptions**
+- ✅ User ID=3, plan=pro, 10 subscriptions
+- ✅ 3 tweets is_signal=true trong 24h
+- ✅ Job cluster → summarize → create Signal type=1
+- ✅ Signal created: ID=9, cluster_id="3_2026-04-15_cluster_1"
+- ✅ Draft tweet generated: 1 draft linked to signal
+- ✅ Cost: ~900 tokens (~$0.002 USD)
+
+**Test Case 2: Free User (Hard Guard)**
+- ✅ User ID=4, plan=free
+- ✅ Job skip ngay với log "skip user (free plan)"
+- ✅ Không tạo type=1 signals
+- ✅ 0 API calls
+
+**Test Case 3: Idempotency (Re-run Same Day)**
+- ✅ RUN 1: Signal created (signals_created=1)
+- ✅ RUN 2: Early duplicate check → skip BEFORE summarize
+- ✅ Log: "skip existing cluster (credit-safe)"
+- ✅ 0 Anthropic credits wasted (không gọi summarize)
+- ✅ UNIQUE constraint không bị vi phạm
+
+**Test Case 4: User Without Subscriptions**
+- ✅ Job skip gracefully với log "no subscriptions"
+- ✅ 0 signals created
+
+**Test Case 5: No Signal Tweets in 24h**
+- ✅ Job skip với log "no signal tweets in lookback"
+- ✅ 0 API calls
+
+**Bug Fixed During Testing:**
+- Issue: `$summary['cluster_id']` từ LLM override user-specific format
+- Fix: Added `$summary['cluster_id'] = $clusterId;` sau sprintf()
+- Issue: Duplicate check SAU summarize → waste credits
+- Fix: Moved duplicate check TRƯỚC summarize (early exit)
+
+**Database State After Test:**
+- 1 personal signal (type=1, user_id=3)
+- 1 draft tweet linked
+- 0 data loss
+- Original 7 shared signals (type=0) unchanged
+
+**API Cost Summary:**
+- Total Anthropic API: ~900 tokens (~$0.002 USD)
+- Total TwitterAPI.io: 0 calls (reuse DB tweets)
+- Test runs: 5 full job executions (1 success, 4 skip)
+
+### Next Steps
+- Task 2.6.2: Schedule PersonalPipelineJob (after shared pipeline daily)
+- Task 2.6.3: Update GET /api/signals endpoint để serve type=1 signals với my_sources_only filter
+
+**Flow 8 per SPEC-core:**
+FOR EACH Pro/Power user có ≥1 My KOL subscription:
+  1. Lấy source_ids từ my_source_subscriptions
+  2. Query tweets đã có trong DB: WHERE source_id IN (...) AND posted_at >= last 24h AND is_signal = true
+  3. Cluster tweets (prompt-based, same as shared pipeline)
+  4. Summarize clusters → title + summary + topic_tags
+  5. Rank signals
+  6. Create Signal records: type=1, user_id=X, digest_id (today's digest)
+  7. Generate DraftTweets linked to personal signals
+  8. Skip user nếu plan=free (HARD GUARD — CR 2026-04-16)
+
+**Key decision — KHÔNG crawl lại:**
+Shared pipeline đã crawl toàn bộ sources. Personal job chỉ QUERY tweets từ DB.
+→ Tiết kiệm 100% twitterapi.io API calls.
+→ Personal job chỉ tốn Anthropic API (cluster + summarize + draft).
+
+**cluster_id format cho personal signals:**
+{user_id}_{date}_cluster_{N} — tránh conflict với shared pipeline cluster_id.
+Ví dụ: "2_2026-04-15_cluster_1"
+
+**Digest: dùng chung today's digest (firstOrCreate theo date):**
+Personal signals gắn vào cùng digest_id với shared signals ngày hôm đó.
+Không tạo digest riêng per user.
+
+**UNIQUE constraint signals table:**
+Hiện tại: UNIQUE(type, user_id, cluster_id, date)
+Personal: type=1 + user_id=X + cluster_id="2_2026-04-15_cluster_1" + date → unique per user per day.
+
+**Guards (skip conditions):**
+- plan = 'free' → SKIP (cứng, không tạo type=1)
+- 0 subscriptions → skip gracefully
+- 0 tweets từ My KOLs hôm nay (is_signal=true) → skip, empty OK (no alert)
+- Duplicate run cùng ngày → idempotent (UNIQUE constraint block, log warning)
+
+**Files dự kiến:**
+- app/Jobs/PersonalPipelineJob.php (job mới)
+- Constructor nhận: int $userId
+- Inject services: TweetClusterService, SignalSummarizerService, SignalRankingService, DraftTweetService
+
+**Verify:**
+1. Dispatch job cho Pro user có My KOLs → signals type=1 tạo trong DB
+2. Free user → job skip, không tạo type=1
+3. User không có My KOLs → job skip gracefully
+4. Re-run cùng ngày → idempotent (no duplicate)
+5. GET /api/signals?my_sources_only=true (Pro user) → trả type=1 signals
+6. Signal type=1 của user A không thấy qua API của user B (task 2.6.3)
+7. Anthropic API cost: chỉ cluster/summarize/draft (không classify lại)
+
 ## 2026-04-15 - Task 2.5.7: i18n Foundation + Language Persistence — ✅ COMPLETED
 
 **Status:** ✅ Completed & Verified

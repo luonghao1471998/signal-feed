@@ -14,6 +14,38 @@ use Illuminate\Support\Facades\Log;
 
 class TwitterCrawlerService
 {
+
+    public function syncMultipleProfiles($sources): array
+    {
+        $successCount = 0;
+        $failedCount = 0;
+
+        foreach ($sources as $source) {
+            try {
+                // Tận dụng hàm refreshSourceProfile bạn đã viết cực chuẩn ở dưới
+                // Hàm này đã có sẵn logic DB::transaction và xử lý lỗi
+                $success = $this->refreshSourceProfile($source);
+
+                if ($success) {
+                    $successCount++;
+                    // Hiển thị tiến trình ra console nếu đang chạy lệnh artisan
+                    Log::channel('crawler')->info("Synced avatar for @{$source->x_handle}");
+                } else {
+                    $failedCount++;
+                }
+
+                // QUAN TRỌNG: Nghỉ 1 chút để tránh bị Rate Limit (429) và khớp với tiến độ API
+                usleep(500000); // Nghỉ 0.5 giây
+
+            } catch (\Exception $e) {
+                $failedCount++;
+                Log::error("Individual sync failed for {$source->x_handle}: " . $e->getMessage());
+            }
+        }
+
+        return ['success' => $successCount, 'failed' => $failedCount];
+    }
+
     public function refreshSourceProfile(Source $source): bool
     {
         try {

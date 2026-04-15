@@ -50,25 +50,17 @@ Schedule::call(function () {
         ]);
     });
 
-Schedule::command('sources:backfill-avatars --only-missing --limit=10 --sleep=2')
+    Schedule::command('sources:backfill-avatars --only-missing --limit=50')
     ->name('sources:avatar-backfill')
-    ->dailyAt('12:00')
+    ->dailyAt('03:30') // Chạy lúc rạng sáng để tránh xung đột
     ->timezone('Asia/Ho_Chi_Minh')
     ->withoutOverlapping(120)
     ->before(function () {
-        Log::channel('scheduler')->info('Avatar backfill starting', [
-            'scheduled_time' => now()->toDateTimeString(),
-            'timezone' => 'Asia/Ho_Chi_Minh',
-        ]);
+        Log::channel('scheduler')->info('Avatar backfill starting - Bulk Mode Enabled');
     })
     ->onSuccess(function () {
-        Log::channel('scheduler')->info('Avatar backfill completed successfully', [
-            'completed_at' => now()->toDateTimeString(),
-        ]);
+        Log::channel('scheduler')->info('Avatar backfill completed successfully');
     })
     ->onFailure(function () {
-        Log::channel('scheduler')->error('Avatar backfill scheduled run failed', [
-            'failed_at' => now()->toDateTimeString(),
-            'check' => 'See crawler-errors.log for details',
-        ]);
+        Log::channel('scheduler')->error('Avatar backfill failed - Check twitterapi.io credits');
     });

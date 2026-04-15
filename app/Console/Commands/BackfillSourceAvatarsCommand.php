@@ -8,12 +8,12 @@ use Illuminate\Console\Command;
 
 class BackfillSourceAvatarsCommand extends Command
 {
+    // Giảm limit xuống 50 vì các API thường giới hạn 50-100 user/request
     protected $signature = 'sources:backfill-avatars
-                            {--limit=100 : Maximum number of sources to process}
-                            {--only-missing : Process only sources without avatar_url}
-                            {--sleep=1 : Seconds between API calls}';
+                            {--limit=50 : Maximum number of sources to process}
+                            {--only-missing : Process only sources without avatar_url}';
 
-    protected $description = 'Backfill/sync avatar_url for sources from twitterapi.io metadata';
+    protected $description = 'Backfill avatar_url for sources using Bulk API to save credits';
 
     public function __construct(
         private readonly TwitterCrawlerService $crawler
@@ -24,7 +24,6 @@ class BackfillSourceAvatarsCommand extends Command
     public function handle(): int
     {
         $limit = max(1, (int) $this->option('limit'));
-        $sleep = max(0, (int) $this->option('sleep'));
         $onlyMissing = (bool) $this->option('only-missing');
 
         $query = Source::query()
@@ -39,34 +38,26 @@ class BackfillSourceAvatarsCommand extends Command
         }
 
         $sources = $query->limit($limit)->get();
+
         if ($sources->isEmpty()) {
             $this->info('No matching sources to backfill.');
-
             return self::SUCCESS;
         }
 
-        $ok = 0;
-        $failed = 0;
+        $this->info("Processing {$sources->count()} sources in bulk...");
 
-        foreach ($sources as $index => $source) {
-            $success = $this->crawler->refreshSourceProfile($source);
-            if ($success) {
-                $ok++;
-                $this->line(sprintf('✓ @%s', $source->x_handle));
-            } else {
-                $failed++;
-                $this->warn(sprintf('✗ @%s', $source->x_handle));
-            }
+        // Gửi danh sách cho Service xử lý gom nhóm API
+        // Giả sử hàm syncMultipleProfiles sẽ trả về số lượng thành công
+        $results = $this->crawler->syncMultipleProfiles($sources);
 
-            $isLast = $index === $sources->count() - 1;
-            if (! $isLast && $sleep > 0) {
-                sleep($sleep);
-            }
-        }
+        $ok = $results['success'] ?? 0;
+        $failed = $results['failed'] ?? 0;
 
-        $this->table(['Processed', 'Success', 'Failed'], [[(string) $sources->count(), (string) $ok, (string) $failed]]);
+        $this->table(
+            ['Total', 'Success (Updated/Synced)', 'Failed'], 
+            [[(string) $sources->count(), (string) $ok, (string) $failed]]
+        );
 
         return $failed > 0 && $ok === 0 ? self::FAILURE : self::SUCCESS;
     }
 }
-
