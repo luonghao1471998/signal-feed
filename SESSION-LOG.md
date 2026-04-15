@@ -2,6 +2,152 @@
 
 ---
 
+## 2026-04-15 - Task 2.5.3: Add "Save to Archive" Button on Digest Cards — ✅ COMPLETED
+
+**Status:** ✅ Completed — 2026-04-15  
+**Objective:** Thêm nút bookmark/save lên DigestSignalCard để user lưu signal vào personal archive. Optimistic UI — state đổi ngay khi click, sync với API POST/DELETE /api/signals/{id}/archive.
+
+**Dependencies (đã thỏa):**
+- ✅ Task 2.5.1: POST/DELETE /api/signals/{id}/archive endpoints
+- ✅ Task 1.10.2: DigestPage + DigestSignalCard đã có
+- ✅ signalService.ts đã có pattern fetch + auth header
+
+**Flow theo SPEC-core Flow 9:**
+1. User click bookmark icon trên digest card
+2. Optimistic UI: icon đổi ngay (filled ↔ outline)
+3. API call: POST (lưu) hoặc DELETE (bỏ lưu)
+4. Nếu API lỗi: rollback icon về state cũ + toast error
+
+**Files cần đọc trước khi implement:**
+- resources/js/components/DigestSignalCard.tsx (card UI hiện tại)
+- resources/js/pages/DigestPage.tsx (state management cards)
+- resources/js/services/signalService.ts (API client patterns)
+- resources/js/types/signal.ts (Signal type)
+
+**Scope Task 2.5.3:**
+1. signalService.ts: thêm archiveSignal(id) + unarchiveSignal(id)
+2. DigestSignalCard.tsx: thêm bookmark icon button + is_archived prop
+3. DigestPage.tsx: track archived state per signal + handle toggle
+
+**Signal type extension:**
+Thêm is_archived: boolean vào Signal type (từ GET /api/signals — cần check backend có trả field này không, nếu chưa thì backend cần bổ sung)
+
+**Backend check cần làm:**
+- SignalController@index: thêm is_archived field vào response (check user_archived_signals)
+- SignalResource.php: thêm is_archived
+
+**UI Design:**
+- Icon: Bookmark (outline = chưa lưu, filled = đã lưu)
+- Vị trí: góc phải card, cùng hàng với rank badge hoặc bottom action bar
+- Tất cả plan đều dùng được (Free, Pro, Power)
+- Loading state: icon mờ trong khi API đang xử lý
+- Toast success: "Saved to archive" / "Removed from archive"
+- Toast error: "Failed to save" + rollback
+
+**Verify:**
+1. Click bookmark trên card → icon đổi ngay (optimistic)
+2. API POST → 201/200 → icon giữ filled state
+3. Click lại → icon đổi về outline
+4. API DELETE → 204 → icon giữ outline state
+5. API lỗi → rollback + toast error
+6. Reload page → is_archived state đúng từ API
+7. Free user có thể save (tất cả plan)
+8. Saved signal xuất hiện trong /archive sau khi save
+
+---
+
+## Implementation Summary
+
+**Completed:** 2026-04-15
+
+### Backend Changes:
+
+1. **`app/Models/Signal.php`:**
+   - Added `archiveRows()` relationship: `hasMany(UserArchivedSignal::class, 'signal_id')`
+
+2. **`app/Http/Controllers/Api/SignalController.php`:**
+   - Updated `index()` method: Added `withExists(['archiveRows as is_archived' => ...])` query
+   - Query filters by current authenticated user's archive status
+
+3. **`app/Http/Resources/SignalResource.php`:**
+   - Added field: `'is_archived' => (bool) ($signal->is_archived ?? false)`
+   - Casts exists subquery result to boolean
+
+### Frontend Changes:
+
+1. **`resources/js/types/signal.ts`:**
+   - Extended `Signal` interface with `is_archived?: boolean` field
+
+2. **`resources/js/services/signalService.ts`:**
+   - Added `archiveSignal(signalId: number): Promise<void>` — POST `/api/signals/{id}/archive`
+   - Added `unarchiveSignal(signalId: number): Promise<void>` — DELETE `/api/signals/{id}/archive`
+   - Both use `ensureSanctumCsrf()` + `authFetchHeaders()` pattern
+
+3. **`resources/js/pages/DigestPage.tsx`:**
+   - State management: `archivedIds` (Set) + `archiveLoadingIds` (Set)
+   - Initialize `archivedIds` from `rawSignals.filter((s) => s.isArchived).map((s) => s.id)`
+   - `handleArchiveToggle()`: Optimistic UI pattern with rollback on error
+   - Toast notifications via `sonner` library
+
+4. **`resources/js/components/DigestSignalCard.tsx`:**
+   - Added bookmark button with `Bookmark` / `BookmarkCheck` icons (lucide-react)
+   - Props: `isArchived`, `onArchiveToggle`, `archiveLoading`
+   - `stopPropagation()` to prevent card click event
+   - Loading state: `opacity-50` + `cursor-not-allowed`
+
+5. **`resources/js/lib/mapApiSignalToDigest.ts` và `resources/js/types/digestUi.ts`:**
+   - Map `is_archived` from API to `isArchived` in UI model
+
+### Testing Results:
+
+**Manual testing via browser (2026-04-15):**
+
+✅ **Archive Flow:**
+- Click bookmark → optimistic UI (icon filled ngay)
+- POST `/api/signals/4/archive` → 201 Created
+- DB insert: `user_archived_signals` record created (verified via tinker)
+- Toast: "Saved to archive"
+- Reload page (F5) → GET `/api/signals` returns `is_archived: true`
+- Icon persist as filled ✅
+
+✅ **Unarchive Flow:**
+- Click bookmark (already archived) → optimistic UI (icon outline ngay)
+- DELETE `/api/signals/4/archive` → 204 No Content
+- DB delete: record removed from `user_archived_signals` (verified via tinker)
+- Toast: "Removed from archive"
+- Reload page (F5) → GET `/api/signals` returns `is_archived: false`
+- Icon persist as outline ✅
+
+✅ **Persistence Verification:**
+- DB query: `\App\Models\UserArchivedSignal::all()` shows correct records
+- Multi-user isolation: User 1 archives ≠ User 2 archives (verified via DB)
+
+**Code Quality:**
+- Ran `./vendor/bin/pint` — no style violations
+- Ran `tsc --noEmit` — no TypeScript errors
+- No automated tests executed (per safety rules)
+
+### API Endpoints Used:
+
+- `POST /api/signals/{id}/archive` — From Task 2.5.1 (already implemented)
+- `DELETE /api/signals/{id}/archive` — From Task 2.5.1 (already implemented)
+- `GET /api/signals` — Extended with `is_archived` field
+
+### Database Impact:
+
+- **Table:** `user_archived_signals` (already exists from previous migrations)
+- **Operations:** INSERT on archive, DELETE on unarchive
+- **No schema changes required**
+
+---
+
+**Task 2.5.3 completion enables:**
+- Flow 9 (Archive Signal) from SPEC-core.md ✅
+- User can bookmark signals from digest for later reference
+- Foundation for Task 2.6 (Archive List Page)
+
+---
+
 ## 2026-04-15 - Task 2.5.2: GET /api/archive/signals — ✅ COMPLETED
 
 **Status:** ✅ Completed (2026-04-15)  

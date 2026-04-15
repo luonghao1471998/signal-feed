@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Signal extends Model
@@ -72,5 +73,14 @@ class Signal extends Model
     {
         return $this->hasOne(DraftTweet::class);
     }
-}
 
+    /**
+     * Rows in user_archived_signals for exists / archive UI.
+     *
+     * @return HasMany<UserArchivedSignal, $this>
+     */
+    public function archiveRows(): HasMany
+    {
+        return $this->hasMany(UserArchivedSignal::class, 'signal_id');
+    }
+}

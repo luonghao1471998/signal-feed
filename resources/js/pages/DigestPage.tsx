@@ -14,7 +14,14 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDigestSidebarOptional } from "@/contexts/DigestSidebarContext";
-import { fetchCategories, fetchSignals, type ApiCategory } from "@/services/signalService";
+import { toast } from "sonner";
+import {
+  archiveSignal,
+  fetchCategories,
+  fetchSignals,
+  unarchiveSignal,
+  type ApiCategory,
+} from "@/services/signalService";
 import { getCurrentSubscriptionCount } from "@/services/sourceService";
 import { mapApiSignalToDigest } from "@/lib/mapApiSignalToDigest";
 import { categoryFilterKeyToDbSlug } from "@/lib/categorySlugMap";
@@ -83,6 +90,8 @@ const DigestPage: React.FC = () => {
   const [lastPage, setLastPage] = useState(1);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
   const [subscriptionCount, setSubscriptionCount] = useState(0);
+  const [archivedIds, setArchivedIds] = useState<Set<number>>(new Set());
+  const [archiveLoadingIds, setArchiveLoadingIds] = useState<Set<number>>(new Set());
 
   const isMobile = useMediaQuery("(max-width: 767px)");
   const { activeCategory, selectCategory } = useCategoryFilter();
@@ -272,10 +281,54 @@ const DigestPage: React.FC = () => {
   }, [digestSidebar, rawSignals, total, loading]);
 
   useEffect(() => {
+    setArchivedIds(new Set(rawSignals.filter((s) => s.isArchived).map((s) => Number(s.id))));
+  }, [rawSignals]);
+
+  useEffect(() => {
     return () => {
       digestSidebar?.setSnapshot(null);
     };
   }, [digestSidebar]);
+
+  const handleArchiveToggle = useCallback(async (signalIdStr: string, wasArchived: boolean) => {
+    const id = Number(signalIdStr);
+    setArchivedIds((prev) => {
+      const n = new Set(prev);
+      if (wasArchived) {
+        n.delete(id);
+      } else {
+        n.add(id);
+      }
+      return n;
+    });
+    setArchiveLoadingIds((prev) => new Set(prev).add(id));
+    try {
+      if (wasArchived) {
+        await unarchiveSignal(id);
+        toast.success("Removed from archive");
+      } else {
+        await archiveSignal(id);
+        toast.success("Saved to archive");
+      }
+    } catch {
+      toast.error("Failed to update archive");
+      setArchivedIds((prev) => {
+        const n = new Set(prev);
+        if (wasArchived) {
+          n.add(id);
+        } else {
+          n.delete(id);
+        }
+        return n;
+      });
+    } finally {
+      setArchiveLoadingIds((prev) => {
+        const n = new Set(prev);
+        n.delete(id);
+        return n;
+      });
+    }
+  }, []);
 
   const visibleSignals = useMemo(() => {
     let list = rawSignals;
@@ -616,6 +669,9 @@ const DigestPage: React.FC = () => {
                       }}
                       myKolsOnly={myKolsOnly}
                       userPlan={userPlan}
+                      isArchived={archivedIds.has(Number(signal.id))}
+                      archiveLoading={archiveLoadingIds.has(Number(signal.id))}
+                      onArchiveToggle={handleArchiveToggle}
                     />
                   ))}
                 </div>

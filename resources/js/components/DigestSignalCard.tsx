@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Copy, Check } from "lucide-react";
+import { Bookmark, BookmarkCheck, Copy, Check } from "lucide-react";
 import CategoryBadge from "./CategoryBadge";
 import { Av, AvStack, avatarUrlForHandle } from "./Avatar";
 import { cn } from "@/lib/utils";
@@ -32,6 +32,10 @@ interface Props {
   onClick?: () => void;
   myKolsOnly?: boolean;
   userPlan?: "free" | "pro" | "power";
+  /** Save to archive (Task 2.5.3) */
+  isArchived?: boolean;
+  archiveLoading?: boolean;
+  onArchiveToggle?: (signalId: string, wasArchived: boolean) => void;
 }
 
 function tweetUrlForHandle(handle: string): string {
@@ -47,6 +51,9 @@ const DigestSignalCard: React.FC<Props> = ({
   onClick,
   myKolsOnly = false,
   userPlan = "free",
+  isArchived = false,
+  archiveLoading = false,
+  onArchiveToggle,
 }) => {
   const [inlineExpanded, setInlineExpanded] = useState(sheetMode ? false : (signal.defaultExpanded ?? false));
   const [copied, setCopied] = useState(false);
@@ -73,6 +80,14 @@ const DigestSignalCard: React.FC<Props> = ({
         ? "bg-amber-100 text-amber-800"
         : "bg-slate-100 text-slate-600";
   const signalHasMyKolMatch = signal.sources.some((s) => s.isMySource);
+
+  const handleBookmarkClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (archiveLoading || !onArchiveToggle) {
+      return;
+    }
+    onArchiveToggle(signal.id, isArchived);
+  };
 
   const onCardClick = () => {
     if (onClick) {
@@ -121,7 +136,28 @@ const DigestSignalCard: React.FC<Props> = ({
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-2">
             <h3 className="m-0 flex-1 text-[15px] font-bold leading-[1.4] text-[#0f1419]">{signal.title}</h3>
-            <span className="mt-0.5 shrink-0 text-[13px] text-[#536471]">{signal.timeAgo}</span>
+            <div className="mt-0.5 flex shrink-0 items-center gap-1">
+              {onArchiveToggle ? (
+                <button
+                  type="button"
+                  onClick={handleBookmarkClick}
+                  disabled={archiveLoading}
+                  className={cn(
+                    "rounded-full p-1.5 transition-opacity",
+                    archiveLoading ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:bg-[#eff3f4]",
+                  )}
+                  title={isArchived ? "Remove from archive" : "Save to archive"}
+                  aria-label={isArchived ? "Remove from archive" : "Save to archive"}
+                >
+                  {isArchived ? (
+                    <BookmarkCheck className="h-[18px] w-[18px] text-[#1d9bf0]" aria-hidden />
+                  ) : (
+                    <Bookmark className="h-[18px] w-[18px] text-[#536471]" aria-hidden />
+                  )}
+                </button>
+              ) : null}
+              <span className="text-[13px] text-[#536471]">{signal.timeAgo}</span>
+            </div>
           </div>
 
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[13px] text-[#536471]">

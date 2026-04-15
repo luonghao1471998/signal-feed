@@ -54,5 +54,6 @@ export function mapApiSignalToDigest(
     sources: mapSources(s),
     timeAgo: "—",
     defaultExpanded: false,
+    isArchived: s.is_archived === true,
   };
 }

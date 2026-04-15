@@ -36,6 +36,8 @@ export interface Signal {
   published_at?: string | null;
   type: number;
   is_personal: boolean;
+  /** GET /api/signals — current user đã lưu vào archive chưa */
+  is_archived?: boolean;
 }
 
 export interface SignalsMeta {

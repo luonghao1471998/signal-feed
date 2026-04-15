@@ -127,6 +127,12 @@ class SignalController extends Controller
             $applySharedMySourcesFilter($query);
         }
 
+        $query->withExists([
+            'archiveRows as is_archived' => static function ($q) use ($user): void {
+                $q->where('user_archived_signals.user_id', $user->id);
+            },
+        ]);
+
         $query->orderByDesc('signals.rank_score');
 
         $perPage = min($request->integer('per_page', 20), 100);

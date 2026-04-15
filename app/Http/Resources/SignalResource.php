@@ -65,6 +65,7 @@ class SignalResource extends JsonResource
             'date' => $digestDate,
             'type' => $type,
             'is_personal' => $type === 1,
+            'is_archived' => (bool) ($signal->is_archived ?? false),
         ];
     }
 }

@@ -34,4 +34,6 @@ export interface DigestSignal {
   sources: KOLSource[];
   timeAgo: string;
   defaultExpanded?: boolean;
+  /** Từ API is_archived; optimistic toggle trên DigestPage */
+  isArchived?: boolean;
 }

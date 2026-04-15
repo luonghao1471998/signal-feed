@@ -175,3 +175,35 @@ export async function copyDraft(signalId: number): Promise<CopyDraftResult> {
 export async function fetchCategories(): Promise<ApiCategory[]> {
   return getCategories();
 }
+
+/** POST /api/signals/{id}/archive — idempotent 201/200 */
+export async function archiveSignal(signalId: number): Promise<void> {
+  await ensureSanctumCsrf();
+  const response = await fetch(`/api/signals/${signalId}/archive`, {
+    method: "POST",
+    headers: authFetchHeaders(),
+    credentials: "same-origin",
+  });
+  if (response.status === 401) {
+    throw new Error("Authentication required. Please sign in.");
+  }
+  if (!response.ok) {
+    throw new Error(await parseErrorMessage(response));
+  }
+}
+
+/** DELETE /api/signals/{id}/archive — idempotent 204 */
+export async function unarchiveSignal(signalId: number): Promise<void> {
+  await ensureSanctumCsrf();
+  const response = await fetch(`/api/signals/${signalId}/archive`, {
+    method: "DELETE",
+    headers: authFetchHeaders(),
+    credentials: "same-origin",
+  });
+  if (response.status === 401) {
+    throw new Error("Authentication required. Please sign in.");
+  }
+  if (!response.ok) {
+    throw new Error(await parseErrorMessage(response));
+  }
+}
