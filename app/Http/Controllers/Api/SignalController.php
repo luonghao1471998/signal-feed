@@ -241,6 +241,16 @@ class SignalController extends Controller
             ])
             ->findOrFail($id);
 
+        // Task 2.6.3: Ownership guard — personal signals (type=1) chỉ owner xem được
+        if ((int) $signal->type === 1 && (int) $signal->user_id !== (int) auth()->id()) {
+            return response()->json([
+                'error' => [
+                    'code' => 'FORBIDDEN',
+                    'message' => 'You do not have access to this signal.',
+                ],
+            ], 403);
+        }
+
         $tweetIds = $signal->sources
             ->pluck('pivot.tweet_id')
             ->unique()

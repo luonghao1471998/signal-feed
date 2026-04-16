@@ -1,11 +1,11 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-15 (Task 2.6.2 Personal Pipeline scheduler completed)
+**Last Updated:** 2026-04-16 (Task 2.6.3 Ownership Guard completed)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 2.5 — Settings Page MVP + Language Support
 **Sprint Status:** ✅ COMPLETED (3/3 tasks done)
 **Next Sprint:** Sprint 2.6 — Personal Signals Pipeline (POST-WEDGE)
-**Next Sprint Status:** 🚧 IN PROGRESS — Task 2.6.1 + 2.6.2 completed, tiếp tục 2.6.3
+**Next Sprint Status:** ✅ COMPLETED — Task 2.6.1 + 2.6.2 + 2.6.3 all done
 **Blocker:** Wedge strategy (monetization foundation) chưa implement
 
 ---
@@ -22,8 +22,13 @@
   - Cron via env: `PERSONAL_PIPELINE_CRON` (default `30 1,7,13,19 * * *`)
   - Fan-out query verified: Pro/Power + has `sourceSubscriptions`; dispatch 1 job per user
   - Guards enabled: `withoutOverlapping(60)` + `onOneServer()`; crawler logs for started/completed
+- [x] **Task 2.6.3**: Enforce GET /api/signals/{id} ownership for type=1 ✅ (2026-04-16)
+  - Added ~5 lines ownership guard in `SignalController@show()`
+  - type=1 + user_id ≠ auth → 403 FORBIDDEN (error format chuẩn CLAUDE.md)
+  - type=0 behavior unchanged — all authenticated users can view
+  - Manual testing: 6/6 test cases PASS (tinker + cURL)
 
-**Sprint 2**: 16/16 tasks done
+**Sprint 2**: 17/17 tasks done
 
 ---
 

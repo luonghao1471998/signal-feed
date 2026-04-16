@@ -2,6 +2,107 @@
 
 ---
 
+## 2026-04-16: Task 2.6.3 — Enforce GET /api/signals/{id} Ownership for type=1 ✅
+
+**Objective:** Thêm ownership guard vào `SignalController@show()` — signal `type=1` (personal) chỉ owner mới xem được, user khác → 403 FORBIDDEN.
+
+### Implementation Summary
+
+**Files Modified:**
+- `app/Http/Controllers/Api/SignalController.php` — thêm ~5 dòng guard trong method `show()`
+
+**Logic:**
+```php
+// Task 2.6.3: Ownership guard — personal signals (type=1) chỉ owner xem được
+if ((int) $signal->type === 1 && (int) $signal->user_id !== (int) auth()->id()) {
+    return response()->json([
+        'error' => [
+            'code' => 'FORBIDDEN',
+            'message' => 'You do not have access to this signal.',
+        ]
+    ], 403);
+}
+```
+
+- Guard đặt SAU `findOrFail($id)` (404 vẫn trả trước) và TRƯỚC `SignalDetailResource` return
+- Cast `(int)` đảm bảo strict comparison giữa PostgreSQL values và `auth()->id()`
+- `type=0` (shared): không ảnh hưởng — tất cả authenticated users vẫn xem được
+
+### Testing Results
+
+| Bước | Scenario | Kỳ vọng | Kết quả |
+|------|----------|---------|---------|
+| 1 | Xác nhận signal 9: `type=1, user_id=3` | Data đúng | ✅ PASS |
+| 2 | type=0 signal (ID=1), user Pro → xem được | 200 | ✅ PASS |
+| 3 | type=1 signal (ID=9), owner user 3 → xem được | 200 | ✅ PASS |
+| 4 | type=1 signal (ID=9), user khác (user 2 Power) → chặn | 403 FORBIDDEN | ✅ PASS |
+| 5 | Signal không tồn tại (ID=9999) | 404 | ✅ PASS |
+| 6 | Unauthenticated request | 401 | ✅ PASS |
+
+**Testing Method:** Tinker + cURL (KHÔNG dùng `php artisan test`)
+
+**Lưu ý phát hiện khi test:**
+- Server chạy port 8000 (không phải 8001)
+- cURL cần header `Accept: application/json` để Sanctum trả JSON thay vì redirect route `login`
+- Free user (user 1) bị chặn bởi day restriction (UTC timezone → thứ Ba ở UTC dù thứ Tư ở VN) — dùng Pro user test type=0 thay thế
+
+### Prompt Budget
+- **Prompts đã dùng:** 1 (Cursor implement) + 0 (không cần fix)
+- **Hiệu suất:** Xuất sắc — 1 file, ~5 dòng, pass ngay lần đầu
+
+### Dependencies Verified
+- ✅ Task 1.11.1: `GET /api/signals/{id}` — `SignalController@show()` đã có
+- ✅ Task 2.6.1: signals `type=1` đã có trong DB (signal ID=9, user_id=3)
+- ✅ signals table có `type` + `user_id` columns
+
+**Status:** ✅ COMPLETED — Ownership guard hoạt động đúng SPEC-api.md
+
+## 2026-04-15 - Task 2.6.3: Enforce GET /api/signals/{id} Ownership for type=1 — 📋 SPEC / IMPLEMENTATION PLAN
+
+**Status:** 📋 Planned — implementation pending
+**Objective:** Policy guard: signal type=1 chỉ owner (user_id = auth()->id()) mới GET được.
+User khác hoặc Free user → 403. Task nhỏ — chỉ sửa SignalController@show.
+
+**Dependencies (đã thỏa):**
+- ✅ Task 1.11.1: GET /api/signals/{id} đã có trong SignalController@show
+- ✅ Task 2.6.1: signals type=1 đã có trong DB
+- ✅ signals table có type + user_id columns
+
+**Logic cần thêm vào SignalController@show():**
+
+Hiện tại: return signal cho tất cả authenticated users (không check ownership).
+
+Sau khi thêm guard:
+if ($signal->type === 1) {
+if (auth()->id() !== $signal->user_id) {
+return 403 FORBIDDEN
+}
+}
+
+Type=0 (shared): giữ nguyên — tất cả authenticated users đều xem được.
+Type=1 (personal): chỉ owner mới xem được.
+
+**Response 403:**
+```json
+{
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "You do not have access to this signal."
+  }
+}
+```
+
+**Files dự kiến:**
+- app/Http/Controllers/Api/SignalController.php (sửa method show)
+
+**Verify:**
+1. GET /api/signals/{type=0 id} với bất kỳ user → 200 (không đổi)
+2. GET /api/signals/{type=1 id} với owner → 200 OK
+3. GET /api/signals/{type=1 id} với user khác → 403 FORBIDDEN
+4. GET /api/signals/{type=1 id} với free user (không phải owner) → 403
+5. GET /api/signals/9999 → vẫn 404 NOT_FOUND (không đổi)
+6. Unauthenticated → 401 (không đổi)
+
 ## 2026-04-15 - Task 2.6.2: Schedule Personal Pipeline + Ordering vs Shared Pipeline — 📋 SPEC / IMPLEMENTATION PLAN
 
 **Status:** ✅ Done — code implemented & manual verified
