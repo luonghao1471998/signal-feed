@@ -14,25 +14,27 @@
 ### Implementation Summary
 
 **Files Modified:**
-- `app/Services/StripeWebhookService.php` — thêm method `cleanupSubscriptionsToFreeLimit(User $user): void`
+- `app/Services/StripeWebhookService.php` — đổi sang method `cleanupSubscriptionsToPlanLimit(User $user): void` (multi-tier)
 
 **Logic:**
 - Count records của user trong `my_source_subscriptions`
-- Nếu > 5 (Free tier cap theo CR 2026-04-16) → giữ lại 5 records mới nhất, xóa phần còn lại
+- Tính limit theo plan đích: `pro = 10`, `free = 5`, plan khác thì no-op an toàn
+- Nếu count > limit → giữ lại `limit` records mới nhất, xóa phần còn lại
 - Ordering: `created_at DESC, source_id DESC` (tie-break khi trùng timestamp)
 - Dùng `whereNotIn(keep_ids)` để DELETE an toàn
 - Audit log: `event_type = 'subscription_cleanup'`, metadata JSON `{ deleted_count, reason }`
 
-**Integration Points (2 entry points):**
+**Integration Points (3 entry points):**
 1. `handleSubscriptionDeleted()` — user hủy subscription → downgrade free → cleanup
-2. `handleInvoicePaymentFailed()` — payment thất bại `attempt_count >= 3` → downgrade free → cleanup
+2. `handleSubscriptionUpdated()` — support downgrade Power→Pro sau khi plan đã sync
+3. `handleInvoicePaymentFailed()` — payment thất bại `attempt_count >= 3` → downgrade free → cleanup
 
 ### Key Design Decisions
 
-1. **Free cap = 5** (không phải 10) — theo CR 2026-04-16 (`SPEC-api` + `CLAUDE.md`): Free My KOLs cap 5, Pro 10, Power 50.
+1. **Multi-tier cap theo plan đích:** `pro = 10`, `free = 5` — theo CR 2026-04-16 (`SPEC-api` + `CLAUDE.md`): Free 5, Pro 10, Power 50.
 2. **Keep newest:** `ORDER BY created_at DESC, source_id DESC` — tránh nondeterminism khi trùng timestamp (test case #5 đã verify).
-3. **Idempotency:** Nếu user đã ≤5 records → method no-op, không tạo audit log thừa (test case #6).
-4. **Phạm vi:** Chỉ Free tier cleanup; logic Power→Pro (keep 10) theo roadmap là cùng method, sẽ extend khi Stripe subscription.updated event cần — hiện tại đủ với downgrade-to-free flow.
+3. **Idempotency:** Nếu user đã ≤ limit theo plan hiện tại → method no-op, không tạo audit log thừa.
+4. **Audit reason động:** `reason = downgrade_to_{plan}` để phân biệt Free/Pro khi truy vết.
 
 ### Testing Results (Tinker — manual, 7 scenarios)
 
@@ -44,7 +46,7 @@
 | 4 | Recency (timestamps tăng dần 1–7) | Giữ IDs [3,4,5,6,7] | ✅ PASS |
 | 5 | Tie-break (cùng timestamp) | Ưu tiên ID lớn | ✅ PASS |
 | 6 | Idempotency (chạy 2 lần) | Lần 2 no-op, no duplicate log | ✅ PASS |
-| 7 | Audit log | `deleted_count: 2`, `reason: downgrade_to_free` | ✅ PASS |
+| 7 | Audit log | `deleted_count: 2`, `reason: downgrade_to_free` (hoặc `downgrade_to_pro` khi test Pro) | ✅ PASS |
 
 **Safety notes:**
 - Không chạy `php artisan test` — tránh wipe production-like data
@@ -52,7 +54,7 @@
 - Không gọi external API (0 credits Stripe/Anthropic/TwitterAPI consumed)
 
 ### Known Limitations / Backlog
-- **Pro→Power downgrade (keep 10):** Chưa implement branch riêng — hiện tại cleanup chỉ trigger khi plan → free. Khi 3.1.2 webhook xử lý `subscription.updated` với downgrade Power→Pro, cần gọi cleanup variant keep=10. Note lại trong Task 3.2.2 hoặc task Sprint 3 follow-up.
+- Hiện cleanup mới áp cho luồng downgrade trong webhook Stripe. Nếu sau này có downgrade ngoài Stripe flow cần tái sử dụng cùng method để đồng nhất rule.
 
 ---
 

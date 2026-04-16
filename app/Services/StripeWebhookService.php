@@ -136,6 +136,7 @@ class StripeWebhookService
 
         if (in_array($status, ['canceled', 'incomplete_expired', 'unpaid'], true)) {
             $this->downgradeToFree($user, keepCustomerId: true);
+            $this->cleanupSubscriptionsToPlanLimit($user);
             $this->auditPlanChangeIfNeeded($user->id, $oldPlan, 'free', (string) $event->id);
         } else {
             $priceId = $this->getSubscriptionPriceId($subscription);
@@ -143,6 +144,7 @@ class StripeWebhookService
             $user->stripe_subscription_id = $subscription->id;
             $user->plan = $newPlan;
             $user->save();
+            $this->cleanupSubscriptionsToPlanLimit($user);
             $this->auditPlanChangeIfNeeded($user->id, $oldPlan, (string) $user->plan, (string) $event->id);
         }
 
@@ -168,7 +170,7 @@ class StripeWebhookService
 
         $oldPlan = (string) $user->plan;
         $this->downgradeToFree($user, keepCustomerId: true);
-        $this->cleanupSubscriptionsToFreeLimit($user);
+        $this->cleanupSubscriptionsToPlanLimit($user);
         $this->auditPlanChangeIfNeeded($user->id, $oldPlan, 'free', (string) $event->id);
         $this->auditWebhookStripe('customer.subscription.deleted', $user->id, [
             'event_id' => $event->id,
@@ -198,7 +200,7 @@ class StripeWebhookService
         if ($attemptCount >= 3) {
             $oldPlan = (string) $user->plan;
             $this->downgradeToFree($user, keepCustomerId: true);
-            $this->cleanupSubscriptionsToFreeLimit($user);
+            $this->cleanupSubscriptionsToPlanLimit($user);
             $this->auditPlanChangeIfNeeded($user->id, $oldPlan, 'free', (string) $event->id);
         } else {
             Log::warning('Stripe invoice.payment_failed: attempt_count < 3', [
@@ -243,9 +245,16 @@ class StripeWebhookService
         $user->save();
     }
 
-    public function cleanupSubscriptionsToFreeLimit(User $user): void
+    public function cleanupSubscriptionsToPlanLimit(User $user): void
     {
-        $limit = 5;
+        $limit = match ((string) $user->plan) {
+            'pro' => 10,
+            'free' => 5,
+            default => null,
+        };
+        if ($limit === null) {
+            return;
+        }
 
         $totalSubscriptions = (int) MySourceSubscription::query()
             ->where('user_id', $user->id)
@@ -282,7 +291,7 @@ class StripeWebhookService
                 'resource_id' => $user->id,
                 'changes' => json_encode([
                     'deleted_count' => $deletedCount,
-                    'reason' => 'downgrade_to_free',
+                    'reason' => 'downgrade_to_'.$user->plan,
                 ]),
                 'ip_address' => request()?->ip(),
                 'user_agent' => request()?->userAgent(),

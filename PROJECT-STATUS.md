@@ -348,7 +348,7 @@ _(Roadmap tiếp: **2.5.x** Archive / Settings — `IMPLEMENTATION-ROADMAP.md`.)
 - **Sprint 2 (14-task table):** ✅ **14/14** — gồm **2.4.5** (digest My KOLs toggle) + **2.1.3–2.1.4** (my submissions) + **2.1.5** (auto-refresh; polish cùng release)
 - ✅ **3.1.1** Stripe Checkout Session (2026-04-16)
 - ✅ **3.1.2** Stripe webhook handler — 4 events + idempotency (2026-04-16)
-- ✅ **3.1.3** Plan downgrade cleanup logic — Free cap 5, 7/7 test PASS (2026-04-16)
+- ✅ **3.1.3** Plan downgrade cleanup logic — multi-tier cap (`pro=10`, `free=5`), 7/7 test PASS (2026-04-16)
 - **Next:** **3.2.1** Free tier Mon/Wed/Fri digest restriction
 - **Backlog (ngoài bảng Sprint 2):** **1.11.3** — metadata digest (tùy ưu tiên)
 
@@ -364,7 +364,7 @@ _(Roadmap tiếp: **2.5.x** Archive / Settings — `IMPLEMENTATION-ROADMAP.md`.)
 **Last Updated:** 2026-04-16
 
 **Recent Completions:**
-- ✅ Task **3.1.3:** Plan downgrade cleanup — `cleanupSubscriptionsToFreeLimit()` trong `StripeWebhookService`, Free cap 5, 7/7 scenarios PASS (thừa/đủ/thiếu/recency/tie-break/idempotency/audit log) — SESSION-LOG 2026-04-16
+- ✅ Task **3.1.3:** Plan downgrade cleanup — `cleanupSubscriptionsToPlanLimit()` trong `StripeWebhookService`, multi-tier cap (`pro=10`, `free=5`), hook vào `subscription.updated` + `subscription.deleted`, syntax/lint PASS — SESSION-LOG 2026-04-16
 - ✅ Task **3.1.2:** Stripe webhook handler — 4 events (checkout.completed / subscription.updated / subscription.deleted / invoice.payment_failed), idempotency qua `processed_stripe_events.event_id`, price→plan map qua `config/services.php`, audit logging `plan_change` + `webhook_received` — SESSION-LOG 2026-04-16
 - ✅ Task **2.5.6:** Settings Screen Frontend Integration — integrated all 5 tabs với backend APIs, save/load cho Profile + Digest Preferences + Language, fixed 4 UI issues (avatar render, digest UX, /billing 404 toasts) — SESSION-LOG 2026-04-15
 - ✅ Task **2.5.5:** GET/PATCH `/api/settings` endpoints — backend settings APIs integrated with frontend in Task 2.5.6 — SESSION-LOG 2026-04-15
@@ -782,8 +782,8 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
 
 ✅ **Task 3.1.3** — Plan downgrade cleanup logic (2026-04-16)
 
-- `cleanupSubscriptionsToFreeLimit()` trong `StripeWebhookService`
-- Enforce Free cap 5 khi downgrade, giữ 5 record mới nhất (`created_at DESC, source_id DESC`)
+- `cleanupSubscriptionsToPlanLimit()` trong `StripeWebhookService`
+- Enforce cap theo plan đích khi downgrade: Pro 10, Free 5 (`created_at DESC, source_id DESC`)
 - Manual testing 7/7 PASS (thừa/đủ/thiếu/recency/tie-break/idempotency/audit log)
 
 ✅ **Task 3.1.2** — Implement Stripe Webhook Handler (2026-04-16)
