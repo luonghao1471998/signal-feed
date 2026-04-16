@@ -18,12 +18,15 @@ use App\Http\Controllers\Api\MySourcesController;
 use App\Http\Controllers\Api\SignalController;
 use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\SourceController;
+use App\Http\Controllers\Api\StripeWebhookController;
 use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\UpdateCurrentUserController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/categories', [CategoryController::class, 'index']);
 Route::get('/sources', [SourceController::class, 'index']);
+
+Route::post('/webhooks/stripe', [StripeWebhookController::class, 'handle']);
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', CurrentUserController::class);

@@ -2,6 +2,49 @@
 
 ---
 
+## [2026-04-16] Task 3.1.2: Implement Stripe webhook handler (4 events)
+
+**Sprint:** Sprint 3 — Billing + Admin + i18n
+**Task:** 3.1.2 — Implement Stripe webhook handler (4 events)
+**Feature Group:** 3.1 — Stripe Integration
+**Depends On:** 3.1.1 ✅ (Stripe Checkout Session creation)
+**Tag:** [POST-WEDGE]
+
+**Objective:** Tạo `POST /api/webhooks/stripe` endpoint xử lý 4 Stripe events: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`. Cập nhật `users.plan` + `users.stripe_customer_id` + `users.stripe_subscription_id`. Đảm bảo idempotency qua bảng `processed_stripe_events` (đã tạo migration ở 3.1.1).
+
+**Scope:**
+- Route: `POST /api/webhooks/stripe` — KHÔNG auth:sanctum (webhook từ Stripe, verify qua Stripe-Signature header)
+- Signature verification: HMAC SHA-256 via `STRIPE_WEBHOOK_SECRET`
+- 4 event handlers:
+  1. `checkout.session.completed` → extract `metadata.user_id` + `price_id` → map plan (pro/power) → update `users.plan`, `stripe_customer_id`, `stripe_subscription_id`
+  2. `customer.subscription.updated` → sync plan based on status + price_id
+  3. `customer.subscription.deleted` → downgrade to free (cleanup logic = Task 3.1.3)
+  4. `invoice.payment_failed` → if `attempt_count >= 3` → downgrade to free, else log warning
+- Idempotency: check `processed_stripe_events.event_id` trước khi xử lý — duplicate → 200 (đã xử lý)
+- Audit logging: log `subscription.created`, `subscription.updated`, `subscription.deleted`, `payment.failed` events
+- Error: 401 nếu signature invalid; duplicate event id → 200 (không xử lý lại); 200 OK cho mọi event xử lý thành công
+
+**References:**
+- `SPEC-api.md` — Stripe Webhook Handler section (route, events, idempotency, handler actions)
+- `API-CONTRACTS.md` §3 — Stripe inbound webhook contracts
+- `IMPLEMENTATION-ROADMAP.md` Task 3.1.2
+- `SPEC-plan.md` — Constraint #1 (signature), #2 (idempotency), #7 (plan sync webhook-only)
+- Task 3.1.1 output: `processed_stripe_events` table migration, `StripeService`, env config đã có
+
+**Status:** ✅ Done
+
+Result:
+
+Triển khai thành công StripeWebhookService xử lý 4 events cốt lõi: checkout.session.completed, customer.subscription.updated, customer.subscription.deleted, invoice.payment_failed.
+
+Hoàn thiện logic mapping Price ID thông qua config/services.php (fix lỗi null config bằng config:clear).
+
+Đồng bộ tên cột Idempotency: Chuyển toàn bộ stripe_event_id sang event_id trong code Service để khớp với Migration thực tế.
+
+Manual Verify: Đã giả lập thành công event customer.subscription.updated qua Tinker. Kết quả: User nâng cấp lên pro và bản ghi log xuất hiện trong bảng processed_stripe_events với đầy đủ timestamp.
+
+---
+
 ## 2026-04-16: Task 3.1.1 — Implement Stripe Checkout Session Creation ✅
 
 **Sprint:** Sprint 3 — Billing + Admin + i18n

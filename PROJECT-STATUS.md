@@ -1,9 +1,9 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-16 (Task 3.1.1 Stripe Checkout Session completed)
+**Last Updated:** 2026-04-16 (Task 3.1.2 Stripe Webhook Handler completed)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 3 — Billing + Admin + i18n
-**Sprint Status:** 🔄 IN PROGRESS (1/N tasks done)
+**Sprint Status:** 🔄 IN PROGRESS (2/N tasks done)
 **Previous Sprint:** Sprint 2.6 — Personal Signals Pipeline ✅ COMPLETED
 **Blocker:** None — Stripe price IDs resolved ✅
 
@@ -37,10 +37,10 @@
   - Migration: `processed_stripe_events` table (idempotency cho 3.1.2)
   - Stripe test keys + real price IDs configured
   - Manual testing: 5/5 test cases PASS (cURL + tinker)
-- [ ] **Task 3.1.2**: Implement Stripe Webhook Handler (4 events) — NEXT
-- [ ] **Task 3.1.3**: Implement plan downgrade cleanup logic
+- [x] **Task 3.1.2**: Implement Stripe Webhook Handler (4 events) ✅ (2026-04-16)
+- [ ] **Task 3.1.3**: Implement plan downgrade cleanup logic — NEXT
 
-**Sprint 3**: 1/? tasks done
+**Sprint 3**: 2/? tasks done
 
 ---
 
@@ -768,11 +768,15 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
 
 ## 🎯 Current Focus
 
-**Completed Task:** Task **3.1.1** — Stripe Checkout Session creation ✅ (April 16, 2026)
-**Next Task:** Task **3.1.2** — Stripe Webhook Handler (4 events)
-**Previous Task:** Task **2.6.3** — Ownership Guard ✅ (April 16, 2026)
+**Completed Task:** Task **3.1.2** — Stripe Webhook Handler (4 events) ✅ (April 16, 2026)
+**Next Task:** Task **3.1.3** — Cleanup MySourceSubscriptions (Downgrade logic)
+**Previous Task:** Task **3.1.1** — Stripe Checkout Session creation ✅ (April 16, 2026)
 
 ### Vừa Hoàn Thành
+
+✅ **Task 3.1.2** — Implement Stripe Webhook Handler (2026-04-16)
+
+- Hoàn thành hệ thống Webhook Stripe với cơ chế chống xử lý trùng lặp (Idempotency).
 
 ✅ **Task 3.1.1** — Implement Stripe Checkout Session Creation (2026-04-16)
 

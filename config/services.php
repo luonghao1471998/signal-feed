@@ -62,9 +62,19 @@ return [
         'secret' => env('STRIPE_SECRET', env('STRIPE_SECRET_KEY')),
         'pro_price_id' => env('STRIPE_PRO_PRICE_ID'),
         'power_price_id' => env('STRIPE_POWER_PRICE_ID'),
+        // Webhook: map Price ID → plan (SPEC-api constraint #13). Unknown price_id → free + log.
+        'price_plan_map' => array_filter([
+            (string) env('STRIPE_PRO_PRICE_ID') => 'pro',
+            (string) env('STRIPE_POWER_PRICE_ID') => 'power',
+        ], static fn (string $priceId): bool => $priceId !== '', ARRAY_FILTER_USE_KEY),
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
         'checkout_success_url' => env('STRIPE_CHECKOUT_SUCCESS_URL', env('APP_URL', 'http://localhost:8000').'/settings?billing=success'),
         'checkout_cancel_url' => env('STRIPE_CHECKOUT_CANCEL_URL', env('APP_URL', 'http://localhost:8000').'/settings?billing=cancelled'),
+
+        'price_plan_map' => [
+            env('STRIPE_PRO_PRICE_ID') => 'pro',
+            env('STRIPE_POWER_PRICE_ID') => 'power',
+        ],
     ],
 
 ];
