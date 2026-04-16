@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { formatDistanceToNow } from "date-fns";
+import { format } from "date-fns";
 import { Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import AdjustCategoriesModal from "@/components/admin/AdjustCategoriesModal";
@@ -336,9 +336,7 @@ const AdminSourcesPage: React.FC = () => {
                       {typeof source.noise_ratio === "number" ? `${source.noise_ratio}%` : "—"}
                     </TableCell>
                     <TableCell>
-                      {source.created_at
-                        ? formatDistanceToNow(new Date(source.created_at), { addSuffix: true })
-                        : "—"}
+                      {source.created_at ? format(new Date(source.created_at), "yyyy-MM-dd HH:mm:ss") : "—"}
                     </TableCell>
                     <TableCell>{renderActionButtons(source)}</TableCell>
                   </TableRow>
