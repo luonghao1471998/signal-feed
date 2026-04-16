@@ -2,6 +2,69 @@
 
 ---
 
+## [2026-04-16] Task 3.2.2: Add plan-based feature gates to API endpoints
+
+### Sprint
+
+**Sprint 3 — Billing + Admin + i18n**
+
+### Task Metadata
+
+- **Task:** 3.2.2 — Add plan-based feature gates to API endpoints
+- **Feature Group:** 3.2 — Free Tier Enforcement
+- **Depends On:** 3.2.1 ✅, 3.1.2 ✅
+- **Status:** ✅ Completed
+
+### Objective
+
+Triển khai Middleware để kiểm soát quyền truy cập tính năng theo `plan` của user.
+Thực thi CR `2026-04-16`: user Free vẫn dùng được My KOLs/Stats, nhưng bị chặn các tính năng Premium.
+
+### Scope
+
+1. Tạo mới hoặc cập nhật middleware `CheckPlanFeature`.
+2. Áp dụng gate cho `routes/api.php`:
+   - `POST /api/signals/{id}/draft` (copy draft) → chỉ Pro/Power.
+   - `POST /api/sources` (add new source) → chỉ Pro/Power.
+   - `GET /api/my-sources` → mở cho Free.
+   - `POST /api/subscribe` (route subscribe tương ứng hiện có) → mở cho Free theo CR 2026-04-16.
+3. Chuẩn hóa phản hồi khi không đủ quyền: `403 Forbidden`.
+
+### Notes Before Implementation
+
+- Ưu tiên dùng middleware-level guard để tránh duplicate logic trong controller.
+- Giữ backward compatibility với các route đã hoạt động cho Pro/Power.
+- Đảm bảo không vô tình chặn các endpoint My KOLs/Stats của Free.
+
+### Verification Plan
+
+- Free user:
+  - `GET /api/my-sources` → `200`.
+  - `POST` copy draft endpoint → `403`.
+  - `POST /api/sources` → `403`.
+  - `POST` subscribe endpoint → `200/201` (nếu trong cap).
+- Pro/Power user:
+  - Các endpoint premium hoạt động bình thường (`2xx` khi input hợp lệ).
+
+### References
+
+- `IMPLEMENTATION-ROADMAP.md` — Task 3.2.2
+- `CLAUDE.md` — CR 2026-04-16 (Free My KOLs access policy)
+- `SPEC-api.md` — Permission guards / endpoint contracts
+
+### Results/Verification
+
+- Triển khai thành công middleware `plan_features` (`CheckPlanFeature`) và gắn gate:
+  - `POST /api/signals/{id}/draft/copy` (feature `draft_copy`) → chỉ Pro/Power
+  - `POST /api/sources` (feature `add_source`) → chỉ Pro/Power
+- Verify Free (plan = `free`):
+  - `POST /api/signals/2/draft/copy` → `403` với JSON `{"error":"PLAN_RESTRICTED"}`
+  - `POST /api/sources` → `403` với JSON `{"error":"PLAN_RESTRICTED"}`
+  - `GET /api/my-sources` → `200` (được phép theo CR 2026-04-16)
+- Verify Pro (plan = `pro`):
+  - `POST /api/signals/2/draft/copy` → `200` (premium access hoạt động)
+
+### Task Status: ✅ COMPLETED
 ## [2026-04-16] Task 3.2.1: Implement Signal Digest Delivery Gate ✅
 
 **Sprint:** Sprint 3 — Billing + Admin + i18n  

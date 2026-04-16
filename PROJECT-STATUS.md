@@ -1,9 +1,9 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-16 (Task 3.2.1 Digest Delivery Gate completed)
+**Last Updated:** 2026-04-16 (Task 3.2.2 plan-based feature gates completed)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 3 — Billing + Admin + i18n
-**Sprint Status:** 🔄 IN PROGRESS (3/N tasks done)
+**Sprint Status:** 🔄 IN PROGRESS (6/14 tasks done)
 **Previous Sprint:** Sprint 2.6 — Personal Signals Pipeline ✅ COMPLETED
 **Blocker:** None — Stripe price IDs resolved ✅
 
@@ -51,8 +51,17 @@
   - Integrated early gate in `SendDigestEmailJob` + audit event `digest.email.skipped_tier_restriction`.
   - Scheduler `digest:delivery-fanout` chạy `08:00` theo `Asia/Ho_Chi_Minh`.
   - Scheduling và delivery timezone đã đồng bộ `Asia/Ho_Chi_Minh`.
+- [x] **Task 3.2.2**: Add plan-based feature gates to API endpoints ✅ (2026-04-16)
+   - Added middleware `plan_features` (`CheckPlanFeature`) và gắn gate cho:
+     - `POST /api/signals/{id}/draft/copy` (feature `draft_copy`) → chỉ Pro/Power
+     - `POST /api/sources` (feature `add_source`) → chỉ Pro/Power
+   - Verify Free (plan=`free`):
+     - `POST /api/signals/2/draft/copy` → `403` + `{"error":"PLAN_RESTRICTED"}`
+     - `POST /api/sources` → `403` + `{"error":"PLAN_RESTRICTED"}`
+     - `GET /api/my-sources` → `200` (CR 2026-04-16)
+   - Verify Pro (plan=`pro`): `POST /api/signals/2/draft/copy` → `200`
 
-**Sprint 3**: 5/? tasks done
+**Sprint 3**: 6/14 tasks done
 
 ---
 
@@ -368,15 +377,16 @@ _(Roadmap tiếp: **2.5.x** Archive / Settings — `IMPLEMENTATION-ROADMAP.md`.)
 ### Statistics
 - **Sprint 1 (34 tasks, `IMPLEMENTATION-ROADMAP`):** 34 / 34 ✅
 - **Sprint 2 (14 tasks):** 14 / 14 (100%) ✅
-- **Sprint 3 (14 tasks):** 5 / 14 (36%) — Feature 3.1 Stripe Integration ✅; Feature 3.2 Free Tier Enforcement 2/2 (3.2.0 + 3.2.1 done)
+- **Sprint 3 (14 tasks):** 6 / 14 (43%) — Feature 3.1 Stripe Integration ✅; Feature 3.2 Free Tier Enforcement 3/3 (3.2.0 + 3.2.1 + 3.2.2 done)
 
 ### Progress Summary
 
 **Completed Tasks:** Sprint 1 **34/34** ✅; Sprint 2 **14/14** (thêm **2.1.3–2.1.5** 2026-04-15; **2.4.5** 2026-04-15; cùng các task 2.1.1–2.1.2, 2.2.x, 2.3.x, 2.4.1–2.4.4)
-**Current phase:** Sprint 3 — Feature 3.1 ✅; Feature 3.2 ✅ complete (3.2.0 email delivery + 3.2.1 tier-based gate, timezone `Asia/Ho_Chi_Minh`)
+**Current phase:** Sprint 3 — Feature 3.1 ✅; Feature 3.2 ✅ complete (3.2.0 email delivery + 3.2.1 tier-based gate + 3.2.2 plan-based feature gates, timezone `Asia/Ho_Chi_Minh`)
 **Last Updated:** 2026-04-16
 
 **Recent Completions:**
+- ✅ Task **3.2.2:** Add plan-based feature gates to API endpoints — middleware `plan_features` (CheckPlanFeature) chặn premium endpoints cho Free (`403` + `PLAN_RESTRICTED` ở `POST /api/signals/{id}/draft/copy` và `POST /api/sources`), nhưng vẫn cho `GET /api/my-sources`; Pro truy cập premium thành công — SESSION-LOG 2026-04-16
 - ✅ Task **3.2.1:** Signal Digest Delivery Gate — thêm `DigestDeliveryGateService`, gate trong `SendDigestEmailJob`, audit event `digest.email.skipped_tier_restriction`, scheduler `digest:delivery-fanout` chạy `08:00` theo `Asia/Ho_Chi_Minh`; verify Tinker: Free Tue skip + audit, Free Mon allow, Pro any day allow — SESSION-LOG 2026-04-16
 - ✅ Task **3.2.0:** SendDigestEmailJob F16 real delivery — Mailable `DigestEmail` + Blade `emails.digest` responsive + Job queue `digest-delivery` + `AuditLogService` whitelist 3 new events, Resend SDK integrated, manual 5/5 PASS (1 email credit), Delivered confirmed trên Resend dashboard — SESSION-LOG 2026-04-16
 - ✅ Task **3.1.3:** Plan downgrade cleanup — `cleanupSubscriptionsToPlanLimit()` trong `StripeWebhookService`, multi-tier cap (`pro=10`, `free=5`), hook vào `subscription.updated` + `subscription.deleted`, syntax/lint PASS — SESSION-LOG 2026-04-16
@@ -789,9 +799,9 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
 
 ## 🎯 Current Focus
 
-**Completed Task:** Task **3.2.1** — Signal Digest Delivery Gate ✅ (April 16, 2026)
+**Completed Task:** Task **3.2.2** — Add plan-based feature gates to API endpoints ✅ (April 16, 2026)
 **Next Task:** Task **3.3.1** — [TBD theo roadmap Sprint 3]
-**Previous Task:** Task **3.2.0** — SendDigestEmailJob (F16 real delivery) ✅ (April 16, 2026)
+**Previous Task:** Task **3.2.1** — Signal Digest Delivery Gate ✅ (April 16, 2026)
 
 ### Vừa Hoàn Thành
 

@@ -31,7 +31,7 @@ Route::post('/webhooks/stripe', [StripeWebhookController::class, 'handle']);
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', CurrentUserController::class);
     Route::patch('/me', UpdateCurrentUserController::class);
-    Route::post('/sources', [SourceController::class, 'store']);
+    Route::post('/sources', [SourceController::class, 'store'])->middleware('plan_features:add_source');
     Route::get('/sources/my-submissions', [SourceController::class, 'mySubmissions']);
     Route::post('/sources/{sourceId}/subscribe', [SubscriptionController::class, 'subscribe'])
         ->whereNumber('sourceId');
@@ -46,7 +46,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/signals', [SignalController::class, 'index']);
     Route::post('/signals/{id}/archive', [ArchiveController::class, 'store'])->whereNumber('id');
     Route::delete('/signals/{id}/archive', [ArchiveController::class, 'destroy'])->whereNumber('id');
-    Route::post('/signals/{id}/draft/copy', [DraftController::class, 'copy'])->whereNumber('id');
+    Route::post('/signals/{id}/draft/copy', [DraftController::class, 'copy'])
+        ->middleware('plan_features:draft_copy')
+        ->whereNumber('id');
     Route::get('/signals/{id}', [SignalController::class, 'show'])->whereNumber('id');
     Route::post('/billing/checkout', [BillingController::class, 'checkout']);
 
