@@ -94,7 +94,8 @@
 | 3.1.1 | Implement Stripe Checkout Session creation | 3.1 | [POST-WEDGE] | API endpoint (or frontend redirect) creates Stripe Checkout Session with Pro/Power price IDs, redirects to Stripe hosted page | Sprint 2 complete | Click "Upgrade to Pro" → redirects to Stripe checkout page | 2.2d Stripe integration (checkout.session.completed event), 2.2a F02 |
 | 3.1.2 | Implement Stripe webhook handler (4 events) | 3.1 | [POST-WEDGE] | POST /webhooks/stripe endpoint handles checkout.session.completed, subscription.updated, subscription.deleted, payment_failed → updates User.plan + User.stripe_customer_id, logs processed_stripe_events (idempotency) | 3.1.1 | Stripe sends webhook → User.plan updated, processed_stripe_events row created | 2.2e Stripe Webhook Handler spec, 2.2d Constraint #7 (plan sync webhook-only) |
 | 3.1.3 | Implement plan downgrade cleanup logic | 3.1 | [POST-WEDGE] | Downgrade → prune subscriptions to new cap: **Power→Pro: keep 10**; **Pro→Free: keep 5**; **→Free: max 5** (CR 2026-04-16) | 3.1.2 | Pro→Free webhook → còn ≤5 subscription | 2.2e assumption #17, CR 2026-04-16 |
-| 3.2.1 | Add Free tier Mon/Wed/Fri restriction to digest delivery job | 3.2 | [POST-WEDGE] | Cron job checks User.plan + current day-of-week, skips digest delivery for Free users on Tue/Thu/Sat/Sun | 3.1.2 | Free user on Tuesday → digest not generated/delivered, Mon/Wed/Fri → delivered | 2.2d Constraint #9 (Free tier schedule), 2.2a assumption #1 (Mon/Wed/Fri) |
+| 3.2.0 | Implement SendDigestEmailJob (F16 real delivery) | 3.2 | [POST-WEDGE] | Resend SDK + `DigestEmail` Mailable + `emails/digest.blade.php` responsive template + `SendDigestEmailJob` (queue `digest-delivery`, retry 3 attempts); audit `digest.email.sent` / `digest.email.failed` | 3.1.3, Resend account setup (manual, out-of-band) | Dispatch job cho user Pro → inbox nhận email thật từ Resend; job audit log `digest.email.sent` | F16 (Ideation), SPEC-plan Assumption #10 (defer reactivated), API-CONTRACTS §4 Resend |
+| 3.2.1 | Add Free tier Mon/Wed/Fri restriction to digest delivery job | 3.2 | [POST-WEDGE] | Service `DigestDeliveryGateService::shouldDeliverToUser()` + wire vào đầu `SendDigestEmailJob::handle()` (skip if false) + scheduler daily 8:00 UTC fan-out | 3.2.0 | Free user on Tuesday → job skip, no email in inbox; Pro user any day → email delivered | 2.2d Constraint #9 (Free tier schedule), 2.2a assumption #1 (Mon/Wed/Fri) |
 | 3.2.2 | Add plan-based feature gates to API endpoints | 3.2 | [POST-WEDGE] | Middleware: Free **không** 403 cho subscribe/list My KOLs/stats (CR 2026-04-16); vẫn 403 cho draft copy, add source, v.v. | 3.1.2 | Free GET /api/my-sources → **200**; POST draft copy → 403 | 2.2e Permission Guards, CR 2026-04-16 |
 | 3.3.1 | Implement GET /api/admin/sources (moderation list) endpoint | 3.3 | [POST-WEDGE] | API: filter **`type=user`** (+ optional `status=`); added_by_user, signal_count, noise_ratio — queue mặc định `pending_review` | Sprint 1 complete + admin guard (`users.is_admin`) — **không** bắt buộc Stripe | GET /api/admin/sources?type=user&status=pending_review → nguồn chờ duyệt | SPEC-api GET /api/admin/sources, SPEC-core Flow 6 Option B |
 | 3.3.2 | Implement PATCH /api/admin/sources/{id} (moderate) endpoint | 3.3 | [POST-WEDGE] | `action` ∈ `approve` \| `flag_spam` \| `adjust_categories` \| `soft_delete` \| `restore` (+ `category_ids` khi adjust); admin-only; **“Từ chối”** sản phẩm = `flag_spam` hoặc `soft_delete` (không có enum `rejected` riêng) | 3.3.1 | PATCH `approve` → `pending_review` → `active`; PATCH từ chối/spam → status tương ứng + audit | SPEC-api PATCH /api/admin/sources/{id} |
@@ -151,7 +152,7 @@ Option B closure: moderation **3.3.1–3.3.4** (Sprint 3) có thể bắt đầu
 
 ```
 Sprint 2 Complete → 3.1.1 (Stripe Checkout) → 3.1.2 (Stripe Webhook) → 3.1.3 (Downgrade Cleanup)
-                                                                      → 3.2.1 (Free Tier Job), 3.2.2 (Feature Gates)
+                                                                      → 3.2.0 (SendDigestEmailJob) → 3.2.1 (Free Tier Gate) → 3.2.2 (Feature Gates)
 
 Parallel (Option B / admin — có thể lịch trước hoặc xen 3.1.x):
   3.3.1 (Admin Sources API) → 3.3.2 (Moderate API) → 3.3.3 (Moderation UI #13) → 3.3.4 (Notify submitter on outcome)
@@ -180,14 +181,14 @@ Parallel Paths: 3.3.x (Admin Sources + notify), 3.4.x (Admin Pipeline), 3.5.x (i
 5. Archive + Settings + Language foundation: Tasks 2.5.1 - 2.5.7 (7 tasks)
 6. Personal signals pipeline (Flow 8): Tasks 2.6.1 - 2.6.3 (3 tasks)
 
-**Sprint 3 — Billing + Admin + i18n completion (5 feature groups → 14 tasks):**
+**Sprint 3 — Billing + Admin + i18n completion (5 feature groups → 15 tasks):**
 1. Stripe Integration: Tasks 3.1.1 - 3.1.3 (3 tasks)
-2. Free Tier Enforcement: Tasks 3.2.1 - 3.2.2 (2 tasks)
+2. Free Tier Enforcement: Tasks 3.2.0 - 3.2.2 (3 tasks)
 3. Admin Source Moderation: Tasks 3.3.1 - 3.3.4 (4 tasks — list + PATCH + UI **+ notify submitter**)
 4. Admin Pipeline Monitor: Tasks 3.4.1 - 3.4.2 (2 tasks)
 5. Multi-language rollout: Tasks 3.5.1 - 3.5.3 (3 tasks)
 
-**Total: 74 tasks across 3 sprints** (đếm trực tiếp từ các bảng Task Table phía trên — **CR 2026-04-15 part 2** thêm **2.6.1–2.6.3**)
+**Total: 75 tasks across 3 sprints** (đếm trực tiếp từ các bảng Task Table phía trên — **CR 2026-04-15 part 2** thêm **2.6.1–2.6.3**; CR 2026-04-16 activate **3.2.0**)
 
 ---
 
@@ -204,6 +205,7 @@ Bảng này mô tả **trạng thái sau amendment**; mọi thay đổi tiếp t
 | **Tweet fetch abstraction** | **`SPEC-core` §3.2 LOCK** + **`SPEC-api` Section 10 §0** | Interface + DI; swap vendor không đụng `PipelineService` logic |
 | **Personal signals (My KOLs / Flow 8)** | Hàng **`signals`** `type=1` + `user_id`; crawl qua **`TweetFetchProviderInterface`**; view list `GET /api/signals?my_sources_only=true`; detail guard `SPEC-api` | Task **2.6.1–2.6.3** (Sprint 2); CR **2026-04-15 part 2** |
 | **Free My KOLs (CR 2026-04-16)** | Subscribe/list/stats cho **Free** (cap **5**); `my_sources_only` = lọc **`type=0`** theo follow; Flow 8 **không** chạy Free; downgrade prune **5** | Task **2.2.1**, **2.4.x**, **2.4.5**, **3.1.3**, **3.2.2** |
+| **Email digest delivery (F16)** | **Activated Sprint 3** — Resend provider, template Blade responsive, test domain `onboarding@resend.dev` Phase 1 | Task **3.2.0**; gate Free Mon/Wed/Fri ở **3.2.1** |
 | **Clustering** | **Prompt-based** Phase 1 — changelog `SPEC-api` + Flow 3 | Task **1.8.1** theo hướng này |
 
 ---
@@ -228,6 +230,7 @@ Bảng này mô tả **trạng thái sau amendment**; mọi thay đổi tiếp t
 | 14 | **Clustering: prompt-based vs embeddings.** | **Đã chốt:** Phase 1 **prompt-based** (`SPEC-api` changelog 2026-04-06). | Embeddings = backlog / CR nếu sau này đổi chiến lược. | Task 1.8.1 |
 | 15 | **Admin role** | **Đã có:** `users.is_admin` trong `SPEC-api` §9 + middleware admin. | Seed / manual gán admin. | Tasks 3.3.x, 3.4.x |
 | 16 | **Personal signals Pro/Power (Flow 8)** | **`signals.type=1`** + pipeline job sau shared crawl; REST đã lock trong `SPEC-api`. | Task **2.6.1–2.6.3**; phụ thuộc subscribe **2.2.1** + provider **1.6.1**. | Sprint 2 |
+| 17 | **CR 2026-04-16 (Task 3.2.0 activation):** F16 email digest delivery (SPEC-plan Appendix A Assumption #20, defer) được activate lại ở Sprint 3 vì dependency thật của Task 3.2.1 gate logic. Resend được chọn làm provider (resolves Blocker #4). Domain verification deferred — dùng `onboarding@resend.dev` test mode cho Phase 1 dogfood, swap production domain qua env var sau. | Changelog note | Cần thêm task 3.2.0 trước 3.2.1 để gate đúng nơi. | Sprint 3 Feature 3.2 |
 
 ---
 

@@ -428,6 +428,7 @@ Copy từ PRODUCT-STRATEGY.md Section 3 Kill Test + Section 5 KILL SIGNAL:
 - Admin (2): 3.3, 3.4
 - Webhooks (3): 3.1
 - (Email digest delivery deferred — not critical path for kill checkpoint, implement if CONTINUE decision)
+- **CR 2026-04-16 update:** Activate lại F16 trong Sprint 3 qua Task **3.2.0** (`SendDigestEmailJob` với Resend), để Task 3.2.1 gate logic có dependency thực thi.
 
 ---
 
@@ -443,6 +444,8 @@ Copy từ PRODUCT-STRATEGY.md Section 3 Kill Test + Section 5 KILL SIGNAL:
 | 6 | **My KOLs filtered digest view depends on subscription cap.** Feature 2.4 (My KOLs stats) uses MySourceSubscription data. But My KOLs toggle filter in digest (2.2a F14) also uses subscriptions. Assumed My KOLs toggle = part of digest UI, should be Sprint 1 for complete Wedge delivery? | Question | Digest UI (1.10) includes My KOLs toggle OR toggle deferred Sprint 2? If toggle needed for Wedge → add to Sprint 1 (requires MySourceSubscription table populated). If not → Sprint 2. Affects kill checkpoint testing (founder can only test All Sources view Sprint 1). | Sprint 1 Feature 1.10 vs Sprint 2 Feature 2.4 |
 | 7 | **500 KOL source pool seeding effort unknown.** Feature 1.5 (Source Pool Setup) includes "500 KOL curated pool" but seeding method undefined. CSV import? Manual admin UI entry? Script? Assumed CSV seed script (2.2f test data strategy). | Question | If CSV doesn't exist (founder must manually curate) → 1-2 days effort outside sprint. If seed script errors → blocks Feature 1.6 (pipeline needs sources). Critical path blocker. | Sprint 1 Feature 1.5 |
 | 8 | **External service integration blockers.** Features 1.6, 1.7, 1.8 depend on twitterapi.io + Anthropic API. 2.2d lists 7 implementation blockers (API docs unknown, endpoints unclear). Assumed blockers resolved pre-Sprint 1. | Assumption (inherited from 2.2d) | If blockers NOT resolved → Features 1.6-1.8 blocked, cannot deliver Wedge, Sprint 1 fails. Must resolve 2.2d blockers #1-7 before starting Sprint 1. | Sprint 1 Features 1.6, 1.7, 1.8 |
+
+> **CR 2026-04-16 (Task 3.2.0 activation):** F16 email digest delivery (SPEC-plan Appendix A Assumption #20, defer) được activate lại ở Sprint 3 vì dependency thật của Task 3.2.1 gate logic. Resend được chọn làm provider (resolves Blocker #4). Domain verification deferred — dùng `onboarding@resend.dev` test mode cho Phase 1 dogfood, swap production domain qua env var sau.
 
 ---
 
@@ -805,6 +808,7 @@ High-Impact Assumptions (validate during implementation):
 | 8 | **Test task granularity.** No explicit testing tasks (unit tests, integration tests, E2E tests) in roadmap. Assumed testing happens per-task (write test alongside implementation) per TDD approach. 2.2f Testing Strategy defines test layers but not task breakdown. | Assumption | If separate testing phase needed → add testing tasks per sprint (e.g., 1.13.x Integration Tests for Critical Paths). If per-task testing → verify coverage during implementation. | All tasks (testing implicit) |
 | 9 | **Privacy policy page (Screen #15) not in sprint tasks.** 2.1 NFR #11 requires privacy policy page. Not in task list. Assumed legal content creation outside dev scope. | Assumption | Privacy policy Blade template exists (2.2f file structure), but content empty. Founder must write OR use generator (Termly, IUBENDA). If missing → Stripe compliance issue (checkout requires privacy policy link). | 2.1 NFR #11, no corresponding task |
 | 10 | **Email digest delivery (F16) deferred.** Not in Sprint 1-3 tasks. Ideation F16 = email digest for Pro/Power. Assumed email not needed for kill checkpoint (founder dogfoods web UI). | Assumption | If email needed for kill checkpoint OR founder strongly prefers email → add Task 1.13.x (Resend integration + email template + SendDigestEmailJob). Increases Sprint 1 scope 1-2 days. | Not in roadmap, mentioned in Sprint Plan Open Question #3 |
+| 11 | **CR 2026-04-16: F16 reactivated in Sprint 3 as Task 3.2.0.** SendDigestEmailJob implemented before delivery gate task 3.2.1; Resend test mode (`onboarding@resend.dev`) accepted for Phase 1 dogfood, production domain verification deferred by env swap. | Changelog note | Resolves dependency inversion in Feature 3.2 (cannot gate a non-existent delivery job). Keeps Sprint 3 scope coherent. | IMPLEMENTATION-ROADMAP Sprint 3 (3.2.0 → 3.2.1 → 3.2.2) |
 
 ---
 
