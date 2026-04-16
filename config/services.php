@@ -25,7 +25,10 @@ return [
     ],
 
     'resend' => [
-        'key' => env('RESEND_KEY'),
+        'key' => env('RESEND_API_KEY', env('RESEND_KEY')),
+        'from_address' => env('RESEND_FROM_ADDRESS', 'onboarding@resend.dev'),
+        'from_name' => env('RESEND_FROM_NAME', 'SignalFeed'),
+        'webhook_secret' => env('RESEND_WEBHOOK_SECRET'),
     ],
 
     'slack' => [

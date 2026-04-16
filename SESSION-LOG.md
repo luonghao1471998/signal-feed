@@ -2,6 +2,94 @@
 
 ---
 
+## [2026-04-16] Task 3.2.0: Implement SendDigestEmailJob (F16 real delivery) ✅
+
+**Sprint:** Sprint 3 — Billing + Admin + i18n  
+**Task:** 3.2.0 — Implement SendDigestEmailJob (F16 real delivery)  
+**Feature Group:** 3.2 — Free Tier Enforcement  
+**Depends On:** 3.1.3 ✅ + Resend account setup ✅  
+**Tag:** [POST-WEDGE]  
+**Status:** ✅ Complete
+
+### Implementation Summary
+
+**Files Created:**
+- `app/Jobs/SendDigestEmailJob.php` — queue `digest-delivery`, `tries=3`, `backoff=[60,300,900]`, audit sent/skipped/failed
+- `app/Mail/DigestEmail.php` — Mailable digest, `from` từ `services.resend.*`, force mailer `resend` via `envelope()->mailer('resend')`
+- `resources/views/emails/digest.blade.php` — responsive email template inline CSS, mobile-first, max-width 600px, render top signals + CTA
+- `app/Services/AuditLogService.php` — service mới gom logic audit (trước đó rải `DB::table('audit_logs')->insert(...)`)
+
+**Files Modified:**
+- `config/services.php` — thêm block `resend` (key, from_address, from_name, webhook_secret)
+- `config/mail.php` — verify mailer `resend` registered (Laravel SDK auto-register)
+- `.env.example` — thêm `RESEND_FROM_ADDRESS=onboarding@resend.dev`, `RESEND_FROM_NAME=SignalFeed`, `RESEND_WEBHOOK_SECRET=`
+- `.env` — điền `RESEND_API_KEY` (local dev only, không commit)
+- `app/Providers/AppServiceProvider.php` — soft warning khi `production/staging` mà thiếu `services.resend.key`
+- `composer.json` / `composer.lock` — thêm `resend/resend-laravel` SDK
+
+**Audit Event Taxonomy (CR trong task):**
+Thêm 3 events mới vào `AuditLogService::$allowedEvents` whitelist:
+- `digest.email.sent` — metadata: `{signal_count, duration_ms, date, recipient}`
+- `digest.email.failed` — metadata: `{error, error_class, attempt, date}`
+- `digest.email.skipped_empty` — metadata: `{reason, date}` (reasons: `user_email_null` | `no_signals_for_date`)
+
+### Key Design Decisions
+
+1. **Signal selection theo plan:**
+   - Free → chỉ `type=0` (shared), top 10 theo `rank_score DESC`
+   - Pro/Power → `type=0` + `type=1 WHERE user_id=$user->id`, trộn rồi sort, top 10
+   - Consistent với logic `GET /api/signals` (Task 1.10.1)
+
+2. **Skip Resend khi empty signals:** Early-return + audit `digest.email.skipped_empty`, KHÔNG gọi Resend API → tiết kiệm credit và tránh gửi email rỗng.
+
+3. **Credits-safe design:**
+   - Test path Resend bị chia làm 3: pre-flight config check (0 credit), skipped_empty path (0 credit), happy path (1 credit)
+   - Audit service có try/catch bọc INSERT — fail silently thay vì crash job
+
+4. **Schema adapter pattern:** `AuditLogService::log()` signature dùng `$entityType/$entityId/$metadata` (theo SPEC-api convention) nhưng internal INSERT map sang cột DB thật `resource_type/resource_id/changes`. Giữ API nhất quán với spec, tương thích schema hiện có.
+
+5. **From-address strategy:** Default `onboarding@resend.dev` (Resend test mode). Swap sang production domain qua env var `RESEND_FROM_ADDRESS` khi domain verified — KHÔNG cần sửa code.
+
+6. **URL format trong email:** Dùng `{appUrl}/digest?signal_id={id}` thay vì `/digest/{id}` — vì frontend `DigestPage.tsx` parse deep-link qua query param, route `/digest/{id}` chưa có.
+
+### Testing Results (Manual — 5 bước, 1 email credit consumed)
+
+| # | Scenario | Expected | Result |
+|---|----------|----------|--------|
+| 1 | AuditLogService code verification | Insert dùng cột DB thật (`resource_type`/`resource_id`/`changes`); whitelist chứa 3 events mới | ✅ PASS |
+| 2 | Resend config load | `key_set=true`, length=36, `from_address=onboarding@resend.dev`, `mailer_driver=resend` | ✅ PASS |
+| 3 | `fetchSignalsForUser()` via Reflection | user_id=2 (Free, Resend owner), date=2026-04-09 → 7 signals, first rank=0.8225, sorted DESC | ✅ PASS |
+| 4 | `skipped_empty` path (zero credit) | user_id=2, date=2016-01-01 → audit row `digest.email.skipped_empty`, `reason=no_signals_for_date`, không gọi Resend | ✅ PASS |
+| 5 | Happy path (1 email credit) | user_id=2, date=2026-04-09 → audit `digest.email.sent`, duration_ms=1610, signal_count=7; Resend dashboard: Delivered; Gmail: nhận trong Spam folder | ✅ PASS |
+
+**Spam folder notes:** Email vào Spam folder là expected behavior với `onboarding@resend.dev` (shared sandbox domain không có DMARC alignment với Gmail). Sẽ fix khi verify production domain thật → config SPF + DKIM + DMARC records → swap env var. Không phải bug code.
+
+**Safety notes:**
+- KHÔNG chạy `php artisan test` suốt task
+- KHÔNG đổi real `RESEND_API_KEY` thành invalid để test failure path — approach này risky, có thể gây side-effect cho Mailable khác
+- Test failure path dùng gọi trực tiếp `failed(new RuntimeException(...))` để verify audit `digest.email.failed` (an toàn, zero API call)
+- Tổng cost: 1 email Resend credit, 0 Anthropic token, 0 twitterapi call
+
+### Known Limitations / Backlog Action Items
+
+1. **SPEC-api.md §1.3.1 taxonomy chưa update** với 3 events mới (`digest.email.sent|failed|skipped_empty`). Cần bổ sung vào bảng 23 events. Ưu tiên thấp, không blocker.
+
+2. **Production domain + DNS setup** cần làm trước khi go-live:
+   - Verify domain trong Resend dashboard
+   - Add DNS records: SPF (`v=spf1 include:_spf.resend.com ~all`), DKIM (Resend generate), DMARC
+   - Swap env var `RESEND_FROM_ADDRESS`
+   - Warm up reputation (gửi 10-50/day trong tuần đầu)
+
+3. **Resend webhook handler (bounce/complaint)** — chưa implement, để task riêng sau. Cần để tự động disable delivery cho email bị hard bounce.
+
+4. **Telegram delivery (F17)** — vẫn ở backlog, không trong scope Sprint 3 hiện tại.
+
+### Unblocks
+
+- ✅ **Task 3.2.1** (Free tier Mon/Wed/Fri digest restriction) — giờ có job thật để gate. Scheduler fan-out + plan check + day-of-week check gọi `SendDigestEmailJob::dispatch()` khi đủ điều kiện.
+
+---
+
 ## [2026-04-16] Task 3.1.3: Plan downgrade cleanup logic ✅
 
 **Sprint:** Sprint 3 — Billing + Admin + i18n

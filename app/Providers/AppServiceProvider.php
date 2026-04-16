@@ -19,6 +19,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        if (app()->environment(['production', 'staging']) && empty(config('services.resend.key'))) {
+            logger()->warning('RESEND_API_KEY is not configured. Email digest delivery will fail.');
+        }
     }
 }

@@ -1,6 +1,6 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-16 (Task 3.1.3 Plan downgrade cleanup completed)
+**Last Updated:** 2026-04-16 (Task 3.2.0 SendDigestEmailJob F16 delivery completed)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 3 — Billing + Admin + i18n
 **Sprint Status:** 🔄 IN PROGRESS (3/N tasks done)
@@ -39,8 +39,15 @@
   - Manual testing: 5/5 test cases PASS (cURL + tinker)
 - [x] **Task 3.1.2**: Implement Stripe Webhook Handler (4 events) ✅ (2026-04-16)
 - [x] **Task 3.1.3**: Implement plan downgrade cleanup logic ✅ (2026-04-16)
+- [x] **Task 3.2.0**: Implement SendDigestEmailJob (F16 real delivery) ✅ (2026-04-16)
+  - `app/Jobs/SendDigestEmailJob.php` + `app/Mail/DigestEmail.php` + `resources/views/emails/digest.blade.php`
+  - `AuditLogService` new — whitelist thêm `digest.email.sent|failed|skipped_empty`
+  - Resend SDK installed, config `services.resend.*`, from default `onboarding@resend.dev`
+  - Signal selection: Free → `type=0` only; Pro/Power → `type=0` + `type=1 WHERE user_id=$user->id`, top 10 by `rank_score DESC`
+  - Manual testing 5/5 PASS, 1 email credit consumed, Resend dashboard: Delivered
+  - Unblocks Task 3.2.1 (Free tier Mon/Wed/Fri gate)
 
-**Sprint 3**: 3/? tasks done
+**Sprint 3**: 4/? tasks done
 
 ---
 
@@ -349,21 +356,23 @@ _(Roadmap tiếp: **2.5.x** Archive / Settings — `IMPLEMENTATION-ROADMAP.md`.)
 - ✅ **3.1.1** Stripe Checkout Session (2026-04-16)
 - ✅ **3.1.2** Stripe webhook handler — 4 events + idempotency (2026-04-16)
 - ✅ **3.1.3** Plan downgrade cleanup logic — multi-tier cap (`pro=10`, `free=5`), 7/7 test PASS (2026-04-16)
-- **Next:** **3.2.1** Free tier Mon/Wed/Fri digest restriction
+- ✅ **3.2.0** SendDigestEmailJob — F16 real delivery qua Resend, Mailable + Blade template + audit (sent/failed/skipped_empty), 5/5 test PASS (2026-04-16)
+- **Next:** **3.2.1** Free tier Mon/Wed/Fri digest restriction (giờ đã có job thật để gate)
 - **Backlog (ngoài bảng Sprint 2):** **1.11.3** — metadata digest (tùy ưu tiên)
 
 ### Statistics
 - **Sprint 1 (34 tasks, `IMPLEMENTATION-ROADMAP`):** 34 / 34 ✅
 - **Sprint 2 (14 tasks):** 14 / 14 (100%) ✅
-- **Sprint 3 (14 tasks):** 3 / 14 (21%) — Feature 3.1 Stripe Integration ✅ complete
+- **Sprint 3 (14 tasks):** 4 / 14 (29%) — Feature 3.1 Stripe Integration ✅; Feature 3.2 Free Tier Enforcement 1/2 (3.2.0 done, 3.2.1 next)
 
 ### Progress Summary
 
 **Completed Tasks:** Sprint 1 **34/34** ✅; Sprint 2 **14/14** (thêm **2.1.3–2.1.5** 2026-04-15; **2.4.5** 2026-04-15; cùng các task 2.1.1–2.1.2, 2.2.x, 2.3.x, 2.4.1–2.4.4)
-**Current phase:** Sprint 3 — Feature 3.1 (Stripe Integration) hoàn tất 3/3; next Feature 3.2 (Free Tier Enforcement) → **3.2.1**
+**Current phase:** Sprint 3 — Feature 3.1 ✅; Feature 3.2 in progress (3.2.0 ✅ email delivery foundation); next → **3.2.1** (Free tier Mon/Wed/Fri gate)
 **Last Updated:** 2026-04-16
 
 **Recent Completions:**
+- ✅ Task **3.2.0:** SendDigestEmailJob F16 real delivery — Mailable `DigestEmail` + Blade `emails.digest` responsive + Job queue `digest-delivery` + `AuditLogService` whitelist 3 new events, Resend SDK integrated, manual 5/5 PASS (1 email credit), Delivered confirmed trên Resend dashboard — SESSION-LOG 2026-04-16
 - ✅ Task **3.1.3:** Plan downgrade cleanup — `cleanupSubscriptionsToPlanLimit()` trong `StripeWebhookService`, multi-tier cap (`pro=10`, `free=5`), hook vào `subscription.updated` + `subscription.deleted`, syntax/lint PASS — SESSION-LOG 2026-04-16
 - ✅ Task **3.1.2:** Stripe webhook handler — 4 events (checkout.completed / subscription.updated / subscription.deleted / invoice.payment_failed), idempotency qua `processed_stripe_events.event_id`, price→plan map qua `config/services.php`, audit logging `plan_change` + `webhook_received` — SESSION-LOG 2026-04-16
 - ✅ Task **2.5.6:** Settings Screen Frontend Integration — integrated all 5 tabs với backend APIs, save/load cho Profile + Digest Preferences + Language, fixed 4 UI issues (avatar render, digest UX, /billing 404 toasts) — SESSION-LOG 2026-04-15
