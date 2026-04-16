@@ -2,6 +2,100 @@
 
 ---
 
+## 2026-04-16: Task 3.1.1 — Implement Stripe Checkout Session Creation ✅
+
+**Sprint:** Sprint 3 — Billing + Admin + i18n
+**Feature Group:** 3.1 — Stripe Integration
+**Tag:** [POST-WEDGE]
+**Status:** ✅ Completed (2026-04-16)
+
+### Objective
+
+Tạo API endpoint `POST /api/billing/checkout` cho phép authenticated user tạo Stripe Checkout Session với Pro/Power price IDs, redirect tới Stripe hosted checkout page.
+
+### Implementation Summary
+
+**Dependencies installed:**
+- `stripe/stripe-php` v20.0.0 (raw SDK, không dùng Cashier — lightweight)
+
+**Migration:**
+- `2026_04_16_090000_create_processed_stripe_events_table.php` — bảng idempotency cho Task 3.1.2 webhook handler
+- Columns `stripe_customer_id`, `stripe_subscription_id` trên `users` table — đã tồn tại từ trước, không cần migration thêm
+- `down()` để trống (Database Safety Rules — không drop table/column)
+
+**Files Created:**
+- `app/Services/StripeService.php` — `createCheckoutSession(User, plan)` → Stripe Checkout URL
+- `app/Http/Controllers/Api/BillingController.php` — `POST /api/billing/checkout`
+- `database/migrations/2026_04_16_090000_create_processed_stripe_events_table.php`
+
+**Files Modified:**
+- `composer.json` / `composer.lock` — thêm `stripe/stripe-php`
+- `config/services.php` — thêm `stripe` block (key/secret/price IDs/webhook/success+cancel URL)
+- `.env.example` / `.env` — thêm Stripe env vars
+- `routes/api.php` — thêm `POST /billing/checkout` trong `auth:sanctum` group
+- `app/Models/User.php` — thêm `stripe_customer_id`, `stripe_subscription_id` vào `$fillable`
+
+### Key Design Decisions
+
+1. **Raw SDK vs Cashier:** Dùng `stripe/stripe-php` trực tiếp — project không cần full Cashier features (no metered billing, no invoice management). Giữ dependency nhẹ.
+2. **Customer handling:** Nếu user chưa có `stripe_customer_id` → dùng `customer_email` để Stripe tự tạo customer. Nếu đã có → truyền `customer` param.
+3. **metadata.user_id:** Set trong Checkout Session để Task 3.1.2 webhook handler map `checkout.session.completed` event về đúng user.
+4. **Conflict guard:** User đã ở plan đó → 409. Không chặn Power→Pro (downgrade) — logic phức tạp hơn xử lý phase sau.
+5. **success_url / cancel_url:** Redirect về `/settings?billing=success` và `/settings?billing=cancelled` — frontend handle query params ở task billing UI sau.
+
+### API Contract
+
+| Field | Detail |
+|-------|--------|
+| Route | `POST /api/billing/checkout` |
+| Auth | Sanctum token |
+| Request | `{ "plan": "pro" \| "power" }` |
+| Success | `200` — `{ "data": { "checkout_url": "https://checkout.stripe.com/..." } }` |
+| Error 409 | `CONFLICT` — user đã ở plan đó |
+| Error 422 | `VALIDATION_ERROR` — plan invalid/missing |
+| Error 500 | `STRIPE_ERROR` — Stripe API lỗi (logged chi tiết) |
+
+### Testing Results (Manual — tinker + cURL)
+
+**Test user:** ID 2 (plan `pro`, email `luonghao1407@gmail.com`, stripe_customer_id NULL)
+
+| # | Test Case | Method | Expected | Actual | Status |
+|---|-----------|--------|----------|--------|--------|
+| 1 | Unauthenticated request | cURL no token | 401 | 401 | ✅ |
+| 2 | Invalid plan (`platinum`) | cURL + token | 422 | 422 | ✅ |
+| 3 | Missing plan param | cURL + token | 422 | 422 | ✅ |
+| 4 | Same plan conflict (pro→pro) | cURL + token | 409 CONFLICT | 409 CONFLICT | ✅ |
+| 5 | Valid upgrade (pro→power) | cURL + token | 200 + checkout_url | 200 + `https://checkout.stripe.com/...` | ✅ |
+
+**Stripe Checkout page:** Verified — URL mở đúng trang checkout Power plan trên Stripe hosted page.
+
+**Database Safety Verified:**
+- ❌ NO `migrate:fresh/refresh/rollback` used
+- ❌ NO `php artisan test` used
+- ❌ NO data truncated or deleted
+- ✅ Only `php artisan migrate` (forward-only)
+- ✅ All testing via tinker + cURL
+
+### Debugging Notes
+
+- **Lần chạy đầu:** Stripe reject `Invalid API Key` — do `.env` còn placeholder. Fix: thay real Stripe test keys.
+- **Lần chạy hai:** Stripe reject `No such price: 'prod_...'` — do dùng nhầm Product ID thay vì Price ID. Fix: lấy đúng `price_...` ID từ Stripe Dashboard.
+- **Lần chạy ba:** 200 + checkout_url ✅
+
+### References
+
+- `SPEC-api.md` Section 10 §3 — Stripe outbound calls
+- `API-CONTRACTS.md` §3 — Stripe contracts
+- `IMPLEMENTATION-ROADMAP.md` Task 3.1.1
+- `SPEC-plan.md` Blocker #3 — Stripe price IDs ✅ RESOLVED
+
+### Next Steps
+
+- **Task 3.1.2:** Implement Stripe Webhook Handler (4 events: checkout.session.completed, subscription.updated, subscription.deleted, invoice.payment_failed)
+- **Blocker #3 RESOLVED:** Stripe price IDs đã tạo và config trong `.env`
+
+---
+
 ## 2026-04-16: Task 2.6.3 — Enforce GET /api/signals/{id} Ownership for type=1 ✅
 
 **Objective:** Thêm ownership guard vào `SignalController@show()` — signal `type=1` (personal) chỉ owner mới xem được, user khác → 403 FORBIDDEN.

@@ -21,12 +21,14 @@ class AuthService
                 ->where('x_user_id', $xUserId)
                 ->first();
             $resolvedAvatarUrl = $this->resolveAvatarUrl($twitterUser);
+            $resolvedEmail = $this->resolveEmail($twitterUser);
             $user = User::updateOrCreate(
                 [
                     'x_user_id' => $xUserId,
                 ],
                 [
                     'x_username' => $nickname !== '' ? $nickname : ($existingUser?->x_username ?? 'user_'.$xUserId),
+                    'email' => $resolvedEmail ?? $existingUser?->email,
                     'avatar_url' => $resolvedAvatarUrl ?? $existingUser?->avatar_url,
                     'x_access_token' => $twitterUser->token,
                     'x_refresh_token' => $twitterUser->refreshToken,
@@ -79,5 +81,30 @@ class AuthService
         $rawAvatar = trim($rawAvatar);
 
         return $rawAvatar !== '' ? $rawAvatar : null;
+    }
+
+    private function resolveEmail(SocialiteUser $twitterUser): ?string
+    {
+        $email = $twitterUser->getEmail();
+        if (is_string($email)) {
+            $normalized = trim(strtolower($email));
+            if ($normalized !== '' && filter_var($normalized, FILTER_VALIDATE_EMAIL)) {
+                return $normalized;
+            }
+        }
+
+        /** @var array<string, mixed> $raw */
+        $raw = $twitterUser->getRaw();
+        $rawEmail = $raw['email'] ?? $raw['data']['email'] ?? null;
+        if (! is_string($rawEmail)) {
+            return null;
+        }
+
+        $rawEmail = trim(strtolower($rawEmail));
+        if ($rawEmail === '' || ! filter_var($rawEmail, FILTER_VALIDATE_EMAIL)) {
+            return null;
+        }
+
+        return $rawEmail;
     }
 }

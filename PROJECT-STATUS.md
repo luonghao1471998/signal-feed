@@ -1,12 +1,11 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-16 (Task 2.6.3 Ownership Guard completed)
+**Last Updated:** 2026-04-16 (Task 3.1.1 Stripe Checkout Session completed)
 **Current Phase:** Giai đoạn 3 - Implementation
-**Current Sprint:** Sprint 2.5 — Settings Page MVP + Language Support
-**Sprint Status:** ✅ COMPLETED (3/3 tasks done)
-**Next Sprint:** Sprint 2.6 — Personal Signals Pipeline (POST-WEDGE)
-**Next Sprint Status:** ✅ COMPLETED — Task 2.6.1 + 2.6.2 + 2.6.3 all done
-**Blocker:** Wedge strategy (monetization foundation) chưa implement
+**Current Sprint:** Sprint 3 — Billing + Admin + i18n
+**Sprint Status:** 🔄 IN PROGRESS (1/N tasks done)
+**Previous Sprint:** Sprint 2.6 — Personal Signals Pipeline ✅ COMPLETED
+**Blocker:** None — Stripe price IDs resolved ✅
 
 ---
 
@@ -29,6 +28,19 @@
   - Manual testing: 6/6 test cases PASS (tinker + cURL)
 
 **Sprint 2**: 17/17 tasks done
+
+## Sprint 3 Tasks — Billing + Admin + i18n
+
+- [x] **Task 3.1.1**: Implement Stripe Checkout Session creation ✅ (2026-04-16)
+  - `POST /api/billing/checkout` — authenticated user tạo Stripe Checkout Session
+  - `stripe/stripe-php` v20.0.0 (raw SDK, no Cashier)
+  - Migration: `processed_stripe_events` table (idempotency cho 3.1.2)
+  - Stripe test keys + real price IDs configured
+  - Manual testing: 5/5 test cases PASS (cURL + tinker)
+- [ ] **Task 3.1.2**: Implement Stripe Webhook Handler (4 events) — NEXT
+- [ ] **Task 3.1.3**: Implement plan downgrade cleanup logic
+
+**Sprint 3**: 1/? tasks done
 
 ---
 
@@ -756,35 +768,21 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
 
 ## 🎯 Current Focus
 
-**Completed Task:** Task **2.3.2** — Build Browse Source Pool Screen #10 ✅ (April 14, 2026)  
-**Next Task:** Task **2.4.1** — Implement `GET /api/my-sources`
-**Previous Task:** Tasks **2.2.1–2.2.2** — subscribe + unsubscribe APIs ✅ (April 14, 2026)
+**Completed Task:** Task **3.1.1** — Stripe Checkout Session creation ✅ (April 16, 2026)
+**Next Task:** Task **3.1.2** — Stripe Webhook Handler (4 events)
+**Previous Task:** Task **2.6.3** — Ownership Guard ✅ (April 16, 2026)
 
 ### Vừa Hoàn Thành
 
-✅ **Task 1.8.3** — Add Cluster + Summarize Steps to PipelineCrawlJob (2026-04-09)
+✅ **Task 3.1.1** — Implement Stripe Checkout Session Creation (2026-04-16)
 
-- **Pipeline Integration:** Steps 3-4-5 added to `PipelineCrawlJob`
-  - Step 3: Cluster signal tweets → 6 clusters từ 62 tweets
-  - Step 4: Summarize clusters → title/summary/tags per cluster
-  - Step 5: Create Signal records + SignalSource junction links
-  - Digest management: `firstOrCreate()` 1 digest/day (shared across 4 runs)
-
-- **Data Flow:** Tweets → Classify → Cluster → Summarize → **Signals** → **Rank (job Step 5, 1.9.3 ✅)** → **Draft (job Step 6, 1.9.3 ✅)**
-  - Input: 62 signal tweets
-  - Output: 7 signals, 16 signal_sources links
-  - Data integrity: 100% (source_count matches junction)
-
-- **Idempotency:** UNIQUE constraint `(cluster_id, digest_id)` blocks duplicates
-  - Re-run test: QueryException 23505 (duplicate key violation) ✅
-  - Partial failures: Per-signal transactions, logged to `crawler-errors`
-
-- **Cost:** ~$0.45 (classify 62 + summarize 7 clusters)
-  - Optimization: Manual test không re-crawl (tránh tốn twitterapi.io credits)
-
-- **Status:** Production-ready; Flow 3 **Crawl ✅ → Classify ✅ → Cluster ✅ → Summarize ✅ → Create Signals ✅**
-
-**Done (1.9.3):** `PipelineCrawlJob` gọi `SignalRankingService::calculateRankScore()` + `DraftTweetService::generateDraft()` cho mỗi signal của digest (sau persist); metrics return + logging
+- **Stripe SDK:** `stripe/stripe-php` v20.0.0 installed (raw, no Cashier)
+- **Endpoint:** `POST /api/billing/checkout` — tạo Checkout Session, trả `checkout_url`
+- **Guards:** 409 conflict (same plan), 422 validation, 500 Stripe error (logged)
+- **Migration:** `processed_stripe_events` table created (idempotency cho webhook 3.1.2)
+- **Config:** `config/services.php` stripe block + `.env` vars (real test keys)
+- **Blocker #3 RESOLVED:** Stripe price IDs created in dashboard + configured
+- **Testing:** 5/5 manual tests PASS (cURL + tinker, no `php artisan test`)
 
 ✅ **Task 1.7.2** — Add classify step to PipelineCrawlJob (2026-04-08)
 

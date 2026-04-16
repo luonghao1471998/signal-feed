@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Source;
 use App\Models\Tweet;
+use App\Models\User;
 use Carbon\Carbon;
 use DateTimeInterface;
 use Illuminate\Http\Client\ConnectionException;
@@ -56,7 +57,12 @@ class TwitterCrawlerService
                 $this->syncSourceProfile($source, [
                     'avatar_url' => $fetchResult['avatar_url'],
                     'x_user_id' => $fetchResult['x_user_id'],
+                    'email' => $fetchResult['email'],
                 ], true);
+                $this->syncUserEmailFromProfile($source, [
+                    'x_user_id' => $fetchResult['x_user_id'],
+                    'email' => $fetchResult['email'],
+                ]);
                 $source->save();
             });
 
@@ -97,6 +103,7 @@ class TwitterCrawlerService
             $profile = [
                 'avatar_url' => $fetchResult['avatar_url'],
                 'x_user_id' => $fetchResult['x_user_id'],
+                'email' => $fetchResult['email'],
             ];
 
             if ($allNormalized === []) {
@@ -140,6 +147,7 @@ class TwitterCrawlerService
             DB::transaction(function () use ($source, $toStore, $profile, &$storeResult): void {
                 $storeResult = $this->storeTweets($source, $toStore);
                 $this->syncSourceProfile($source, $profile);
+                $this->syncUserEmailFromProfile($source, $profile);
                 $source->last_crawled_at = now('UTC');
                 $source->save();
             });
@@ -179,7 +187,8 @@ class TwitterCrawlerService
      * @return array{
      *   tweets: list<array{tweet_id: string, text: string, posted_at: string, url: string}>,
      *   avatar_url: ?string,
-     *   x_user_id: ?string
+     *   x_user_id: ?string,
+     *   email: ?string
      * }
      *
      * @throws \RuntimeException
@@ -228,22 +237,25 @@ class TwitterCrawlerService
             'tweets' => $normalized,
             'avatar_url' => $profile['avatar_url'],
             'x_user_id' => $profile['x_user_id'],
+            'email' => $profile['email'],
         ];
     }
 
     /**
      * @param  list<array<string, mixed>>  $tweets
-     * @return array{avatar_url: ?string, x_user_id: ?string}
+     * @return array{avatar_url: ?string, x_user_id: ?string, email: ?string}
      */
     private function extractSourceProfile(array $payload, array $tweets): array
     {
         $candidates = [];
         $xUserCandidates = [];
+        $emailCandidates = [];
 
         $dataUser = $payload['data']['user'] ?? null;
         if (is_array($dataUser)) {
             $candidates[] = $dataUser['profilePicture'] ?? $dataUser['profile_image_url'] ?? $dataUser['avatar'] ?? null;
             $xUserCandidates[] = $dataUser['id'] ?? $dataUser['rest_id'] ?? $dataUser['userId'] ?? null;
+            $emailCandidates[] = $dataUser['email'] ?? null;
         }
 
         foreach ($tweets as $tweet) {
@@ -254,6 +266,7 @@ class TwitterCrawlerService
             if (is_array($author)) {
                 $candidates[] = $author['profilePicture'] ?? $author['profile_image_url'] ?? $author['avatar'] ?? null;
                 $xUserCandidates[] = $author['id'] ?? $author['rest_id'] ?? $author['userId'] ?? null;
+                $emailCandidates[] = $author['email'] ?? null;
             }
         }
 
@@ -278,9 +291,19 @@ class TwitterCrawlerService
             }
         }
 
+        $email = null;
+        foreach ($emailCandidates as $candidate) {
+            $normalized = $this->normalizeEmail($candidate);
+            if ($normalized !== null) {
+                $email = $normalized;
+                break;
+            }
+        }
+
         return [
             'avatar_url' => $avatarUrl,
             'x_user_id' => $xUserId,
+            'email' => $email,
         ];
     }
 
@@ -304,7 +327,7 @@ class TwitterCrawlerService
     }
 
     /**
-     * @param  array{avatar_url: ?string, x_user_id: ?string}  $profile
+     * @param  array{avatar_url: ?string, x_user_id: ?string, email?: ?string}  $profile
      */
     private function syncSourceProfile(Source $source, array $profile, bool $forceRefresh = false): void
     {
@@ -322,6 +345,51 @@ class TwitterCrawlerService
             }
             $source->avatar_synced_at = now('UTC');
         }
+    }
+
+    /**
+     * @param  array{x_user_id: ?string, email: ?string}  $profile
+     */
+    private function syncUserEmailFromProfile(Source $source, array $profile): void
+    {
+        if ($profile['email'] === null) {
+            return;
+        }
+
+        $handle = ltrim(trim((string) $source->x_handle), '@');
+
+        $userQuery = User::query();
+        if ($profile['x_user_id'] !== null) {
+            $userQuery->where('x_user_id', $profile['x_user_id']);
+        } else {
+            $userQuery->where('x_username', $handle);
+        }
+
+        $user = $userQuery->first();
+        if ($user === null) {
+            return;
+        }
+
+        if ((string) $user->email === $profile['email']) {
+            return;
+        }
+
+        $user->email = $profile['email'];
+        $user->save();
+    }
+
+    private function normalizeEmail(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $email = trim(strtolower($value));
+        if ($email === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return null;
+        }
+
+        return $email;
     }
 
     /**

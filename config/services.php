@@ -57,4 +57,14 @@ return [
         'timeout' => (int) env('TWITTERAPI_TIMEOUT', 30),
     ],
 
+    'stripe' => [
+        'key' => env('STRIPE_KEY', env('STRIPE_PUBLISHABLE_KEY')),
+        'secret' => env('STRIPE_SECRET', env('STRIPE_SECRET_KEY')),
+        'pro_price_id' => env('STRIPE_PRO_PRICE_ID'),
+        'power_price_id' => env('STRIPE_POWER_PRICE_ID'),
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+        'checkout_success_url' => env('STRIPE_CHECKOUT_SUCCESS_URL', env('APP_URL', 'http://localhost:8000').'/settings?billing=success'),
+        'checkout_cancel_url' => env('STRIPE_CHECKOUT_CANCEL_URL', env('APP_URL', 'http://localhost:8000').'/settings?billing=cancelled'),
+    ],
+
 ];

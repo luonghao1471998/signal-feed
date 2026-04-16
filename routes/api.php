@@ -10,6 +10,7 @@
 use App\Http\Controllers\Api\Admin\AdminPipelineController;
 use App\Http\Controllers\Api\Admin\AdminSourceController;
 use App\Http\Controllers\Api\ArchiveController;
+use App\Http\Controllers\Api\BillingController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CurrentUserController;
 use App\Http\Controllers\Api\DraftController;
@@ -44,6 +45,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::delete('/signals/{id}/archive', [ArchiveController::class, 'destroy'])->whereNumber('id');
     Route::post('/signals/{id}/draft/copy', [DraftController::class, 'copy'])->whereNumber('id');
     Route::get('/signals/{id}', [SignalController::class, 'show'])->whereNumber('id');
+    Route::post('/billing/checkout', [BillingController::class, 'checkout']);
 
     Route::middleware('admin')->prefix('admin')->group(function (): void {
         Route::get('/sources', [AdminSourceController::class, 'index']);
