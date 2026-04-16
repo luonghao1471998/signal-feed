@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { Zap, Users, Bookmark, Settings, MoreHorizontal, Shield } from "lucide-react";
+import { Zap, Users, Bookmark, Settings, MoreHorizontal, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { authFetchHeaders, ensureSanctumCsrf } from "@/services/authService";
@@ -139,7 +139,7 @@ const LeftSidebar: React.FC = () => {
           >
             {({ isActive }) => (
               <>
-                <Shield
+                <ShieldCheck
                   className="h-6 w-6 shrink-0 text-[#0f1419]"
                   strokeWidth={isActive ? 2.5 : 1.8}
                   aria-hidden

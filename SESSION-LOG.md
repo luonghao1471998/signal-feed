@@ -2,6 +2,95 @@
 
 ---
 
+## [2026-04-16] Task 3.3.3: Build Admin Source Moderation Screen #13 (React)
+
+**Sprint:** Sprint 3 — Billing + Admin + i18n
+**Task:** 3.3.3 — Build Admin Source Moderation Screen #13 (React)
+**Feature Group:** 3.3 — Admin Review Queue
+**Depends On:** 3.3.2 ✅ (PATCH moderate API)
+**Tag:** [POST-WEDGE]
+**Status:** ✅ DONE
+
+**Implementation Summary:**
+Đã hoàn thành UI Admin đầu tiên của dự án — màn hình kiểm duyệt user-submitted sources.
+
+**Deliverables:**
+
+**Access Control & Route Guard:**
+- Tạo `AdminRoute.tsx` component wrap `/admin/*` routes
+- Check `user.is_admin === true` từ `AuthContext`
+- Non-admin redirect về `/digest` + toast "Access denied"
+- Loading skeleton khi đang verify auth
+
+**Admin Layout & Navigation:**
+- Thêm menu "Admin" vào `LeftSidebar.tsx` (icon `ShieldCheck`)
+- Conditional rendering: chỉ hiện khi `user?.is_admin === true`
+- Link đến `/admin/sources`
+- Dùng lại `AppLayout` hiện tại (consistency)
+
+**Main Page Component:**
+- `pages/admin/AdminSourcesPage.tsx`
+- 4 status tabs: Pending Review, Active, Spam, Deleted
+- Table columns: Handle, Name, Categories, Added By, Signals, Noise, Created, Actions
+- Loading skeleton + empty state + error banner with retry
+- Pagination UI (prev/next buttons)
+
+**Action Buttons (conditional per tab):**
+- Pending Review: Approve, Flag Spam, Adjust Categories, Soft Delete
+- Active: Adjust Categories, Flag Spam, Soft Delete
+- Spam/Deleted: Restore only
+- Loading state per button khi action đang chạy
+
+**Dialog Components:**
+- `ConfirmActionDialog.tsx` — reusable confirm dialog cho Flag Spam, Soft Delete, Restore
+- `AdjustCategoriesModal.tsx` — category picker với pre-checked states, fetch từ API
+
+**Service Layer:**
+- `services/adminSourceService.ts`
+- `fetchAdminSources({ type, status, page })` → GET `/api/admin/sources`
+- `moderateSource(id, payload)` → PATCH `/api/admin/sources/{id}`
+- Actions: `approve`, `flag_spam`, `soft_delete`, `restore`, `adjust_categories`
+- Error parsing từ backend message
+
+**Router Integration:**
+- `/admin` → redirect `/admin/sources`
+- `/admin/sources` wrapped trong `AdminRoute`
+- Nested trong Desktop/PWA route group
+
+**Testing Completed:**
+- ✅ Admin user (`is_admin=true`) login → sidebar có menu "Admin"
+- ✅ Navigate `/admin/sources` → page render đúng
+- ✅ Approve source: Pending → Active tab, optimistic update, toast success
+- ✅ Flag Spam: Active → Spam tab, confirm dialog, optimistic update
+- ✅ Restore: Spam → Active tab, toast success
+- ✅ Adjust Categories: modal mở, pre-check, save thành công, categories update
+- ✅ Soft Delete: Active → Deleted tab, confirm dialog, optimistic update
+- ✅ Non-admin access: sidebar không có menu, `/admin/sources` → redirect + "Access denied"
+- ✅ Pagination UI render (sẵn sàng cho multi-page)
+- ✅ Empty states: "All caught up! No sources awaiting review."
+
+**Tech Stack:**
+- React + TypeScript
+- shadcn/ui components (Table, Tabs, Dialog, Button, Badge)
+- Optimistic updates cho smooth UX
+- Toast notifications (sonner)
+- Error boundary + retry mechanism
+
+**Files Modified/Created:**
+- `resources/js/components/AdminRoute.tsx` (new)
+- `resources/js/pages/admin/AdminSourcesPage.tsx` (new)
+- `resources/js/components/admin/ConfirmActionDialog.tsx` (new)
+- `resources/js/components/admin/AdjustCategoriesModal.tsx` (new)
+- `resources/js/services/adminSourceService.ts` (new)
+- `resources/js/App.tsx` (modified — add admin routes)
+- `resources/js/components/LeftSidebar.tsx` (modified — add Admin menu item)
+
+**Next Steps:**
+- Task 3.4 — i18n implementation (Vietnamese translation keys)
+- Admin features sẵn sàng cho production use
+
+---
+
 ## [2026-04-16] Task 3.3.2: Implement PATCH /api/admin/sources/{id} (moderate) endpoint
 **Sprint:** Sprint 3 — Billing + Admin + i18n
 **Task:** 3.3.2 — Implement PATCH /api/admin/sources/{id} (moderate) endpoint

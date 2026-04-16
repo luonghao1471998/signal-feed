@@ -12,9 +12,8 @@ import SettingsPage from "./pages/SettingsPage";
 import OnboardingStep1 from "./pages/OnboardingStep1";
 import OnboardingStep2 from "./pages/OnboardingStep2";
 import NotFound from "./pages/NotFound";
-import AdminLayout from "./layouts/AdminLayout";
-import AdminSourcesPage from "./pages/AdminSourcesPage";
-import AdminPipelinePage from "./pages/AdminPipelinePage";
+import AdminRoute from "./components/AdminRoute";
+import AdminSourcesPage from "./pages/admin/AdminSourcesPage";
 import { CategoryFilterProvider } from "./contexts/CategoryFilterContext";
 import { AuthProvider } from "./contexts/AuthContext";
 import { useIsPWA } from "./hooks/useIsPWA";
@@ -37,11 +36,7 @@ function AppRoutes() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
 
-      <Route path="/admin" element={<AdminLayout />}>
-        <Route index element={<Navigate to="/admin/sources" replace />} />
-        <Route path="sources" element={<AdminSourcesPage />} />
-        <Route path="pipeline" element={<AdminPipelinePage />} />
-      </Route>
+      <Route path="/admin" element={<Navigate to="/admin/sources" replace />} />
       <Route path="/onboarding" element={<OnboardingStep1 />} />
       <Route path="/onboarding/follow" element={<OnboardingStep2 />} />
       <Route path="/onboarding/follow-kols" element={<OnboardingStep2 />} />
@@ -52,6 +47,14 @@ function AppRoutes() {
         <Route path="/my-kols" element={<MyKOLsPage />} />
         <Route path="/archive" element={<ArchivePage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route
+          path="/admin/sources"
+          element={
+            <AdminRoute>
+              <AdminSourcesPage />
+            </AdminRoute>
+          }
+        />
       </Route>
 
       <Route path="*" element={<NotFound />} />

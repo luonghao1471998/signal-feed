@@ -1,9 +1,9 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-16 (Task 3.3.2 admin moderate endpoint completed)
+**Last Updated:** 2026-04-16 (Task 3.3.3 admin moderation screen completed)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 3 — Billing + Admin + i18n
-**Sprint Status:** 🔄 IN PROGRESS (8/14 tasks done)
+**Sprint Status:** 🔄 In Progress (2/3 feature groups done)
 **Previous Sprint:** Sprint 2.6 — Personal Signals Pipeline ✅ COMPLETED
 **Blocker:** None — Stripe price IDs resolved ✅
 
@@ -72,8 +72,43 @@
   - Verified category sync (`Count: 2`), admin permission guard (`is_admin=true/false`)
   - Last manual test note: Source ID `84` currently in `deleted` state
   - Safety complied: no `migrate:fresh`, no `php artisan test`, manual Tinker + PostgreSQL verification only
+- [x] **Task 3.3.3**: Frontend: Admin moderation screen ✅ (2026-04-16)
+  - Full UI with tabs, actions, optimistic updates, route guard
 
-**Sprint 3**: 8/14 tasks done
+### 3.3 — Admin Review Queue
+
+**Status:** ✅ COMPLETE  
+**Progress:** 3/3 tasks done
+
+| Task | Description | Status | Notes |
+|------|-------------|--------|-------|
+| 3.3.1 | Backend: GET admin sources endpoint | ✅ | Returns user-submitted sources with filters |
+| 3.3.2 | Backend: PATCH moderate endpoint | ✅ | Actions: approve, flag_spam, soft_delete, restore, adjust_categories |
+| 3.3.3 | Frontend: Admin moderation screen | ✅ | Full UI with tabs, actions, optimistic updates, route guard |
+
+**Completion Date:** 2026-04-16  
+**Tested:** ✅ All actions + security (non-admin blocked)
+
+**Sprint 3**: 9/14 tasks done
+
+---
+
+## Overall Project Progress
+
+**Current Sprint:** Sprint 3 — Billing + Admin + i18n  
+**Sprint Status:** 🔄 In Progress (2/3 feature groups done)
+
+**Completed Feature Groups:**
+- ✅ 3.2 — Billing & Subscription (Stripe integration)
+- ✅ 3.3 — Admin Review Queue (moderation UI + API)
+
+**In Progress:**
+- 🔄 3.4 — i18n Support (next)
+
+**Overall Completion:**
+- Core Features (Sprint 1): ✅ 100%
+- Advanced Features (Sprint 2): ✅ 100%
+- Polish & Admin (Sprint 3): 🔄 66% (2/3 done)
 
 ---
 
