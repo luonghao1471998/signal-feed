@@ -1,9 +1,9 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-16 (Task 3.3.1 admin moderation list endpoint completed)
+**Last Updated:** 2026-04-16 (Task 3.3.2 admin moderate endpoint completed)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 3 — Billing + Admin + i18n
-**Sprint Status:** 🔄 IN PROGRESS (7/14 tasks done)
+**Sprint Status:** 🔄 IN PROGRESS (8/14 tasks done)
 **Previous Sprint:** Sprint 2.6 — Personal Signals Pipeline ✅ COMPLETED
 **Blocker:** None — Stripe price IDs resolved ✅
 
@@ -66,8 +66,14 @@
   - `AdminSourceResource`: response includes `id`, `x_handle`, `display_name`, `added_by_user{id,email}`, `signal_count`, `noise_ratio`, `status`, `created_at`
   - Route protected under `auth:sanctum` + `admin` middleware (`GET /api/admin/sources`)
   - Manual verify: non-admin `403`, admin `200`, record chuyển `active` không còn trong queue mặc định
+- [x] **Task 3.3.2**: Implement PATCH /api/admin/sources/{id} (moderate) endpoint ✅ (2026-04-16)
+  - Implemented moderation actions: `approve`, `flag_spam`, `soft_delete`, `restore`, `adjust_categories`
+  - Integrated `AuditLogService::log(...)` with metadata `action`, `old_status`, `new_status`, `category_ids`
+  - Verified category sync (`Count: 2`), admin permission guard (`is_admin=true/false`)
+  - Last manual test note: Source ID `84` currently in `deleted` state
+  - Safety complied: no `migrate:fresh`, no `php artisan test`, manual Tinker + PostgreSQL verification only
 
-**Sprint 3**: 7/14 tasks done
+**Sprint 3**: 8/14 tasks done
 
 ---
 
@@ -383,12 +389,12 @@ _(Roadmap tiếp: **2.5.x** Archive / Settings — `IMPLEMENTATION-ROADMAP.md`.)
 ### Statistics
 - **Sprint 1 (34 tasks, `IMPLEMENTATION-ROADMAP`):** 34 / 34 ✅
 - **Sprint 2 (14 tasks):** 14 / 14 (100%) ✅
-- **Sprint 3 (14 tasks):** 6 / 14 (43%) — Feature 3.1 Stripe Integration ✅; Feature 3.2 Free Tier Enforcement 3/3 (3.2.0 + 3.2.1 + 3.2.2 done)
+- **Sprint 3 (14 tasks):** 8 / 14 (57%) — Feature 3.1 Stripe Integration ✅; Feature 3.2 Free Tier Enforcement ✅ (3/3); Feature 3.3 Admin Review Queue in progress (2/4: 3.3.1, 3.3.2)
 
 ### Progress Summary
 
 **Completed Tasks:** Sprint 1 **34/34** ✅; Sprint 2 **14/14** (thêm **2.1.3–2.1.5** 2026-04-15; **2.4.5** 2026-04-15; cùng các task 2.1.1–2.1.2, 2.2.x, 2.3.x, 2.4.1–2.4.4)
-**Current phase:** Sprint 3 — Feature 3.1 ✅; Feature 3.2 ✅ complete (3.2.0 email delivery + 3.2.1 tier-based gate + 3.2.2 plan-based feature gates, timezone `Asia/Ho_Chi_Minh`)
+**Current phase:** Sprint 3 — Feature 3.1 ✅; Feature 3.2 ✅; Feature 3.3 đang triển khai (3.3.1 + 3.3.2 ✅, kế tiếp 3.3.3 UI moderation)
 **Last Updated:** 2026-04-16
 
 **Recent Completions:**
@@ -805,9 +811,9 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
 
 ## 🎯 Current Focus
 
-**Completed Task:** Task **3.3.1** — Implement GET /api/admin/sources (moderation list) endpoint ✅ (April 16, 2026)
-**Next Task:** Task **3.3.2** — Implement PATCH /api/admin/sources/{id} (moderate) endpoint
-**Previous Task:** Task **3.2.2** — Add plan-based feature gates to API endpoints ✅ (April 16, 2026)
+**Completed Task:** Task **3.3.2** — Implement PATCH /api/admin/sources/{id} (moderate) endpoint ✅ (April 16, 2026)
+**Next Task:** Task **3.3.3** — Build Admin Source Moderation Screen #13 (React)
+**Previous Task:** Task **3.3.1** — Implement GET /api/admin/sources (moderation list) endpoint ✅ (April 16, 2026)
 
 ### Vừa Hoàn Thành
 

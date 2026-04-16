@@ -20,6 +20,7 @@ class AuditLogService
         $allowedEvents = [
             'oauth_login',
             'admin_source_action',
+            'source.moderated',
             'admin_pipeline_view',
             'plan_change',
             'webhook_received',

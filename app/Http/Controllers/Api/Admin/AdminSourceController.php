@@ -3,19 +3,19 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\CategoryResource;
 use App\Http\Resources\AdminSourceResource;
 use App\Models\Source;
 use App\Services\AdminSourceModerationService;
+use App\Services\AuditLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Support\Facades\DB;
 
 class AdminSourceController extends Controller
 {
     public function __construct(
-        private readonly AdminSourceModerationService $moderationService
+        private readonly AdminSourceModerationService $moderationService,
+        private readonly AuditLogService $auditLogService,
     ) {
     }
 
@@ -75,79 +75,51 @@ SQL;
     /**
      * PATCH /api/admin/sources/{id}
      */
-    public function update(Request $request, Source $source): JsonResponse
+    public function moderate(Request $request, int $id): JsonResponse
     {
         $validated = $request->validate([
-            'action' => 'required|in:flag_spam,adjust_categories,soft_delete,restore',
+            'action' => 'required|in:approve,flag_spam,soft_delete,restore,adjust_categories',
             'category_ids' => 'required_if:action,adjust_categories|array|min:1',
             'category_ids.*' => 'integer|exists:categories,id',
         ]);
 
+        $source = Source::query()->findOrFail($id);
         $action = $validated['action'];
+        $oldStatus = $source->status;
 
-        if ($action === 'flag_spam' && $source->status !== 'active') {
-            return response()->json([
-                'message' => 'flag_spam is only valid when source status is active.',
-            ], 400);
-        }
-
-        if ($action === 'soft_delete' && $source->status !== 'active') {
-            return response()->json([
-                'message' => 'soft_delete is only valid when source status is active.',
-            ], 400);
-        }
-
-        if ($action === 'restore' && !in_array($source->status, ['spam', 'deleted'], true)) {
+        if ($action === 'restore' && ! in_array($source->status, ['deleted', 'spam'], true)) {
             return response()->json([
                 'message' => 'restore is only valid when source status is spam or deleted.',
-            ], 400);
-        }
-
-        if ($action === 'adjust_categories' && $source->status !== 'active') {
-            return response()->json([
-                'message' => 'adjust_categories is only valid when source status is active.',
             ], 400);
         }
 
         $categoryIds = $validated['category_ids'] ?? [];
 
         $updated = $this->moderationService->moderate($source, $action, $categoryIds);
+        $updated->loadMissing('categories');
+        $newStatus = $updated->status;
 
-        $this->insertAdminSourceAudit($request, $updated, $action, $categoryIds);
+        $this->auditLogService->log(
+            'source.moderated',
+            $request->user()?->id,
+            'Source',
+            $updated->id,
+            [
+                'action' => $action,
+                'old_status' => $oldStatus,
+                'new_status' => $newStatus,
+                'category_ids' => $categoryIds,
+            ],
+        );
 
         return response()->json([
             'data' => [
                 'id' => $updated->id,
+                'x_handle' => $updated->x_handle,
                 'status' => $updated->status,
-                'categories' => CategoryResource::collection($updated->categories)->resolve($request),
+                'category_ids' => $updated->categories->pluck('id')->values()->all(),
                 'updated_at' => $updated->updated_at?->utc()->toIso8601String(),
             ],
         ]);
-    }
-
-    /**
-     * @param  array<int>  $categoryIds
-     */
-    private function insertAdminSourceAudit(Request $request, Source $source, string $action, array $categoryIds): void
-    {
-        try {
-            DB::table('audit_logs')->insert([
-                'event_type' => 'admin_source_action',
-                'user_id' => $request->user()?->id,
-                'resource_type' => 'Source',
-                'resource_id' => $source->id,
-                'changes' => json_encode([
-                    'action' => $action,
-                    'category_ids' => $categoryIds,
-                    'status_after' => $source->status,
-                ]),
-                'ip_address' => $request->ip(),
-                'user_agent' => $request->userAgent(),
-                'tenant_id' => $source->tenant_id ?? 1,
-                'created_at' => now()->utc(),
-            ]);
-        } catch (\Throwable) {
-            // non-blocking
-        }
     }
 }

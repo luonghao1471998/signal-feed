@@ -2,6 +2,48 @@
 
 ---
 
+## [2026-04-16] Task 3.3.2: Implement PATCH /api/admin/sources/{id} (moderate) endpoint
+**Sprint:** Sprint 3 — Billing + Admin + i18n
+**Task:** 3.3.2 — Implement PATCH /api/admin/sources/{id} (moderate) endpoint
+**Feature Group:** 3.3 — Admin Review Queue
+**Depends On:** 3.3.1 ✅ (GET Admin Sources)
+**Objective:** Xây dựng API cho phép Admin kiểm duyệt các nguồn do người dùng đề xuất (Approve, Reject, or Adjust).
+
+**Scope:**
+- Endpoint: `PATCH /api/admin/sources/{id}`.
+- Middleware: `auth:sanctum`, `admin`.
+- Payload: `action` (bắt buộc). Các action hợp lệ: `approve`, `flag_spam`, `soft_delete`, `restore`, `adjust_categories`.
+- Logic đặc thù:
+  - Nếu `action` = `adjust_categories` -> Bắt buộc phải truyền thêm mảng `category_ids`.
+  - Từ chối (Reject) không có trạng thái riêng, mà quy về `action` = `flag_spam` (trạng thái `spam`) hoặc `soft_delete` (trạng thái `deleted`).
+  - `approve` -> Chuyển trạng thái sang `active`.
+- Tích hợp Audit log: Ghi lại hành động của Admin vào bảng `audit_logs`.
+
+**Status:** ✅ COMPLETED
+
+### Completion Time
+
+- **Completed at:** 2026-04-16
+
+### Kết quả thực hiện
+
+- Triển khai thành công API Moderation với các action: `approve`, `flag_spam`, `soft_delete`, `restore`, `adjust_categories`.
+- Tích hợp `AuditLogService` ghi lại log vào bảng `audit_logs` (đã verify record ID `41` tồn tại trong DB).
+- Đã test logic `sync()` categories (verify kết quả `Count: 2`).
+- Đã test phân quyền Admin (`is_admin = true/false`).
+
+### Ghi chú kỹ thuật cho task tiếp theo
+
+- Source ID `84` hiện đang ở trạng thái `deleted` (kết quả của bước test cuối).
+- Chữ ký hàm log trong `AuditLogService`:
+  - `log(string $eventType, ?int $userId, ?string $entityType, ?int $entityId, array $metadata = [])`
+
+### Ghi chú an toàn dữ liệu
+
+- Tuyệt đối tuân thủ quy tắc không chạy `migrate:fresh` hoặc `php artisan test`.
+- Mọi bước kiểm tra đều được thực hiện thủ công qua Tinker và PostgreSQL.
+---
+
 ## [2026-04-16] Task 3.3.1: Implement GET /api/admin/sources (moderation list) endpoint
 
 **Status:** ✅ COMPLETED

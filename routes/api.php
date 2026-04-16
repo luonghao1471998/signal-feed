@@ -54,7 +54,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::middleware('admin')->prefix('admin')->group(function (): void {
         Route::get('/sources', [AdminSourceController::class, 'index']);
-        Route::patch('/sources/{source}', [AdminSourceController::class, 'update'])->whereNumber('source');
+        Route::patch('/sources/{id}', [AdminSourceController::class, 'moderate'])->whereNumber('id');
         Route::get('/pipeline/status', [AdminPipelineController::class, 'status']);
     });
 });
