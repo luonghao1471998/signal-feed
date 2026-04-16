@@ -2,6 +2,72 @@
 
 ---
 
+## [2026-04-16] Task 3.3.1: Implement GET /api/admin/sources (moderation list) endpoint
+
+**Status:** ✅ COMPLETED
+
+### Implementation Details
+
+- Created `AdminSourceController@index` with advanced filtering and eager loading.
+- Implemented `AdminSourceResource` to format response according to SPEC-api §11.
+- Defined secure route in `routes/api.php` under `auth:sanctum` and `admin` middleware.
+- Optimized query using `selectRaw` for `signal_count` and `noise_ratio` calculation.
+- Fixed logic for `type=user` filter to explicitly check `added_by_user_id IS NOT NULL`.
+
+### Bug Fixes during Implementation
+
+- **Admin Guard:** Identified that `users.is_admin` was defaulting to `false` for all accounts. Manually updated User ID 1 to `true` to allow access.
+- **Filter Logic:** Refactored the `type` parameter handling from `$request->string('type')` to `$request->query('type')` and ensured the `user` type correctly filters for contributor-added sources only.
+
+### Verification Results (Manual cURL testing)
+
+- **Access Control:** Verified 403 Forbidden for non-admin users and 200 OK for Admin. ✅
+- **Default Queue:** Verified API returns only `status=pending_review` by default. ✅
+- **Contributor Info:** Verified `added_by_user` returns object with `{id, email}` of the contributor. ✅
+- **Isolation Test:** Verified that updating a source to `active` via Tinker removes it from this endpoint's response. ✅
+
+### References
+
+- `app/Http/Controllers/Api/Admin/AdminSourceController.php`
+- `app/Http/Resources/AdminSourceResource.php`
+- `routes/api.php`
+- `IMPLEMENTATION-ROADMAP.md` — Task 3.3.1
+- `SPEC-api.md` §11 (Admin REST)
+
+## [2026-04-16] Task 3.3.1: Implement GET /api/admin/sources (moderation list) endpoint
+
+### Sprint
+**Sprint 3 — Billing + Admin + i18n**
+
+### Task Metadata
+- **Task:** 3.3.1 — Implement GET /api/admin/sources (moderation list) endpoint
+- **Feature Group:** 3.3 — Admin Review Queue
+- **Depends On:** Sprint 1 Complete ✅, Admin Guard ✅
+- **Status:** 🔄 Starting
+
+### Objective
+Triển khai API dành riêng cho Admin để liệt kê các nguồn (`sources`) cần kiểm duyệt, hỗ trợ lọc theo loại nguồn (`type=user`) và trạng thái (`status=pending_review`).
+
+### Scope
+1. Endpoint: `GET /api/admin/sources`.
+2. Bảo vệ: chỉ người dùng có `users.is_admin = true` mới truy cập (Admin Guard / middleware đã có).
+3. Logic filter:
+   - `type=user`: chỉ lấy các nguồn do người dùng đề xuất
+   - `status=pending_review`: (mặc định) lấy các nguồn đang chờ duyệt
+4. Dữ liệu trả về (fields):
+   - `id`, `x_handle`, `display_name`, `added_by_user` (email/name), `signal_count`, `noise_ratio`, `status`, `created_at`
+5. Contract: theo `SPEC-api` (Admin REST) + `SPEC-core` Flow 6 Option B.
+
+### Notes / Verification Plan (Draft)
+- Admin request: `GET /api/admin/sources?type=user&status=pending_review` → `200` + đúng danh sách pending_review
+- Non-admin request → `403 Forbidden`
+- Không truyền `status` vẫn default về `pending_review`
+
+### References
+- `IMPLEMENTATION-ROADMAP.md` — Task 3.3.1
+- `SPEC-api.md` — GET /api/admin/sources (moderation list), Admin REST
+- `SPEC-core` — Flow 6 Option B (moderation workflow)
+
 ## [2026-04-16] Task 3.2.2: Add plan-based feature gates to API endpoints
 
 ### Sprint

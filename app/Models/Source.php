@@ -56,6 +56,11 @@ class Source extends Model
         return $this->belongsTo(User::class, 'added_by_user_id');
     }
 
+    public function addedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'added_by_user_id');
+    }
+
     /**
      * Distinct signals linked via signal_sources (M:N).
      */

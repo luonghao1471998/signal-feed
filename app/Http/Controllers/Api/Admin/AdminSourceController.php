@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\AdminModerationSourceResource;
 use App\Http\Resources\CategoryResource;
+use App\Http\Resources\AdminSourceResource;
 use App\Models\Source;
 use App\Services\AdminSourceModerationService;
 use Illuminate\Http\JsonResponse;
@@ -31,6 +31,7 @@ class AdminSourceController extends Controller
             'per_page' => 'nullable|integer|min:1|max:100',
         ]);
 
+        $status = $request->input('status', 'pending_review');
         $perPage = (int) ($request->input('per_page', 20));
 
         $noiseSql = <<<'SQL'
@@ -56,18 +57,19 @@ SQL;
                 '(SELECT COUNT(DISTINCT ss.signal_id) FROM signal_sources ss WHERE ss.source_id = sources.id) as signal_count'
             )
             ->selectRaw($noiseSql . ' as noise_ratio')
-            ->with(['categories', 'addedByUser'])
+            ->with(['categories', 'addedBy'])
             ->orderByDesc('sources.created_at');
 
-        if ($request->filled('type')) {
-            $query->where('type', $request->string('type'));
+        // Default moderation queue = pending_review.
+        $query->where('status', $status);
+
+        if ($request->query('type') === 'user') {
+            $query->whereNotNull('added_by_user_id');
+        } elseif ($request->query('type') === 'default') {
+            $query->whereNull('added_by_user_id');
         }
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->string('status'));
-        }
-
-        return AdminModerationSourceResource::collection($query->paginate($perPage));
+        return AdminSourceResource::collection($query->paginate($perPage));
     }
 
     /**

@@ -1,9 +1,9 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-16 (Task 3.2.2 plan-based feature gates completed)
+**Last Updated:** 2026-04-16 (Task 3.3.1 admin moderation list endpoint completed)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 3 — Billing + Admin + i18n
-**Sprint Status:** 🔄 IN PROGRESS (6/14 tasks done)
+**Sprint Status:** 🔄 IN PROGRESS (7/14 tasks done)
 **Previous Sprint:** Sprint 2.6 — Personal Signals Pipeline ✅ COMPLETED
 **Blocker:** None — Stripe price IDs resolved ✅
 
@@ -61,7 +61,13 @@
      - `GET /api/my-sources` → `200` (CR 2026-04-16)
    - Verify Pro (plan=`pro`): `POST /api/signals/2/draft/copy` → `200`
 
-**Sprint 3**: 6/14 tasks done
+- [x] **Task 3.3.1**: Implement GET /api/admin/sources (moderation list) endpoint ✅ (2026-04-16)
+  - `AdminSourceController@index`: default `status=pending_review`, filter `type=user|default`, eager-load `addedBy`
+  - `AdminSourceResource`: response includes `id`, `x_handle`, `display_name`, `added_by_user{id,email}`, `signal_count`, `noise_ratio`, `status`, `created_at`
+  - Route protected under `auth:sanctum` + `admin` middleware (`GET /api/admin/sources`)
+  - Manual verify: non-admin `403`, admin `200`, record chuyển `active` không còn trong queue mặc định
+
+**Sprint 3**: 7/14 tasks done
 
 ---
 
@@ -799,9 +805,9 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
 
 ## 🎯 Current Focus
 
-**Completed Task:** Task **3.2.2** — Add plan-based feature gates to API endpoints ✅ (April 16, 2026)
-**Next Task:** Task **3.3.1** — [TBD theo roadmap Sprint 3]
-**Previous Task:** Task **3.2.1** — Signal Digest Delivery Gate ✅ (April 16, 2026)
+**Completed Task:** Task **3.3.1** — Implement GET /api/admin/sources (moderation list) endpoint ✅ (April 16, 2026)
+**Next Task:** Task **3.3.2** — Implement PATCH /api/admin/sources/{id} (moderate) endpoint
+**Previous Task:** Task **3.2.2** — Add plan-based feature gates to API endpoints ✅ (April 16, 2026)
 
 ### Vừa Hoàn Thành
 
