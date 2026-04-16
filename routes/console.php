@@ -2,7 +2,9 @@
 
 use App\Jobs\PersonalPipelineJob;
 use App\Jobs\PipelineCrawlJob;
+use App\Jobs\SendDigestEmailJob;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
@@ -53,7 +55,7 @@ Artisan::command('pipeline:run {--limit=10 : Max tweets per source}', function (
         ]);
     });
 
-    //Tiến trình chạy pipeline riêng cho Pro/Power users có subscription
+    // Tiến trình chạy pipeline riêng cho Pro/Power users có subscription (giờ Việt Nam)
     Schedule::call(function () {
         // Query users cần chạy pipeline riêng
         $users = User::query()
@@ -83,6 +85,42 @@ Artisan::command('pipeline:run {--limit=10 : Max tweets per source}', function (
     ->cron(env('PERSONAL_PIPELINE_CRON', '30 1,7,13,19 * * *'))
     ->name('personal-pipeline-fanout')
     ->description('Fan-out PersonalPipelineJob for Pro/Power users with subscriptions')
+    ->timezone('Asia/Ho_Chi_Minh')
+    ->withoutOverlapping(60)
+    ->onOneServer();
+
+    // Fan-out gửi digest email hằng ngày 08:00 giờ Việt Nam cho users có subscription active.
+    Schedule::call(function () {
+        $digestDate = Carbon::now('Asia/Ho_Chi_Minh');
+
+        $users = User::query()
+            ->whereNotNull('email')
+            ->whereHas('sourceSubscriptions', function ($subscriptionQuery): void {
+                $subscriptionQuery->whereHas('source', function ($sourceQuery): void {
+                    $sourceQuery->where('status', 'active');
+                });
+            })
+            ->get();
+
+        Log::channel('scheduler')->info('Digest delivery fan-out started', [
+            'total_users' => $users->count(),
+            'date' => $digestDate->toDateString(),
+            'scheduled_at_vn' => now('Asia/Ho_Chi_Minh')->toDateTimeString(),
+        ]);
+
+        $users->each(function (User $user) use ($digestDate): void {
+            SendDigestEmailJob::dispatch($user, $digestDate->copy());
+        });
+
+        Log::channel('scheduler')->info('Digest delivery fan-out completed', [
+            'dispatched_jobs' => $users->count(),
+            'date' => $digestDate->toDateString(),
+        ]);
+    })
+    ->name('digest:delivery-fanout')
+    ->description('Fan-out SendDigestEmailJob for users with active subscriptions')
+    ->dailyAt('08:00')
+    ->timezone('Asia/Ho_Chi_Minh')
     ->withoutOverlapping(60)
     ->onOneServer();
 

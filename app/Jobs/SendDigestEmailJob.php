@@ -6,6 +6,7 @@ use App\Mail\DigestEmail;
 use App\Models\Signal;
 use App\Models\User;
 use App\Services\AuditLogService;
+use App\Services\DigestDeliveryGateService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -40,8 +41,27 @@ class SendDigestEmailJob implements ShouldQueue
         return [60, 300, 900];
     }
 
-    public function handle(AuditLogService $auditLog): void
+    public function handle(
+        AuditLogService $auditLog,
+        DigestDeliveryGateService $deliveryGate
+    ): void
     {
+        $currentUtc = now()->utc();
+        if (! $deliveryGate->shouldDeliverToUser($this->user, $currentUtc)) {
+            $auditLog->log(
+                eventType: 'digest.email.skipped_tier_restriction',
+                userId: $this->user->id,
+                entityType: 'User',
+                entityId: $this->user->id,
+                metadata: [
+                    'plan' => $this->user->plan,
+                    'date' => $currentUtc->toDateString(),
+                ]
+            );
+
+            return;
+        }
+
         if (empty($this->user->email)) {
             $auditLog->log(
                 eventType: 'digest.email.skipped_empty',

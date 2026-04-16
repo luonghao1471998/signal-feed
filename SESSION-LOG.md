@@ -2,6 +2,37 @@
 
 ---
 
+## [2026-04-16] Task 3.2.1: Implement Signal Digest Delivery Gate ✅
+
+**Sprint:** Sprint 3 — Billing + Admin + i18n  
+**Task:** 3.2.1 — Implement Signal Digest Delivery Gate (Tier-based Schedule)  
+**Feature Group:** 3.2 — Free Tier Enforcement  
+**Depends On:** 3.2.0 ✅ (SendDigestEmailJob)  
+**Tag:** [POST-WEDGE]  
+**Status:** ✅ Complete
+
+### Implementation Summary
+
+- Created `app/Services/DigestDeliveryGateService.php` để quản lý tier-based delivery rules.
+- Logic gate:
+  - Free: chỉ cho phép gửi vào Monday, Wednesday, Friday theo `Asia/Ho_Chi_Minh`.
+  - Pro/Power: cho phép gửi hằng ngày.
+- Updated `app/Jobs/SendDigestEmailJob.php`:
+  - Thêm early gate check qua `DigestDeliveryGateService` ngay đầu `handle()`.
+  - Nếu bị chặn: ghi audit event `digest.email.skipped_tier_restriction` và return sớm.
+- Updated `routes/console.php`:
+  - Scheduler `digest:delivery-fanout` chạy hằng ngày lúc `08:00` theo `Asia/Ho_Chi_Minh`.
+  - Bổ sung log chi tiết cho fan-out start/completed.
+- Đồng bộ timezone cho scheduling + delivery theo `Asia/Ho_Chi_Minh` để khớp kỳ vọng user tại Việt Nam.
+
+### Verification (Tinker)
+
+- ✅ Free user vào Tuesday (VN time): job bị skip + tạo audit log.
+- ✅ Free user vào Monday (VN time): job được phép chạy.
+- ✅ Pro user vào bất kỳ ngày nào: job được phép chạy.
+
+---
+
 ## [2026-04-16] Task 3.2.0: Implement SendDigestEmailJob (F16 real delivery) ✅
 
 **Sprint:** Sprint 3 — Billing + Admin + i18n  
@@ -86,7 +117,7 @@ Thêm 3 events mới vào `AuditLogService::$allowedEvents` whitelist:
 
 ### Unblocks
 
-- ✅ **Task 3.2.1** (Free tier Mon/Wed/Fri digest restriction) — giờ có job thật để gate. Scheduler fan-out + plan check + day-of-week check gọi `SendDigestEmailJob::dispatch()` khi đủ điều kiện.
+- ✅ **Task 3.2.1** (Free tier Mon/Wed/Fri digest restriction) — giờ có `SendDigestEmailJob` thật để triển khai delivery gate + scheduler fan-out theo lịch ngày.
 
 ---
 

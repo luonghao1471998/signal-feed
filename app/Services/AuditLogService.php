@@ -27,6 +27,7 @@ class AuditLogService
             'digest.email.sent',
             'digest.email.failed',
             'digest.email.skipped_empty',
+            'digest.email.skipped_tier_restriction',
         ];
 
         if (! in_array($eventType, $allowedEvents, true)) {
