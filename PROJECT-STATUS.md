@@ -1,9 +1,9 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-16 (Task 3.1.2 Stripe Webhook Handler completed)
+**Last Updated:** 2026-04-16 (Task 3.1.3 Plan downgrade cleanup completed)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 3 — Billing + Admin + i18n
-**Sprint Status:** 🔄 IN PROGRESS (2/N tasks done)
+**Sprint Status:** 🔄 IN PROGRESS (3/N tasks done)
 **Previous Sprint:** Sprint 2.6 — Personal Signals Pipeline ✅ COMPLETED
 **Blocker:** None — Stripe price IDs resolved ✅
 
@@ -38,9 +38,9 @@
   - Stripe test keys + real price IDs configured
   - Manual testing: 5/5 test cases PASS (cURL + tinker)
 - [x] **Task 3.1.2**: Implement Stripe Webhook Handler (4 events) ✅ (2026-04-16)
-- [ ] **Task 3.1.3**: Implement plan downgrade cleanup logic — NEXT
+- [x] **Task 3.1.3**: Implement plan downgrade cleanup logic ✅ (2026-04-16)
 
-**Sprint 3**: 2/? tasks done
+**Sprint 3**: 3/? tasks done
 
 ---
 
@@ -346,20 +346,26 @@ _(Roadmap tiếp: **2.5.x** Archive / Settings — `IMPLEMENTATION-ROADMAP.md`.)
 
 ### In Progress / Next (roadmap)
 - **Sprint 2 (14-task table):** ✅ **14/14** — gồm **2.4.5** (digest My KOLs toggle) + **2.1.3–2.1.4** (my submissions) + **2.1.5** (auto-refresh; polish cùng release)
-- **Archive backlog:** ✅ **2.5.1** `POST/DELETE /api/signals/{id}/archive` (2026-04-15); ✅ **2.5.2** `GET /api/archive/signals` (2026-04-15); ✅ **2.5.3** Save to Archive button (2026-04-15); ✅ **2.5.4** Archive UI integration real API (2026-04-15); ✅ **2.5.5** Settings API (2026-04-15); ✅ **2.5.6** Settings frontend integration (2026-04-15) — **Next:** **3.1.1** Stripe — `IMPLEMENTATION-ROADMAP.md`
+- ✅ **3.1.1** Stripe Checkout Session (2026-04-16)
+- ✅ **3.1.2** Stripe webhook handler — 4 events + idempotency (2026-04-16)
+- ✅ **3.1.3** Plan downgrade cleanup logic — Free cap 5, 7/7 test PASS (2026-04-16)
+- **Next:** **3.2.1** Free tier Mon/Wed/Fri digest restriction
 - **Backlog (ngoài bảng Sprint 2):** **1.11.3** — metadata digest (tùy ưu tiên)
 
 ### Statistics
 - **Sprint 1 (34 tasks, `IMPLEMENTATION-ROADMAP`):** 34 / 34 ✅
 - **Sprint 2 (14 tasks):** 14 / 14 (100%) ✅
+- **Sprint 3 (14 tasks):** 3 / 14 (21%) — Feature 3.1 Stripe Integration ✅ complete
 
 ### Progress Summary
 
 **Completed Tasks:** Sprint 1 **34/34** ✅; Sprint 2 **14/14** (thêm **2.1.3–2.1.5** 2026-04-15; **2.4.5** 2026-04-15; cùng các task 2.1.1–2.1.2, 2.2.x, 2.3.x, 2.4.1–2.4.4)
-**Current phase:** Sprint 2 — My KOLs **hoàn tất** (bundle 14 task); backlog **2.5.x** (Archive/Settings) — **2.5.1** ✅ **2.5.2** ✅ **2.5.3** ✅ **2.5.4** ✅ **2.5.5** ✅ **2.5.6** ✅; next **3.1.1** / Sprint 3
-**Last Updated:** 2026-04-15
+**Current phase:** Sprint 3 — Feature 3.1 (Stripe Integration) hoàn tất 3/3; next Feature 3.2 (Free Tier Enforcement) → **3.2.1**
+**Last Updated:** 2026-04-16
 
 **Recent Completions:**
+- ✅ Task **3.1.3:** Plan downgrade cleanup — `cleanupSubscriptionsToFreeLimit()` trong `StripeWebhookService`, Free cap 5, 7/7 scenarios PASS (thừa/đủ/thiếu/recency/tie-break/idempotency/audit log) — SESSION-LOG 2026-04-16
+- ✅ Task **3.1.2:** Stripe webhook handler — 4 events (checkout.completed / subscription.updated / subscription.deleted / invoice.payment_failed), idempotency qua `processed_stripe_events.event_id`, price→plan map qua `config/services.php`, audit logging `plan_change` + `webhook_received` — SESSION-LOG 2026-04-16
 - ✅ Task **2.5.6:** Settings Screen Frontend Integration — integrated all 5 tabs với backend APIs, save/load cho Profile + Digest Preferences + Language, fixed 4 UI issues (avatar render, digest UX, /billing 404 toasts) — SESSION-LOG 2026-04-15
 - ✅ Task **2.5.5:** GET/PATCH `/api/settings` endpoints — backend settings APIs integrated with frontend in Task 2.5.6 — SESSION-LOG 2026-04-15
 - ✅ Task **2.5.4:** Archive Screen integrated with real API — `ArchivePage` fetch/filter/pagination/unsave + error/empty/loading states + category pills from DB + TypeError fix + deep-link support — SESSION-LOG 2026-04-15
@@ -768,11 +774,17 @@ _(Sau Phase 4 pipeline; nhóm UI 1.10–1.12.)_
 
 ## 🎯 Current Focus
 
-**Completed Task:** Task **3.1.2** — Stripe Webhook Handler (4 events) ✅ (April 16, 2026)
-**Next Task:** Task **3.1.3** — Cleanup MySourceSubscriptions (Downgrade logic)
-**Previous Task:** Task **3.1.1** — Stripe Checkout Session creation ✅ (April 16, 2026)
+**Completed Task:** Task **3.1.3** — Plan downgrade cleanup logic ✅ (April 16, 2026)
+**Next Task:** Task **3.2.1** — Free tier Mon/Wed/Fri digest restriction
+**Previous Task:** Task **3.1.2** — Stripe Webhook Handler (4 events) ✅ (April 16, 2026)
 
 ### Vừa Hoàn Thành
+
+✅ **Task 3.1.3** — Plan downgrade cleanup logic (2026-04-16)
+
+- `cleanupSubscriptionsToFreeLimit()` trong `StripeWebhookService`
+- Enforce Free cap 5 khi downgrade, giữ 5 record mới nhất (`created_at DESC, source_id DESC`)
+- Manual testing 7/7 PASS (thừa/đủ/thiếu/recency/tie-break/idempotency/audit log)
 
 ✅ **Task 3.1.2** — Implement Stripe Webhook Handler (2026-04-16)
 

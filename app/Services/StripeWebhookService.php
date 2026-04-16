@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\MySourceSubscription;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -167,6 +168,7 @@ class StripeWebhookService
 
         $oldPlan = (string) $user->plan;
         $this->downgradeToFree($user, keepCustomerId: true);
+        $this->cleanupSubscriptionsToFreeLimit($user);
         $this->auditPlanChangeIfNeeded($user->id, $oldPlan, 'free', (string) $event->id);
         $this->auditWebhookStripe('customer.subscription.deleted', $user->id, [
             'event_id' => $event->id,
@@ -196,6 +198,7 @@ class StripeWebhookService
         if ($attemptCount >= 3) {
             $oldPlan = (string) $user->plan;
             $this->downgradeToFree($user, keepCustomerId: true);
+            $this->cleanupSubscriptionsToFreeLimit($user);
             $this->auditPlanChangeIfNeeded($user->id, $oldPlan, 'free', (string) $event->id);
         } else {
             Log::warning('Stripe invoice.payment_failed: attempt_count < 3', [
@@ -238,6 +241,60 @@ class StripeWebhookService
             $user->stripe_customer_id = null;
         }
         $user->save();
+    }
+
+    public function cleanupSubscriptionsToFreeLimit(User $user): void
+    {
+        $limit = 5;
+
+        $totalSubscriptions = (int) MySourceSubscription::query()
+            ->where('user_id', $user->id)
+            ->count();
+
+        if ($totalSubscriptions <= $limit) {
+            return;
+        }
+
+        /** @var array<int, int> $keepSourceIds */
+        $keepSourceIds = MySourceSubscription::query()
+            ->where('user_id', $user->id)
+            ->orderByDesc('created_at')
+            ->orderByDesc('source_id')
+            ->limit($limit)
+            ->pluck('source_id')
+            ->map(static fn ($sourceId): int => (int) $sourceId)
+            ->all();
+
+        $deletedCount = MySourceSubscription::query()
+            ->where('user_id', $user->id)
+            ->whereNotIn('source_id', $keepSourceIds)
+            ->delete();
+
+        if ($deletedCount <= 0) {
+            return;
+        }
+
+        try {
+            DB::table('audit_logs')->insert([
+                'event_type' => 'subscription_cleanup',
+                'user_id' => $user->id,
+                'resource_type' => 'User',
+                'resource_id' => $user->id,
+                'changes' => json_encode([
+                    'deleted_count' => $deletedCount,
+                    'reason' => 'downgrade_to_free',
+                ]),
+                'ip_address' => request()?->ip(),
+                'user_agent' => request()?->userAgent(),
+                'tenant_id' => 1,
+                'created_at' => now()->utc(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('audit_logs subscription_cleanup insert failed', [
+                'error' => $e->getMessage(),
+                'user_id' => $user->id,
+            ]);
+        }
     }
 
     private function getSubscriptionPriceId(Subscription $subscription): ?string

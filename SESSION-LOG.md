@@ -2,6 +2,78 @@
 
 ---
 
+## [2026-04-16] Task 3.1.3: Plan downgrade cleanup logic ✅
+
+**Sprint:** Sprint 3 — Billing + Admin + i18n
+**Task:** 3.1.3 — Implement plan downgrade cleanup logic
+**Feature Group:** 3.1 — Stripe Integration
+**Depends On:** 3.1.2 ✅ (Stripe webhook handler)
+**Tag:** [POST-WEDGE]
+**Status:** ✅ Complete
+
+### Implementation Summary
+
+**Files Modified:**
+- `app/Services/StripeWebhookService.php` — thêm method `cleanupSubscriptionsToFreeLimit(User $user): void`
+
+**Logic:**
+- Count records của user trong `my_source_subscriptions`
+- Nếu > 5 (Free tier cap theo CR 2026-04-16) → giữ lại 5 records mới nhất, xóa phần còn lại
+- Ordering: `created_at DESC, source_id DESC` (tie-break khi trùng timestamp)
+- Dùng `whereNotIn(keep_ids)` để DELETE an toàn
+- Audit log: `event_type = 'subscription_cleanup'`, metadata JSON `{ deleted_count, reason }`
+
+**Integration Points (2 entry points):**
+1. `handleSubscriptionDeleted()` — user hủy subscription → downgrade free → cleanup
+2. `handleInvoicePaymentFailed()` — payment thất bại `attempt_count >= 3` → downgrade free → cleanup
+
+### Key Design Decisions
+
+1. **Free cap = 5** (không phải 10) — theo CR 2026-04-16 (`SPEC-api` + `CLAUDE.md`): Free My KOLs cap 5, Pro 10, Power 50.
+2. **Keep newest:** `ORDER BY created_at DESC, source_id DESC` — tránh nondeterminism khi trùng timestamp (test case #5 đã verify).
+3. **Idempotency:** Nếu user đã ≤5 records → method no-op, không tạo audit log thừa (test case #6).
+4. **Phạm vi:** Chỉ Free tier cleanup; logic Power→Pro (keep 10) theo roadmap là cùng method, sẽ extend khi Stripe subscription.updated event cần — hiện tại đủ với downgrade-to-free flow.
+
+### Testing Results (Tinker — manual, 7 scenarios)
+
+| # | Scenario | Expected | Result |
+|---|----------|----------|--------|
+| 1 | Thừa (7 records) | Xóa 2, giữ 5 | ✅ PASS |
+| 2 | Đủ (5 records) | Không xóa | ✅ PASS |
+| 3 | Thiếu (3 records) | Không xóa | ✅ PASS |
+| 4 | Recency (timestamps tăng dần 1–7) | Giữ IDs [3,4,5,6,7] | ✅ PASS |
+| 5 | Tie-break (cùng timestamp) | Ưu tiên ID lớn | ✅ PASS |
+| 6 | Idempotency (chạy 2 lần) | Lần 2 no-op, no duplicate log | ✅ PASS |
+| 7 | Audit log | `deleted_count: 2`, `reason: downgrade_to_free` | ✅ PASS |
+
+**Safety notes:**
+- Không chạy `php artisan test` — tránh wipe production-like data
+- Test scope giới hạn trong `my_source_subscriptions` của User ID 1
+- Không gọi external API (0 credits Stripe/Anthropic/TwitterAPI consumed)
+
+### Known Limitations / Backlog
+- **Pro→Power downgrade (keep 10):** Chưa implement branch riêng — hiện tại cleanup chỉ trigger khi plan → free. Khi 3.1.2 webhook xử lý `subscription.updated` với downgrade Power→Pro, cần gọi cleanup variant keep=10. Note lại trong Task 3.2.2 hoặc task Sprint 3 follow-up.
+
+---
+
+## [2026-04-16] Task 3.1.3: Cleanup MySourceSubscriptions (Downgrade logic)
+
+**Sprint:** Sprint 3 — Billing + Admin + i18n
+**Task:** 3.1.3 — Cleanup MySourceSubscriptions (Downgrade logic)
+**Feature Group:** 3.1 — Stripe Integration
+**Depends On:** 3.1.2 ✅ (Stripe Webhook Handler)
+**Objective:** Triển khai logic tự động dọn dẹp các bản ghi trong `my_source_subscriptions` khi User bị hạ cấp về gói 'free' để tuân thủ giới hạn Max 5 KOLs (theo SPEC-plan).
+
+**Scope:**
+- Tạo method `cleanupSubscriptionsToFreeLimit(User $user)` trong `StripeWebhookService`.
+- Logic: Nếu user có > 5 KOLs, giữ lại 5 bản ghi mới nhất (sắp xếp theo `created_at` DESC), xóa các bản ghi còn lại.
+- Tích hợp vào: `handleSubscriptionDeleted` và `handleInvoicePaymentFailed` (khi payment fail >= 3 lần).
+- Ghi log sự kiện dọn dẹp vào bảng `audit_logs` để truy vết.
+
+**Status:** 🔄 Starting
+
+---
+
 ## [2026-04-16] Task 3.1.2: Implement Stripe webhook handler (4 events)
 
 **Sprint:** Sprint 3 — Billing + Admin + i18n
