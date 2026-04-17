@@ -1,9 +1,9 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-16 (Task 3.3.3 admin moderation screen completed)
+**Last Updated:** 2026-04-17 (Tasks 3.4.1 + 3.4.2 + 3.4.3 completed)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 3 — Billing + Admin + i18n
-**Sprint Status:** 🔄 In Progress (2/3 feature groups done)
+**Sprint Status:** 🔄 In Progress (3/4 feature groups done)
 **Previous Sprint:** Sprint 2.6 — Personal Signals Pipeline ✅ COMPLETED
 **Blocker:** None — Stripe price IDs resolved ✅
 
@@ -90,26 +90,46 @@
 **Completion Date:** 2026-04-16  
 **Tested:** ✅ All actions + security (non-admin blocked)
 
-**Sprint 3**: 9/14 tasks done
+### 3.4 — Admin Pipeline Monitor
+
+**Status:** ✅ COMPLETE  
+**Progress:** 3/3 tasks done
+
+| Task | Description | Status | Notes |
+|------|-------------|--------|-------|
+| 3.4.1 | Pipeline Metrics API | ✅ | `GET /admin/api/pipeline/status` + `AdminPipelineMetricsService::snapshotForRange()` |
+| 3.4.2 | Pipeline Monitor UI | ✅ | `AdminPipelinePage.tsx` metrics cards + category breakdown + alerts |
+| 3.4.3 | UI Polish & Date Filter | ✅ | Exact-date filter, relative last crawl display, English copy, button style polish |
+
+**Completion Date:** 2026-04-17  
+**Tested:** ✅ Tinker + browser manual + frontend build
+
+**Known Issues:**
+- ⚠️ `error_rate` đã loại bỏ khỏi API/UI theo yêu cầu hiện tại
+- 📋 Backlog: cần pipeline error tracking table nếu muốn bật lại Error Rate thật
+- 📋 Backlog: background alert notifications (email/Slack)
+
+**Sprint 3**: 12/14 tasks done
 
 ---
 
 ## Overall Project Progress
 
 **Current Sprint:** Sprint 3 — Billing + Admin + i18n  
-**Sprint Status:** 🔄 In Progress (2/3 feature groups done)
+**Sprint Status:** 🔄 In Progress (3/4 feature groups done)
 
 **Completed Feature Groups:**
 - ✅ 3.2 — Billing & Subscription (Stripe integration)
 - ✅ 3.3 — Admin Review Queue (moderation UI + API)
+- ✅ 3.4 — Admin Pipeline Monitor (API + UI + polish)
 
 **In Progress:**
-- 🔄 3.4 — i18n Support (next)
+- 🔄 3.5 — i18n Support (next)
 
 **Overall Completion:**
 - Core Features (Sprint 1): ✅ 100%
 - Advanced Features (Sprint 2): ✅ 100%
-- Polish & Admin (Sprint 3): 🔄 66% (2/3 done)
+- Polish & Admin (Sprint 3): 🔄 75% (3/4 feature groups done)
 
 ---
 

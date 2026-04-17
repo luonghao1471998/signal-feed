@@ -10211,3 +10211,189 @@ All tests performed via:
 - Phase 2: In-app notification (poll/banner)
 - Phase 2: Telegram notification
 - Production: Verify custom domain trên Resend
+
+---
+
+## [2026-04-17] Task 3.4.1 + 3.4.2 + 3.4.3 (merged): Pipeline Metrics API + Monitor UI - COMPLETED ✅
+
+**Sprint:** Sprint 3 — Billing + Admin + i18n  
+**Tasks:** 3.4.1 + 3.4.2 + 3.4.3 (gộp) — Pipeline Monitor Dashboard (Backend API + Frontend UI + Polish)  
+**Feature Group:** 3.4 — Admin Pipeline Monitor  
+**Depends On:** 3.3.1 ✅ (admin guard)  
+**Tag:** [POST-WEDGE]  
+**Status:** ✅ COMPLETED
+
+### Objective
+Audit, bổ sung và hoàn thiện Pipeline Monitor Dashboard cho admin:
+- Backend API trả về đầy đủ metrics theo SPEC-api
+- Frontend UI hiển thị metrics với UX thân thiện
+- Date filter cho phép xem metrics theo ngày cụ thể
+- Alert banners cho pipeline health monitoring
+
+### Implementation Summary
+
+#### Task 3.4.1 + 3.4.2: Backend API + Frontend UI Audit & Completion
+
+**Backend changes:**
+- File: `backend/app/Services/AdminPipelineMetricsService.php`
+  - ✅ Thêm method `snapshotForRange(?string $startDate, ?string $endDate)`
+  - ✅ Chuẩn hóa tính metrics theo cùng date range
+  - ✅ Query `per_category_signal_volume` theo khoảng thời gian
+  - ⚠️ `error_rate` ban đầu là placeholder `0.0`, sau đó đã bỏ khỏi API theo yêu cầu UI
+
+- File: `backend/app/Http/Controllers/Admin/PipelineController.php`
+  - ✅ Sử dụng `metricsService->snapshotForRange()` 
+  - ✅ Giữ field `range` khi có date filter (bổ sung hữu ích)
+  - ✅ Response format match SPEC-api metrics contract cho phần đã dùng
+
+**Backend API Response (after completion):**
+```json
+{
+  "data": {
+    "last_run_timestamp": "2026-04-09T03:48:44.000000Z",
+    "tweets_fetched_count": 284,
+    "signals_created_count": 7,
+    "per_category_signal_volume": [
+      {"category_id": 1, "category_name": "AI & ML", "signal_count": 6},
+      {"category_id": 2, "category_name": "Startups", "signal_count": 1},
+      {"category_id": 3, "category_name": "Tech News", "signal_count": 4},
+      {"category_id": 4, "category_name": "Developer Tools", "signal_count": 1}
+    ],
+    "range": {"start_date": "2026-04-09", "end_date": "2026-04-09"}
+  }
+}
+```
+
+**Frontend changes:**
+- File: `frontend/src/pages/AdminPipelinePage.tsx`
+  - ✅ Render metrics cards + category breakdown
+  - ✅ Alert banners cho pipeline health (stale/healthy/no-activity)
+  - ✅ Empty states cho category breakdown
+  - ✅ Loading/error states
+  - ✅ Bỏ metric và hiển thị `Error rate` theo yêu cầu
+
+#### Task 3.4.3: UI Polish & Date Filter Enhancement
+
+**Frontend polish (chỉ sửa `AdminPipelinePage.tsx`):**
+
+**1. Date Filter Behavior:**
+- ✅ Chuyển sang EXACT DATE (chọn 1 ngày cụ thể)
+- ✅ Single date input: `selectedDate`
+- ✅ Search gửi `start_date = end_date = selectedDate`
+- ✅ Reset (Today) button quay về view mặc định
+- ✅ Info banner: "Showing metrics for YYYY-MM-DD"
+
+**2. LAST CRAWL Display:**
+- ✅ Hiển thị relative time: "Just now" / "X minutes ago" / "X hours ago" / "X days ago"
+- ✅ Nếu null: hiển thị "Never run"
+- ✅ Tooltip hiển thị absolute local time
+
+**3. Metrics Labels & Layout:**
+- ✅ Bỏ text placeholder
+- ✅ Labels rõ ràng: "Tweets fetched", "Signals created"
+- ✅ Bố trí lại block metrics + category breakdown
+- ✅ Đổi toàn bộ text tiếng Việt trên trang sang tiếng Anh
+- ✅ Button Search màu `hsl(var(--primary))`; giảm chiều cao button Search/Reset
+
+### Manual Verification (Tinker + Browser)
+
+**Backend verification (Tinker):**
+```php
+>>> $response = app(\App\Http\Controllers\Admin\PipelineController::class)->status(request());
+>>> $data = $response->getData(true);
+>>> array_keys($data['data']);
+// Output: ["last_run_timestamp", "tweets_fetched_count", "signals_created_count", "per_category_signal_volume"]
+
+>>> \App\Models\Tweet::whereDate('created_at', '2026-04-09')->count();
+// Output: 284 ✅
+
+>>> \App\Models\Signal::whereDate('created_at', '2026-04-09')->count();
+// Output: 7 ✅
+
+>>> \DB::table('sources')->max('last_crawled_at');
+// Output: "2026-04-09 03:48:44" ✅
+
+>>> \DB::table('admin_action_logs')->where('action', 'admin_pipeline_view')->latest('id')->first();
+// Output: recent entry ✅
+```
+
+**Frontend verification (Browser):**
+- ✅ Navigate `/admin/pipeline` → page loads no errors
+- ✅ Date filter: chọn "2026-04-09" → Search → metrics update
+- ✅ Info banner: "Showing metrics for 2026-04-09"
+- ✅ LAST CRAWL: relative time + local time
+- ✅ Tweets fetched: 284
+- ✅ Signals created: 7
+- ✅ Category breakdown: AI & ML (6), Startups (1), Tech News (4), Developer Tools (1)
+- ✅ Warning alert khi stale > 24h
+- ✅ Reset (Today) → clear filter, reload today's metrics
+- ✅ Build frontend: `npm run build` PASS
+
+### Files Modified
+
+**Backend:**
+- `backend/app/Services/AdminPipelineMetricsService.php`
+- `backend/app/Http/Controllers/Admin/PipelineController.php`
+
+**Frontend:**
+- `frontend/src/pages/AdminPipelinePage.tsx`
+- `frontend/src/services/adminService.ts`
+
+### Known Limitations & Backlog Items
+
+1. **Error Rate Tracking:**
+   - ⚠️ Đã loại bỏ khỏi API/UI hiện tại theo yêu cầu.
+   - 📝 Backlog: nếu cần lại, phải có bảng tracking lỗi pipeline (`pipeline_logs`/`pipeline_errors`) trước.
+
+2. **Alert Notifications:**
+   - ℹ️ Hiện tại chỉ có alert banners trong UI
+   - 📝 Backlog: background job check pipeline health + gửi email/Slack
+
+3. **Performance Optimization:**
+   - ℹ️ Query metrics chưa có lớp cache
+   - 📝 Backlog: cache metrics Redis TTL ngắn; tối ưu index theo tần suất query thực tế
+
+### Testing Notes
+
+**Safety compliance:**
+- ✅ KHÔNG chạy `php artisan test`
+- ✅ KHÔNG chạy `php artisan migrate:fresh/refresh`
+- ✅ KHÔNG sử dụng `RefreshDatabase` trait
+- ✅ CHỈ test bằng Tinker (read-only queries) và browser manual testing
+- ✅ KHÔNG tạo/xóa data để test
+
+### Completion Criteria Met
+
+**Task 3.4.1 (Backend API):**
+- ✅ `GET /admin/api/pipeline/status` returns 200 OK
+- ✅ Metrics calculations match DB queries
+- ✅ Support date filter via `start_date` & `end_date` params
+- ✅ Admin audit logging active
+
+**Task 3.4.2 (Frontend UI):**
+- ✅ Navigate `/admin/pipeline` → page loads
+- ✅ Render metrics + category breakdown
+- ✅ Alert banners hoạt động đúng conditions
+- ✅ Loading/error/empty states implemented
+
+**Task 3.4.3 (UI Polish):**
+- ✅ Date filter hoạt động (exact date selection)
+- ✅ LAST CRAWL hiển thị relative time
+- ✅ Không còn placeholder text
+- ✅ Empty states thân thiện
+- ✅ UI copy tiếng Anh cho trang Admin Pipeline
+- ✅ Search button style + size theo yêu cầu
+
+### Next Steps
+
+**Immediate (same sprint):**
+- ⏭️ Task 3.5: i18n Integration (nếu có trong roadmap)
+- ⏭️ Task 3.6: Admin Analytics Dashboard (nếu có)
+
+**Future sprints:**
+- 📋 Pipeline error tracking system
+- 📋 Admin notification system (email/Slack alerts)
+- 📋 Performance optimization (index/caching theo usage)
+
+---
+

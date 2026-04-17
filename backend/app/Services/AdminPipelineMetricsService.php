@@ -6,6 +6,7 @@ use App\Models\Signal;
 use App\Models\Source;
 use App\Models\Tweet;
 use Carbon\Carbon;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 class AdminPipelineMetricsService
@@ -15,27 +16,52 @@ class AdminPipelineMetricsService
      *     last_run_timestamp: string|null,
      *     tweets_fetched_count: int,
      *     signals_created_count: int,
-     *     error_rate: float,
      *     per_category_signal_volume: list<array{category_id: int, category_name: string, signal_count: int}>
      * }
      */
     public function snapshotToday(): array
     {
-        $today = Carbon::today();
+        $today = CarbonImmutable::today('UTC');
+
+        return $this->snapshotForRange(
+            $today->toDateString(),
+            $today->toDateString()
+        );
+    }
+
+    /**
+     * @return array{
+     *     last_run_timestamp: string|null,
+     *     tweets_fetched_count: int,
+     *     signals_created_count: int,
+     *     per_category_signal_volume: list<array{category_id: int, category_name: string, signal_count: int}>
+     * }
+     */
+    public function snapshotForRange(?string $startDate, ?string $endDate): array
+    {
+        $start = $startDate !== null
+            ? CarbonImmutable::parse($startDate, 'UTC')->startOfDay()
+            : CarbonImmutable::today('UTC')->startOfDay();
+        $end = $endDate !== null
+            ? CarbonImmutable::parse($endDate, 'UTC')->endOfDay()
+            : CarbonImmutable::today('UTC')->endOfDay();
 
         $lastCrawl = Source::query()->max('last_crawled_at');
         $lastRun = $lastCrawl !== null ? Carbon::parse($lastCrawl)->utc()->toIso8601String() : null;
 
-        $tweetsToday = Tweet::query()->whereDate('created_at', $today)->count();
-        $signalsToday = Signal::query()->whereDate('created_at', $today)->count();
+        $tweetsInRange = Tweet::query()
+            ->whereBetween('created_at', [$start->toDateTimeString(), $end->toDateTimeString()])
+            ->count();
+        $signalsInRange = Signal::query()
+            ->whereBetween('created_at', [$start->toDateTimeString(), $end->toDateTimeString()])
+            ->count();
 
-        $perCategory = $this->perCategorySignalVolume($today);
+        $perCategory = $this->perCategorySignalVolume($start, $end);
 
         return [
             'last_run_timestamp' => $lastRun,
-            'tweets_fetched_count' => $tweetsToday,
-            'signals_created_count' => $signalsToday,
-            'error_rate' => 0.0,
+            'tweets_fetched_count' => $tweetsInRange,
+            'signals_created_count' => $signalsInRange,
             'per_category_signal_volume' => $perCategory,
         ];
     }
@@ -43,7 +69,7 @@ class AdminPipelineMetricsService
     /**
      * @return list<array{category_id: int, category_name: string, signal_count: int}>
      */
-    private function perCategorySignalVolume(Carbon $date): array
+    private function perCategorySignalVolume(CarbonImmutable $start, CarbonImmutable $end): array
     {
         $tenantId = 1;
 
@@ -55,12 +81,13 @@ class AdminPipelineMetricsService
             FROM signals s
             CROSS JOIN LATERAL unnest(s.categories) AS cid
             INNER JOIN categories c ON c.id = cid
-            WHERE (s.created_at AT TIME ZONE \'UTC\')::date = ?::date
+            WHERE s.created_at >= ?::timestamp
+              AND s.created_at <= ?::timestamp
               AND s.tenant_id = ?
             GROUP BY c.id, c.name
             ORDER BY c.id
         ',
-            [$date->toDateString(), $tenantId]
+            [$start->toDateTimeString(), $end->toDateTimeString(), $tenantId]
         );
 
         $out = [];

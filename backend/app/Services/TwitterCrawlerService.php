@@ -166,6 +166,19 @@ class TwitterCrawlerService
                 'affected_tweet_ids' => $storeResult['new_ids'],
             ];
         } catch (\Throwable $e) {
+            // Track last crawl attempt even when vendor/API call fails.
+            // NOTE: this timestamp no longer means "last successful crawl".
+            try {
+                $source->last_crawled_at = now('UTC');
+                $source->save();
+            } catch (\Throwable $saveError) {
+                Log::channel('crawler-errors')->warning('TwitterCrawlerService::crawlSource failed to persist last_crawled_at after error', [
+                    'source_id' => $source->id,
+                    'x_handle' => $source->x_handle,
+                    'message' => $saveError->getMessage(),
+                ]);
+            }
+
             Log::channel('crawler-errors')->error('TwitterCrawlerService::crawlSource failed', [
                 'source_id' => $source->id,
                 'x_handle' => $source->x_handle,

@@ -41,7 +41,6 @@ export interface PipelineStatusData {
   last_run_timestamp: string | null;
   tweets_fetched_count: number;
   signals_created_count: number;
-  error_rate: number;
   per_category_signal_volume: Array<{
     category_id: number;
     category_name: string;
