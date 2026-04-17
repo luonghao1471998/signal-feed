@@ -16,6 +16,28 @@ const AdminSourceFormPage: React.FC = () => {
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [accountUrlTouched, setAccountUrlTouched] = useState(false);
+
+  const validateAccountUrl = (value: string): string | null => {
+    const raw = value.trim();
+    if (raw === "") {
+      return "Account Url is required.";
+    }
+
+    try {
+      const parsed = new URL(raw);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+        return "Account Url must start with http:// or https://";
+      }
+      if (!parsed.hostname) {
+        return "Account Url must include a valid domain.";
+      }
+      return null;
+    } catch {
+      return "Account Url must be a valid URL.";
+    }
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -47,6 +69,15 @@ const AdminSourceFormPage: React.FC = () => {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
+    setAccountUrlTouched(true);
+
+    const accountUrlError = validateAccountUrl(accountUrl);
+    if (accountUrlError) {
+      setFormError(accountUrlError);
+      return;
+    }
+
     setLoading(true);
     try {
       const payload = {
@@ -61,10 +92,14 @@ const AdminSourceFormPage: React.FC = () => {
         await createSource(payload);
       }
       navigate("/admin/sources", { replace: true });
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : "Save failed.");
     } finally {
       setLoading(false);
     }
   };
+
+  const accountUrlError = accountUrlTouched ? validateAccountUrl(accountUrl) : null;
 
   return (
     <div className="space-y-4">
@@ -72,6 +107,11 @@ const AdminSourceFormPage: React.FC = () => {
         <h1 className="text-xl font-semibold">{isEdit ? "Edit Source" : "Add Source"}</h1>
       </div>
       <form className="space-y-4 rounded-xl border border-zinc-200 bg-white shadow-sm p-5" onSubmit={submit}>
+        {formError && (
+          <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {formError}
+          </p>
+        )}
         <div className="grid gap-2">
           <label className="text-sm font-medium">Handle</label>
           <Input value={xHandle} onChange={(e) => setXHandle(e.target.value)} required />
@@ -82,7 +122,16 @@ const AdminSourceFormPage: React.FC = () => {
         </div>
         <div className="grid gap-2">
           <label className="text-sm font-medium">Account Url</label>
-          <Input value={accountUrl} onChange={(e) => setAccountUrl(e.target.value)} required />
+          <Input
+            value={accountUrl}
+            onChange={(e) => setAccountUrl(e.target.value)}
+            onBlur={() => setAccountUrlTouched(true)}
+            aria-invalid={accountUrlError ? "true" : "false"}
+            required
+          />
+          {accountUrlError && (
+            <p className="text-xs text-red-600">{accountUrlError}</p>
+          )}
         </div>
         <div className="grid gap-2">
           <label className="text-sm font-medium">Categories</label>

@@ -21,6 +21,7 @@ class AuditLogService
             'oauth_login',
             'admin_source_action',
             'source.moderated',
+            'source.moderation.notified',
             'admin_pipeline_view',
             'plan_change',
             'webhook_received',

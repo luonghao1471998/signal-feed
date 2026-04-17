@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Events\SourceModerated;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AdminSourceResource;
 use App\Models\Source;
+use App\Models\User;
 use App\Services\AdminSourceModerationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -104,6 +106,13 @@ SQL;
                 'new_status' => $newStatus,
                 'category_ids' => $categoryIds,
             ]);
+        }
+
+        if (in_array($action, ['approve', 'flag_spam', 'soft_delete'], true) && $updated->added_by_user_id !== null) {
+            $submitter = User::query()->find($updated->added_by_user_id);
+            if ($submitter !== null) {
+                event(new SourceModerated($updated, $action, $submitter));
+            }
         }
 
         return response()->json([

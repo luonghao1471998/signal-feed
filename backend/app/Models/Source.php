@@ -58,6 +58,11 @@ class Source extends Model
         return $this->belongsTo(User::class, 'added_by_user_id');
     }
 
+    public function submitter(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'added_by_user_id');
+    }
+
     public function addedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'added_by_user_id');

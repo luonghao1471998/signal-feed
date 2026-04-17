@@ -15,8 +15,6 @@ class SourceManagementController extends Controller
     {
         $validated = $request->validate([
             'display_name' => ['nullable', 'string'],
-            'status' => ['nullable', Rule::in(['pending_review', 'active', 'spam', 'deleted'])],
-            'type' => ['nullable', Rule::in(['default', 'user'])],
             'start_date' => ['nullable', 'date'],
             'end_date' => ['nullable', 'date'],
             'page' => ['nullable', 'integer', 'min:1'],
@@ -25,16 +23,12 @@ class SourceManagementController extends Controller
 
         $query = Source::query()
             ->whereNull('added_by_user_id')
+            ->where('type', 'default')
+            ->where('status', 'active')
             ->with('categories:id,name');
 
         if (! empty($validated['display_name'])) {
             $query->where('display_name', 'ILIKE', '%' . $validated['display_name'] . '%');
-        }
-        if (! empty($validated['status'])) {
-            $query->where('status', $validated['status']);
-        }
-        if (! empty($validated['type'])) {
-            $query->where('type', $validated['type']);
         }
         if (! empty($validated['start_date'])) {
             $query->whereDate('created_at', '>=', $validated['start_date']);

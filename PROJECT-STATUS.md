@@ -78,13 +78,14 @@
 ### 3.3 — Admin Review Queue
 
 **Status:** ✅ COMPLETE  
-**Progress:** 3/3 tasks done
+**Progress:** 4/4 tasks done
 
 | Task | Description | Status | Notes |
 |------|-------------|--------|-------|
 | 3.3.1 | Backend: GET admin sources endpoint | ✅ | Returns user-submitted sources with filters |
 | 3.3.2 | Backend: PATCH moderate endpoint | ✅ | Actions: approve, flag_spam, soft_delete, restore, adjust_categories |
 | 3.3.3 | Frontend: Admin moderation screen | ✅ | Full UI with tabs, actions, optimistic updates, route guard |
+| 3.3.4 | Notify submitter when moderation completes (approve / reject / spam) | 3.3 | ✅ | Email notification via Resend for approve/spam/delete actions; queued listener; 3 template variants; guards for null submitter; audit logged | 2026-04-17 | Event/Listener pattern; Mailable với Resend mailer; Blade template responsive; KHÔNG gửi cho adjust_categories/restore actions |
 
 **Completion Date:** 2026-04-16  
 **Tested:** ✅ All actions + security (non-admin blocked)

@@ -2,6 +2,389 @@
 
 ---
 
+## [2026-04-17] Task 3.3.4: Notify submitter when moderation completes
+
+**Status:** ✅ COMPLETED
+
+**Sprint:** Sprint 3 — Billing + Admin + i18n
+
+### Implementation Summary
+
+Đã triển khai notification flow khi Admin moderate source (approve/flag_spam/soft_delete):
+
+#### Event/Listener Architecture
+
+- **Event:** `SourceModerated` (`app/Events/SourceModerated.php`)
+  - Properties: `Source $source`, `string $action`, `?User $submitter`
+  - Internal event, không broadcast
+  
+- **Listener:** `NotifySubmitterOnModeration` (`app/Listeners/NotifySubmitterOnModeration.php`)
+  - Implements `ShouldQueue`, queue `notifications`, tries 3
+  - Guards:
+    - Skip nếu `$submitter = null` (default sources)
+    - Skip nếu `email` null/empty
+  - Gửi email qua Resend SDK
+  - Audit log: `source.moderation.notified` với metadata `{source_id, action, user_email, handle}`
+  - Error handling: catch exception, log warning, không throw (tránh retry loop)
+
+#### Mailable & Template
+
+- **Mailable:** `SourceModerationNotification` (`app/Mail/SourceModerationNotification.php`)
+  - Constructor: `Source $source`, `string $action`, `User $submitter`
+  - Mailer: `resend`
+  - 3 subject variants:
+    - `approve`: "Your source @{handle} has been approved!"
+    - `flag_spam`: "Update on your source @{handle} submission"
+    - `soft_delete`: "Update on your source @{handle} submission"
+
+- **Blade Template:** `source-moderation.blade.php` (`resources/views/emails/`)
+  - Responsive design, inline CSS
+  - 3 content blocks theo action:
+    - **approve**: "Good news! Source approved and active. You can now follow it."
+    - **flag_spam**: "Doesn't meet quality guidelines at this time."
+    - **soft_delete**: "Submission has been removed from tracking pool."
+  - CTA buttons:
+    - approve → `/digest`
+    - spam/delete → `/my-kols`
+  - Footer: SignalFeed branding + disclaimer
+
+#### Controller Integration
+
+- **File:** `app/Http/Controllers/Admin/SourceModerationController.php`
+- **Logic:** Sau khi moderate thành công (status updated + admin audit logged):
+  - Chỉ dispatch khi `$action` ∈ `['approve', 'flag_spam', 'soft_delete']`
+  - VÀ `$source->added_by_user_id` IS NOT NULL
+  - Load `$submitter = User::find($source->added_by_user_id)`
+  - `event(new SourceModerated($source, $action, $submitter))`
+- **KHÔNG dispatch** cho actions: `adjust_categories`, `restore`
+
+#### Event Registration
+
+- **File:** `app/Providers/EventServiceProvider.php`
+- **Mapping:** `SourceModerated::class => [NotifySubmitterOnModeration::class]`
+
+#### Configuration Fixes (Dev Environment)
+
+- **Mail config:** `config/mail.php`
+  - Added `'key' => env('RESEND_API_KEY')` vào mailer `resend` block
+  
+- **Environment:** `.env`
+  - `MAIL_MAILER=resend` (changed from `log`)
+  - `MAIL_FROM_ADDRESS=onboarding@resend.dev` (Resend verified sender)
+  - `MAIL_FROM_NAME=SignalFeed`
+
+#### Audit Log Service
+
+- **File:** `app/Services/AuditLogService.php`
+- **Change:** Thêm `source.moderation.notified` vào allowed events list
+
+### Testing Results (Manual — Production Data Safe)
+
+All tests performed via:
+- CMS Admin UI (http://127.0.0.1:8001/admin/source-moderation)
+- Tinker for verification queries
+- Resend dashboard for email delivery confirmation
+- PostgreSQL direct queries for audit logs
+
+**Test Scenarios:**
+
+| Scenario | Method | Result | Evidence |
+|----------|--------|--------|----------|
+| **Approve** user source | CMS UI: click "Approve" button | ✅ PASS | Email delivered, subject "approved!", Resend dashboard confirmed |
+| **Flag spam** user source | CMS UI: click "Flag Spam" button | ✅ PASS | Email delivered, content "doesn't meet quality guidelines" |
+| **Soft delete** user source | CMS UI: click "Soft Delete" button | ✅ PASS | Email delivered, content "removed from tracking pool" |
+| **Adjust categories** action | CMS UI: click "Adjust Categories" | ✅ PASS | No email sent, no audit log `notified` |
+| Source `added_by_user_id = null` | Tinker: dispatch event manual | ✅ PASS | Listener skipped, audit log query returned `null` |
+| **Audit log** metadata | PostgreSQL query after each action | ✅ PASS | `event_type`, `user_id`, `resource_id`, `changes` JSON đầy đủ |
+| **Queue processing** | Queue worker `--queue=notifications` | ✅ PASS | Jobs processed async, no blocking |
+| **Resend integration** | Resend dashboard `/emails` | ✅ PASS | Status "Delivered" for all test emails |
+
+**Sample Audit Log:**
+
+```json
+{
+  "id": 61,
+  "event_type": "source.moderation.notified",
+  "user_id": 2,
+  "resource_type": "source",
+  "resource_id": 85,
+  "changes": {
+    "action": "approve",
+    "handle": "LunarResearcher",
+    "source_id": 85,
+    "user_email": "luonghao1407@gmail.com"
+  },
+  "created_at": "2026-04-17 06:51:19+07"
+}
+```
+
+### Files Created/Modified
+
+**Created (5 files):**
+1. `backend/app/Events/SourceModerated.php`
+2. `backend/app/Listeners/NotifySubmitterOnModeration.php`
+3. `backend/app/Mail/SourceModerationNotification.php`
+4. `backend/resources/views/emails/source-moderation.blade.php`
+
+**Modified (4 files):**
+5. `backend/app/Providers/EventServiceProvider.php` (registered event/listener)
+6. `backend/app/Http/Controllers/Admin/SourceModerationController.php` (dispatch event after moderate)
+7. `backend/app/Services/AuditLogService.php` (added allowed event)
+8. `backend/config/mail.php` (added `key` to resend mailer)
+
+**Environment config:**
+9. `backend/.env` (MAIL_MAILER, MAIL_FROM_ADDRESS, MAIL_FROM_NAME)
+
+### Technical Notes
+
+- **Email delivery:** Resend test mode với `onboarding@resend.dev` sender (development only)
+- **Production readiness:** Cần verify custom domain trên Resend trước khi deploy production
+- **Queue:** Jobs chạy async trên queue `notifications`, không block API response
+- **Error handling:** Mail send failures được log nhưng không throw exception (tránh infinite retry)
+- **Guards:** Multiple layers:
+  - Controller: chỉ dispatch cho actions cụ thể + có submitter
+  - Listener: skip nếu email invalid
+  - Query filter: API chỉ trả sources `type=user`
+
+### Safety Compliance
+
+- ✅ KHÔNG chạy `php artisan migrate:fresh/refresh/test`
+- ✅ KHÔNG dùng `RefreshDatabase` trait
+- ✅ KHÔNG truncate/delete data
+- ✅ Test 100% manual qua Tinker + CMS UI
+- ✅ Sử dụng data có sẵn trong DB
+- ✅ Queue worker chạy `--stop-when-empty` (không daemon mode cho test)
+
+### References
+
+- `IMPLEMENTATION-ROADMAP.md` — Task 3.3.4
+- `API-CONTRACTS.md` §4 Resend Integration (endpoint 1b)
+- `SPEC-core.md` — Flow 6 Option B (moderation flow)
+- `SESSION-LOG.md` — Admin refactor context (Task 3.3.2)
+
+**Dependencies:**
+- ✅ Task 3.3.2: PATCH moderate API
+- ✅ Task 3.2.0: Resend SDK installed + configured
+- ✅ Admin guard: `auth:admin` middleware + `is_admin` flag
+
+**Next Steps:**
+- Phase 2: In-app notification (poll/banner)
+- Phase 2: Telegram notification
+- Production: Verify custom domain trên Resend
+
+## [2026-04-17] Task 3.3.4: Notify submitter when moderation completes
+
+**Status:** ✅ COMPLETED
+
+**Sprint:** Sprint 3 — Billing + Admin + i18n
+
+### Implementation Summary
+
+Đã triển khai notification flow khi Admin moderate source (approve/flag_spam/soft_delete):
+
+#### Event/Listener Architecture
+
+- **Event:** `SourceModerated` (`app/Events/SourceModerated.php`)
+  - Properties: `Source $source`, `string $action`, `?User $submitter`
+  - Internal event, không broadcast
+  
+- **Listener:** `NotifySubmitterOnModeration` (`app/Listeners/NotifySubmitterOnModeration.php`)
+  - Implements `ShouldQueue`, queue `notifications`, tries 3
+  - Guards:
+    - Skip nếu `$submitter = null` (default sources)
+    - Skip nếu `email` null/empty
+  - Gửi email qua Resend SDK
+  - Audit log: `source.moderation.notified` với metadata `{source_id, action, user_email, handle}`
+  - Error handling: catch exception, log warning, không throw (tránh retry loop)
+
+#### Mailable & Template
+
+- **Mailable:** `SourceModerationNotification` (`app/Mail/SourceModerationNotification.php`)
+  - Constructor: `Source $source`, `string $action`, `User $submitter`
+  - Mailer: `resend`
+  - 3 subject variants:
+    - `approve`: "Your source @{handle} has been approved!"
+    - `flag_spam`: "Update on your source @{handle} submission"
+    - `soft_delete`: "Update on your source @{handle} submission"
+
+- **Blade Template:** `source-moderation.blade.php` (`resources/views/emails/`)
+  - Responsive design, inline CSS
+  - 3 content blocks theo action:
+    - **approve**: "Good news! Source approved and active. You can now follow it."
+    - **flag_spam**: "Doesn't meet quality guidelines at this time."
+    - **soft_delete**: "Submission has been removed from tracking pool."
+  - CTA buttons:
+    - approve → `/digest`
+    - spam/delete → `/my-kols`
+  - Footer: SignalFeed branding + disclaimer
+
+#### Controller Integration
+
+- **File:** `app/Http/Controllers/Admin/SourceModerationController.php`
+- **Logic:** Sau khi moderate thành công (status updated + admin audit logged):
+  - Chỉ dispatch khi `$action` ∈ `['approve', 'flag_spam', 'soft_delete']`
+  - VÀ `$source->added_by_user_id` IS NOT NULL
+  - Load `$submitter = User::find($source->added_by_user_id)`
+  - `event(new SourceModerated($source, $action, $submitter))`
+- **KHÔNG dispatch** cho actions: `adjust_categories`, `restore`
+
+#### Event Registration
+
+- **File:** `app/Providers/EventServiceProvider.php`
+- **Mapping:** `SourceModerated::class => [NotifySubmitterOnModeration::class]`
+
+#### Configuration Fixes (Dev Environment)
+
+- **Mail config:** `config/mail.php`
+  - Added `'key' => env('RESEND_API_KEY')` vào mailer `resend` block
+  
+- **Environment:** `.env`
+  - `MAIL_MAILER=resend` (changed from `log`)
+  - `MAIL_FROM_ADDRESS=onboarding@resend.dev` (Resend verified sender)
+  - `MAIL_FROM_NAME=SignalFeed`
+
+#### Audit Log Service
+
+- **File:** `app/Services/AuditLogService.php`
+- **Change:** Thêm `source.moderation.notified` vào allowed events list
+
+### Testing Results (Manual — Production Data Safe)
+
+All tests performed via:
+- CMS Admin UI (http://127.0.0.1:8001/admin/source-moderation)
+- Tinker for verification queries
+- Resend dashboard for email delivery confirmation
+- PostgreSQL direct queries for audit logs
+
+**Test Scenarios:**
+
+| Scenario | Method | Result | Evidence |
+|----------|--------|--------|----------|
+| **Approve** user source | CMS UI: click "Approve" button | ✅ PASS | Email delivered, subject "approved!", Resend dashboard confirmed |
+| **Flag spam** user source | CMS UI: click "Flag Spam" button | ✅ PASS | Email delivered, content "doesn't meet quality guidelines" |
+| **Soft delete** user source | CMS UI: click "Soft Delete" button | ✅ PASS | Email delivered, content "removed from tracking pool" |
+| **Adjust categories** action | CMS UI: click "Adjust Categories" | ✅ PASS | No email sent, no audit log `notified` |
+| Source `added_by_user_id = null` | Tinker: dispatch event manual | ✅ PASS | Listener skipped, audit log query returned `null` |
+| **Audit log** metadata | PostgreSQL query after each action | ✅ PASS | `event_type`, `user_id`, `resource_id`, `changes` JSON đầy đủ |
+| **Queue processing** | Queue worker `--queue=notifications` | ✅ PASS | Jobs processed async, no blocking |
+| **Resend integration** | Resend dashboard `/emails` | ✅ PASS | Status "Delivered" for all test emails |
+
+**Sample Audit Log:**
+
+```json
+{
+  "id": 61,
+  "event_type": "source.moderation.notified",
+  "user_id": 2,
+  "resource_type": "source",
+  "resource_id": 85,
+  "changes": {
+    "action": "approve",
+    "handle": "LunarResearcher",
+    "source_id": 85,
+    "user_email": "luonghao1407@gmail.com"
+  },
+  "created_at": "2026-04-17 06:51:19+07"
+}
+```
+
+### Files Created/Modified
+
+**Created (5 files):**
+1. `backend/app/Events/SourceModerated.php`
+2. `backend/app/Listeners/NotifySubmitterOnModeration.php`
+3. `backend/app/Mail/SourceModerationNotification.php`
+4. `backend/resources/views/emails/source-moderation.blade.php`
+
+**Modified (4 files):**
+5. `backend/app/Providers/EventServiceProvider.php` (registered event/listener)
+6. `backend/app/Http/Controllers/Admin/SourceModerationController.php` (dispatch event after moderate)
+7. `backend/app/Services/AuditLogService.php` (added allowed event)
+8. `backend/config/mail.php` (added `key` to resend mailer)
+
+**Environment config:**
+9. `backend/.env` (MAIL_MAILER, MAIL_FROM_ADDRESS, MAIL_FROM_NAME)
+
+### Technical Notes
+
+- **Email delivery:** Resend test mode với `onboarding@resend.dev` sender (development only)
+- **Production readiness:** Cần verify custom domain trên Resend trước khi deploy production
+- **Queue:** Jobs chạy async trên queue `notifications`, không block API response
+- **Error handling:** Mail send failures được log nhưng không throw exception (tránh infinite retry)
+- **Guards:** Multiple layers:
+  - Controller: chỉ dispatch cho actions cụ thể + có submitter
+  - Listener: skip nếu email invalid
+  - Query filter: API chỉ trả sources `type=user`
+
+### Safety Compliance
+
+- ✅ KHÔNG chạy `php artisan migrate:fresh/refresh/test`
+- ✅ KHÔNG dùng `RefreshDatabase` trait
+- ✅ KHÔNG truncate/delete data
+- ✅ Test 100% manual qua Tinker + CMS UI
+- ✅ Sử dụng data có sẵn trong DB
+- ✅ Queue worker chạy `--stop-when-empty` (không daemon mode cho test)
+
+### References
+
+- `IMPLEMENTATION-ROADMAP.md` — Task 3.3.4
+- `API-CONTRACTS.md` §4 Resend Integration (endpoint 1b)
+- `SPEC-core.md` — Flow 6 Option B (moderation flow)
+- `SESSION-LOG.md` — Admin refactor context (Task 3.3.2)
+
+**Dependencies:**
+- ✅ Task 3.3.2: PATCH moderate API
+- ✅ Task 3.2.0: Resend SDK installed + configured
+- ✅ Admin guard: `auth:admin` middleware + `is_admin` flag
+
+**Next Steps:**
+- Phase 2: In-app notification (poll/banner)
+- Phase 2: Telegram notification
+- Production: Verify custom domain trên Resend
+
+## [2026-04-17] Task 3.3.4: Notify submitter when moderation completes
+
+**Sprint:** Sprint 3 — Billing + Admin + i18n  
+**Task:** 3.3.4 — Notify submitter when moderation completes (approve / reject / spam)  
+**Feature Group:** 3.3 — Admin Review Queue  
+**Depends On:** 3.3.2 ✅ (PATCH moderate API), 3.2.0 ✅ (SendDigestEmailJob / Resend SDK installed)  
+**Tag:** [POST-WEDGE]
+
+**Objective:** Sau khi Admin thực hiện moderate action (approve / flag_spam / soft_delete) qua PATCH `/admin/api/source-moderation/{id}`, gửi email thông báo tới user đã submit source đó (`added_by_user_id`).
+
+**Context kiến trúc (post-refactor):**
+- Admin backend đã tách riêng: bảng `admins`, guard `auth:admin`, routes tại `backend/routes/admin.php`
+- Admin moderate API hiện tại: `PATCH /admin/api/source-moderation/{id}` (hoặc `/admin/api/sources/{id}` tùy đặt tên route cuối cùng trong refactor — check `routes/admin.php` trước)
+- Resend SDK đã installed + configured từ Task 3.2.0
+- User `added_by_user_id` nằm trong bảng `users` — cần join để lấy email
+
+**Scope:**
+1. Event/Listener pattern: dispatch `SourceModerated` event sau khi admin PATCH thành công
+2. Listener: `NotifySubmitterOnModeration` — lắng nghe event, gửi email qua Resend
+3. Mailable: `SourceModerationNotification` — 3 template variants:
+   - Approved: "Your source @handle has been approved and is now being tracked!"
+   - Flagged as spam: "Your source @handle has been flagged for review"
+   - Deleted: "Your source @handle submission has been removed"
+4. Blade template: `resources/views/emails/source-moderation.blade.php` — responsive, reuse layout digest nếu phù hợp
+5. Guard: chỉ gửi nếu `added_by_user_id` IS NOT NULL VÀ user có email hợp lệ (email_valid !== false)
+6. Audit log: `source.moderation.notified` với metadata `{ source_id, action, user_email }`
+7. Queue: `ShouldQueue`, queue name `notifications`, retry 3
+
+**Out of scope:**
+- In-app notification (poll/banner) — Phase 2
+- Telegram notification — Phase 2
+- `adjust_categories` + `restore` actions: KHÔNG gửi email (chỉ gửi cho approve / flag_spam / soft_delete)
+
+**References:**
+- `IMPLEMENTATION-ROADMAP.md` Task 3.3.4
+- `API-CONTRACTS.md` §4 Resend — endpoint 1b (moderation email)
+- `SPEC-core.md` Flow 6 Option B
+- SESSION-LOG refactor: admin routes tại `backend/routes/admin.php`, controller namespace `Admin`
+
+**Status:** 🔄 Starting
+
+---
+
 ## [2026-04-17 ~ 2026-04-18] Refactor lớn: Tách cấu trúc `frontend/` + `backend/` và tái kiến trúc Admin backend
 
 **Status:** ✅ COMPLETED  
@@ -9658,3 +10041,173 @@ Response format giữ nguyên như endpoint hiện tại (`SourceResource::colle
 - [x] No database destructive operations
 
 ---
+
+## [2026-04-17] Task 3.3.4: Notify submitter when moderation completes
+
+**Status:** ✅ COMPLETED
+
+**Sprint:** Sprint 3 — Billing + Admin + i18n
+
+### Implementation Summary
+
+Đã triển khai notification flow khi Admin moderate source (approve/flag_spam/soft_delete):
+
+#### Event/Listener Architecture
+
+- **Event:** `SourceModerated` (`app/Events/SourceModerated.php`)
+  - Properties: `Source $source`, `string $action`, `?User $submitter`
+  - Internal event, không broadcast
+  
+- **Listener:** `NotifySubmitterOnModeration` (`app/Listeners/NotifySubmitterOnModeration.php`)
+  - Implements `ShouldQueue`, queue `notifications`, tries 3
+  - Guards:
+    - Skip nếu `$submitter = null` (default sources)
+    - Skip nếu `email` null/empty
+  - Gửi email qua Resend SDK
+  - Audit log: `source.moderation.notified` với metadata `{source_id, action, user_email, handle}`
+  - Error handling: catch exception, log warning, không throw (tránh retry loop)
+
+#### Mailable & Template
+
+- **Mailable:** `SourceModerationNotification` (`app/Mail/SourceModerationNotification.php`)
+  - Constructor: `Source $source`, `string $action`, `User $submitter`
+  - Mailer: `resend`
+  - 3 subject variants:
+    - `approve`: "Your source @{handle} has been approved!"
+    - `flag_spam`: "Update on your source @{handle} submission"
+    - `soft_delete`: "Update on your source @{handle} submission"
+
+- **Blade Template:** `source-moderation.blade.php` (`resources/views/emails/`)
+  - Responsive design, inline CSS
+  - 3 content blocks theo action:
+    - **approve**: "Good news! Source approved and active. You can now follow it."
+    - **flag_spam**: "Doesn't meet quality guidelines at this time."
+    - **soft_delete**: "Submission has been removed from tracking pool."
+  - CTA buttons:
+    - approve → `/digest`
+    - spam/delete → `/my-kols`
+  - Footer: SignalFeed branding + disclaimer
+
+#### Controller Integration
+
+- **File:** `app/Http/Controllers/Admin/SourceModerationController.php`
+- **Logic:** Sau khi moderate thành công (status updated + admin audit logged):
+  - Chỉ dispatch khi `$action` ∈ `['approve', 'flag_spam', 'soft_delete']`
+  - VÀ `$source->added_by_user_id` IS NOT NULL
+  - Load `$submitter = User::find($source->added_by_user_id)`
+  - `event(new SourceModerated($source, $action, $submitter))`
+- **KHÔNG dispatch** cho actions: `adjust_categories`, `restore`
+
+#### Event Registration
+
+- **File:** `app/Providers/EventServiceProvider.php`
+- **Mapping:** `SourceModerated::class => [NotifySubmitterOnModeration::class]`
+
+#### Configuration Fixes (Dev Environment)
+
+- **Mail config:** `config/mail.php`
+  - Added `'key' => env('RESEND_API_KEY')` vào mailer `resend` block
+  
+- **Environment:** `.env`
+  - `MAIL_MAILER=resend` (changed from `log`)
+  - `MAIL_FROM_ADDRESS=onboarding@resend.dev` (Resend verified sender)
+  - `MAIL_FROM_NAME=SignalFeed`
+
+#### Audit Log Service
+
+- **File:** `app/Services/AuditLogService.php`
+- **Change:** Thêm `source.moderation.notified` vào allowed events list
+
+### Testing Results (Manual — Production Data Safe)
+
+All tests performed via:
+- CMS Admin UI (http://127.0.0.1:8001/admin/source-moderation)
+- Tinker for verification queries
+- Resend dashboard for email delivery confirmation
+- PostgreSQL direct queries for audit logs
+
+**Test Scenarios:**
+
+| Scenario | Method | Result | Evidence |
+|----------|--------|--------|----------|
+| **Approve** user source | CMS UI: click "Approve" button | ✅ PASS | Email delivered, subject "approved!", Resend dashboard confirmed |
+| **Flag spam** user source | CMS UI: click "Flag Spam" button | ✅ PASS | Email delivered, content "doesn't meet quality guidelines" |
+| **Soft delete** user source | CMS UI: click "Soft Delete" button | ✅ PASS | Email delivered, content "removed from tracking pool" |
+| **Adjust categories** action | CMS UI: click "Adjust Categories" | ✅ PASS | No email sent, no audit log `notified` |
+| Source `added_by_user_id = null` | Tinker: dispatch event manual | ✅ PASS | Listener skipped, audit log query returned `null` |
+| **Audit log** metadata | PostgreSQL query after each action | ✅ PASS | `event_type`, `user_id`, `resource_id`, `changes` JSON đầy đủ |
+| **Queue processing** | Queue worker `--queue=notifications` | ✅ PASS | Jobs processed async, no blocking |
+| **Resend integration** | Resend dashboard `/emails` | ✅ PASS | Status "Delivered" for all test emails |
+
+**Sample Audit Log:**
+
+```json
+{
+  "id": 61,
+  "event_type": "source.moderation.notified",
+  "user_id": 2,
+  "resource_type": "source",
+  "resource_id": 85,
+  "changes": {
+    "action": "approve",
+    "handle": "LunarResearcher",
+    "source_id": 85,
+    "user_email": "luonghao1407@gmail.com"
+  },
+  "created_at": "2026-04-17 06:51:19+07"
+}
+```
+
+### Files Created/Modified
+
+**Created (5 files):**
+1. `backend/app/Events/SourceModerated.php`
+2. `backend/app/Listeners/NotifySubmitterOnModeration.php`
+3. `backend/app/Mail/SourceModerationNotification.php`
+4. `backend/resources/views/emails/source-moderation.blade.php`
+
+**Modified (4 files):**
+5. `backend/app/Providers/EventServiceProvider.php` (registered event/listener)
+6. `backend/app/Http/Controllers/Admin/SourceModerationController.php` (dispatch event after moderate)
+7. `backend/app/Services/AuditLogService.php` (added allowed event)
+8. `backend/config/mail.php` (added `key` to resend mailer)
+
+**Environment config:**
+9. `backend/.env` (MAIL_MAILER, MAIL_FROM_ADDRESS, MAIL_FROM_NAME)
+
+### Technical Notes
+
+- **Email delivery:** Resend test mode với `onboarding@resend.dev` sender (development only)
+- **Production readiness:** Cần verify custom domain trên Resend trước khi deploy production
+- **Queue:** Jobs chạy async trên queue `notifications`, không block API response
+- **Error handling:** Mail send failures được log nhưng không throw exception (tránh infinite retry)
+- **Guards:** Multiple layers:
+  - Controller: chỉ dispatch cho actions cụ thể + có submitter
+  - Listener: skip nếu email invalid
+  - Query filter: API chỉ trả sources `type=user`
+
+### Safety Compliance
+
+- ✅ KHÔNG chạy `php artisan migrate:fresh/refresh/test`
+- ✅ KHÔNG dùng `RefreshDatabase` trait
+- ✅ KHÔNG truncate/delete data
+- ✅ Test 100% manual qua Tinker + CMS UI
+- ✅ Sử dụng data có sẵn trong DB
+- ✅ Queue worker chạy `--stop-when-empty` (không daemon mode cho test)
+
+### References
+
+- `IMPLEMENTATION-ROADMAP.md` — Task 3.3.4
+- `API-CONTRACTS.md` §4 Resend Integration (endpoint 1b)
+- `SPEC-core.md` — Flow 6 Option B (moderation flow)
+- `SESSION-LOG.md` — Admin refactor context (Task 3.3.2)
+
+**Dependencies:**
+- ✅ Task 3.3.2: PATCH moderate API
+- ✅ Task 3.2.0: Resend SDK installed + configured
+- ✅ Admin guard: `auth:admin` middleware + `is_admin` flag
+
+**Next Steps:**
+- Phase 2: In-app notification (poll/banner)
+- Phase 2: Telegram notification
+- Production: Verify custom domain trên Resend
