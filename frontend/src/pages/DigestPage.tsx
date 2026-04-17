@@ -498,17 +498,64 @@ const DigestPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-white">
       {isMobile && (
-        <header className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-[#eff3f4] bg-white/85 px-4 py-3 backdrop-blur-[12px]">
-          <Zap className="h-6 w-6 shrink-0 text-[#1d9bf0]" aria-hidden />
-          <h1 className="flex-1 truncate text-center text-base font-extrabold text-[#0f1419]">{centerTitle}</h1>
-          <button
-            type="button"
-            onClick={() => setFilterSheetOpen(true)}
-            className="flex min-h-[40px] min-w-[40px] shrink-0 items-center justify-center rounded-full p-2 text-[#536471] hover:bg-[#f7f9f9]"
-            aria-label={t("digest.filterSignals")}
-          >
-            <SlidersHorizontal className="h-5 w-5" />
-          </button>
+        <header className="sticky top-0 z-20 border-b border-[#eff3f4] bg-white/85 px-4 py-3 backdrop-blur-[12px]">
+          <div className="flex items-center justify-between gap-2">
+            <Zap className="h-6 w-6 shrink-0 text-[#1d9bf0]" aria-hidden />
+            <h1 className="flex-1 truncate text-center text-base font-extrabold text-[#0f1419]">{centerTitle}</h1>
+            <button
+              type="button"
+              onClick={() => setFilterSheetOpen(true)}
+              className="flex min-h-[40px] min-w-[40px] shrink-0 items-center justify-center rounded-full p-2 text-[#536471] hover:bg-[#f7f9f9]"
+              aria-label={t("digest.filterSignals")}
+            >
+              <SlidersHorizontal className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={goPrevDay}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#eff3f4] text-[#536471]"
+              aria-label={t("digest.previousDay")}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+
+            <input
+              type="date"
+              value={filterDate}
+              max={todayYmd()}
+              onChange={(event) => {
+                const next = event.target.value;
+                if (!next) {
+                  return;
+                }
+                setCurrentPage(1);
+                setFilterDate(next);
+                navigate(`/digest/${next}`);
+              }}
+              className="h-9 min-w-0 flex-1 rounded-lg border border-[#d7dee3] px-3 text-sm text-[#0f1419]"
+              aria-label={t("digest.today")}
+            />
+
+            <button
+              type="button"
+              onClick={goNextDay}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#eff3f4] text-[#536471]"
+              aria-label={t("digest.nextDay")}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+
+            <button
+              type="button"
+              onClick={goToday}
+              className="h-9 shrink-0 rounded-full bg-[#1d9bf0] px-3 text-xs font-bold text-white"
+            >
+              {t("digest.today")}
+            </button>
+          </div>
         </header>
       )}
 

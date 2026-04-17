@@ -7,7 +7,9 @@ use App\Services\StripeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use InvalidArgumentException;
+use RuntimeException;
 use Stripe\Exception\ApiErrorException;
 
 class BillingController extends Controller
@@ -18,10 +20,19 @@ class BillingController extends Controller
 
     public function checkout(Request $request): JsonResponse
     {
-        $validated = $request->validate([
+        $validator = Validator::make($request->all(), [
             'plan' => ['required', 'string', 'in:pro,power'],
         ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'error' => [
+                    'code' => 'VALIDATION_ERROR',
+                    'message' => (string) $validator->errors()->first('plan'),
+                ],
+            ], 400);
+        }
 
+        $validated = $validator->validated();
         $user = $request->user();
         $plan = $validated['plan'];
 
@@ -56,6 +67,19 @@ class BillingController extends Controller
                     'message' => 'Payment service is temporarily unavailable. Please try again.',
                 ],
             ], 500);
+        } catch (RuntimeException $e) {
+            Log::error('Stripe Checkout configuration/runtime error', [
+                'user_id' => $user->id,
+                'plan' => $plan,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'error' => [
+                    'code' => 'CONFIG_ERROR',
+                    'message' => 'Billing service is not configured correctly.',
+                ],
+            ], 500);
         } catch (InvalidArgumentException $e) {
             return response()->json([
                 'error' => [
@@ -63,6 +87,19 @@ class BillingController extends Controller
                     'message' => $e->getMessage(),
                 ],
             ], 400);
+        } catch (\Throwable $e) {
+            Log::error('Unexpected checkout error', [
+                'user_id' => $user->id,
+                'plan' => $plan,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'error' => [
+                    'code' => 'INTERNAL_ERROR',
+                    'message' => 'Unexpected billing error. Please try again.',
+                ],
+            ], 500);
         }
     }
 }

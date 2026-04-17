@@ -34,7 +34,6 @@ class StripeWebhookService
      */
     public function processStripeEvent(Event $event): void
     {
-        // 1. Thực hiện xử lý nghiệp vụ
         match ($event->type) {
             'checkout.session.completed' => $this->handleCheckoutSessionCompleted($event),
             'customer.subscription.updated' => $this->handleSubscriptionUpdated($event),
@@ -42,23 +41,6 @@ class StripeWebhookService
             'invoice.payment_failed' => $this->handleInvoicePaymentFailed($event),
             default => Log::info('Stripe webhook: ignored event type', ['type' => $event->type]),
         };
-
-        // 2. CHỐT HẠ: Ghi log idempotency vào database (SỬ DỤNG event_id)
-        try {
-            DB::table('processed_stripe_events')->insert([
-                'event_id' => $event->id,
-                'event_type' => $event->type,
-                'processed_at' => now()->utc(),
-                'created_at' => now()->utc(),
-            ]);
-            DB::commit();
-        } catch (\Throwable $e) {
-            // Nếu lỗi do trùng ID (duplicate key) thì cũng không sao, vì event đã xử lý rồi
-            Log::error('Stripe webhook: failed to record idempotency', [
-                'event_id' => $event->id,
-                'error' => $e->getMessage(),
-            ]);
-        }
     }
 
     /**

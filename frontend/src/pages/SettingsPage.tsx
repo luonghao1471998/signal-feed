@@ -12,12 +12,11 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCategories, type Category } from "@/services/categoryService";
+import { createCheckoutSession, type BillingPlan } from "@/services/billingService";
 import { fetchSettings, type SettingsData, updateSettings } from "@/services/settingsService";
 import { useLocale, type Locale } from "@/i18n";
 
 type SettingsTab = "profile" | "digest" | "billing" | "telegram" | "language";
-
-const MOBILE_TABS: SettingsTab[] = ["profile", "digest"];
 
 const FEATURE_LABELS: Record<string, string> = {
   "3_digests_per_week": "3 digests per week",
@@ -102,6 +101,7 @@ const SettingsPage: React.FC = () => {
   const [settings, setSettings] = useState<SettingsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [billingLoading, setBillingLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [displayName, setDisplayName] = useState("");
@@ -110,12 +110,6 @@ const SettingsPage: React.FC = () => {
   const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
   const [locale, setLocale] = useState<Locale>("en");
   const [categories, setCategories] = useState<Category[]>([]);
-
-  useEffect(() => {
-    if (isMobile && !MOBILE_TABS.includes(activeTab)) {
-      setActiveTab("digest");
-    }
-  }, [isMobile, activeTab]);
 
   useEffect(() => {
     async function loadSettingsAndCategories() {
@@ -159,12 +153,6 @@ const SettingsPage: React.FC = () => {
       active ? "font-bold text-slate-900" : "font-normal text-slate-600 hover:text-slate-900 hover:bg-slate-50",
     );
 
-  const mobileDesktopNote = (
-    <p className="text-xs text-slate-400 text-center mt-8 mb-2">
-      For billing and advanced settings, visit SignalFeed on desktop.
-    </p>
-  );
-
   const currentPlan = settings?.plan.current || user?.plan || "free";
   const normalizedPlan = (["free", "pro", "power"].includes(currentPlan) ? currentPlan : "free") as
     | "free"
@@ -172,6 +160,7 @@ const SettingsPage: React.FC = () => {
     | "power";
   const upgradeTarget = normalizedPlan === "free" ? "Pro" : normalizedPlan === "pro" ? "Power" : "Power";
   const upgradePrice = upgradeTarget === "Pro" ? "$15/month" : "$30/month";
+  const upgradeButtonLabel = normalizedPlan === "free" ? "Upgrade to Pro" : "Upgrade to Power";
   const planFeatures = useMemo(
     () => (settings?.plan.features ?? []).map((feature) => FEATURE_LABELS[feature] ?? feature.replaceAll("_", " ")),
     [settings?.plan.features],
@@ -288,6 +277,24 @@ const SettingsPage: React.FC = () => {
     });
   }
 
+  async function handleStartFreeTrial() {
+    const targetPlan: BillingPlan = normalizedPlan === "free" ? "pro" : "power";
+
+    try {
+      setBillingLoading(true);
+      const checkoutUrl = await createCheckoutSession(targetPlan);
+      window.location.href = checkoutUrl;
+    } catch (e) {
+      toast({
+        title: t("common.error"),
+        description: e instanceof Error ? e.message : t("common.error"),
+        variant: "destructive",
+      });
+    } finally {
+      setBillingLoading(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -321,25 +328,26 @@ const SettingsPage: React.FC = () => {
       <div className="flex min-h-screen flex-col md:flex-row">
         {isMobile ? (
           <div className="w-full shrink-0 pt-4 px-4">
-            <div className="flex border-b border-slate-100 mb-6">
-              <button
-                type="button"
-                onClick={() => setActiveTab("profile")}
-                className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === "profile" ? "border-blue-500 text-blue-500" : "border-transparent text-slate-400"
-                }`}
-              >
-                {t("settings.profile")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("digest")}
-                className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === "digest" ? "border-blue-500 text-blue-500" : "border-transparent text-slate-400"
-                }`}
-              >
-                {t("settings.digestPrefs")}
-              </button>
+            <div className="mb-6 flex gap-1 overflow-x-auto border-b border-slate-100 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {[
+                { id: "profile" as const, label: t("settings.profile") },
+                { id: "digest" as const, label: t("settings.digestPrefs") },
+                { id: "billing" as const, label: t("settings.planBilling") },
+                { id: "telegram" as const, label: t("settings.telegram") },
+                { id: "language" as const, label: t("settings.language") },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setActiveTab(item.id)}
+                  className={cn(
+                    "shrink-0 border-b-2 px-3 py-3 text-sm font-medium transition-colors",
+                    activeTab === item.id ? "border-blue-500 text-blue-500" : "border-transparent text-slate-400",
+                  )}
+                >
+                  {item.label}
+                </button>
+              ))}
             </div>
           </div>
         ) : (
@@ -408,7 +416,6 @@ const SettingsPage: React.FC = () => {
                   t("settings.saveChanges")
                 )}
               </Button>
-              {isMobile && mobileDesktopNote}
             </section>
           )}
 
@@ -468,7 +475,6 @@ const SettingsPage: React.FC = () => {
                   t("settings.savePreferences")
                 )}
               </Button>
-              {isMobile && mobileDesktopNote}
             </section>
           )}
 
@@ -502,9 +508,17 @@ const SettingsPage: React.FC = () => {
                 <Button
                   className="w-full mt-4 rounded-full bg-blue-500 text-white py-3 font-bold hover:bg-blue-600"
                   type="button"
-                  onClick={() => showComingSoonToast("Billing portal will be available in Sprint 3")}
+                  onClick={() => void handleStartFreeTrial()}
+                  disabled={billingLoading || normalizedPlan === "power"}
                 >
-                  Start free trial →
+                  {billingLoading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Redirecting...
+                    </span>
+                  ) : (
+                    `${upgradeButtonLabel} →`
+                  )}
                 </Button>
               </div>
 
@@ -531,19 +545,6 @@ const SettingsPage: React.FC = () => {
                 </div>
               </div>
 
-              <div style={{ textAlign: "center", marginTop: 12 }}>
-                <a
-                  href="#"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    showComingSoonToast("Stripe billing management coming in Sprint 3");
-                  }}
-                  style={{ fontSize: 14, color: "#536471", textDecoration: "underline" }}
-                >
-                  Manage subscription →
-                </a>
-                <p style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>Stripe billing management coming in Sprint 3</p>
-              </div>
             </section>
           )}
 
