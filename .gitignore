@@ -1,8 +1,13 @@
 /.phpunit.cache
 /node_modules
+/frontend/node_modules
 /public/build
 /public/hot
 /public/storage
+/backend/node_modules
+/backend/public/build
+/backend/public/hot
+/backend/vendor
 /storage/*.key
 /storage/pail
 /vendor

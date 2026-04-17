@@ -7,12 +7,19 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## SignalFeed — cấu trúc repo
+
+- **`backend/`** — Laravel 11 (API, admin, queue, scheduler). `.env` nằm tại `backend/.env` (có thể dùng symlink `ln -s backend/.env .env` ở root).
+- **`frontend/`** — React + Vite (`frontend/src`). Build ghi vào `backend/public/build`.
+- **Admin (email/mật khẩu, bảng `admins`):** đăng nhập tại `/admin/login` sau khi chạy `cd backend && php artisan db:seed --class=AdminSeeder` (mặc định `ADMIN_EMAIL` / `ADMIN_PASSWORD` trong `.env`, xem `.env.example`).
+- **Chạy dev:** `cd backend && composer run dev` (Laravel + queue + Vite), hoặc tách: `cd backend && php artisan serve` và `cd frontend && npm run dev`.
+
 ## SignalFeed — LLM / pipeline testing (credits)
 
 - **`MOCK_LLM`** (`config('app.mock_llm')`): khi `true`, `PipelineCrawlJob` dùng **`FakeLLMClient`** (không gọi Anthropic). PHPUnit mặc định bật qua `phpunit.xml`.
 - **Production / classify thật:** đặt `MOCK_LLM=false` và `ANTHROPIC_API_KEY`.
-- **Chạy pipeline tay:** `php artisan pipeline:run --limit=10` (tôn trọng `MOCK_LLM`).
-- **Một tweet + API thật (tốn credits):** `php artisan test:classify {id}` — xác nhận trong CLI; không chạy khi `MOCK_LLM=true`.
+- **Chạy pipeline tay:** `cd backend && php artisan pipeline:run --limit=10` (tôn trọng `MOCK_LLM`).
+- **Một tweet + API thật (tốn credits):** `cd backend && php artisan test:classify {id}` — xác nhận trong CLI; không chạy khi `MOCK_LLM=true`.
 
 ## About Laravel
 

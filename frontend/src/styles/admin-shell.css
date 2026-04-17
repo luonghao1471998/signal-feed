@@ -1,0 +1,21 @@
+/**
+ * Admin shell style (neutral, low-color).
+ */
+.admin-shell {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.admin-shell__main-bg {
+  background-color: #f8fafc;
+  background-image:
+    radial-gradient(ellipse 120% 80% at 0% -20%, rgba(71, 85, 105, 0.08), transparent 50%),
+    radial-gradient(ellipse 90% 60% at 100% 0%, rgba(100, 116, 139, 0.06), transparent 45%);
+}
+
+.admin-shell__login-bg {
+  background-color: #0f172a;
+  background-image:
+    radial-gradient(ellipse 100% 80% at 20% 10%, rgba(71, 85, 105, 0.28), transparent 55%),
+    radial-gradient(ellipse 80% 60% at 80% 20%, rgba(100, 116, 139, 0.16), transparent 50%);
+}

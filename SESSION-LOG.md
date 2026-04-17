@@ -2,6 +2,121 @@
 
 ---
 
+## [2026-04-17 ~ 2026-04-18] Refactor lớn: Tách cấu trúc `frontend/` + `backend/` và tái kiến trúc Admin backend
+
+**Status:** ✅ COMPLETED  
+**Phạm vi:** Monorepo structure, build toolchain, auth/admin domain, API routes, admin UI routing + CRUD workflow
+
+### 1) Mục tiêu refactor
+
+- Tách rõ **2 phần độc lập trong cùng repo**:
+  - `backend/`: Laravel app (API user-facing, admin API, jobs, scheduler, queue, migration, seeders).
+  - `frontend/`: React SPA (Vite, TypeScript, UI cho user + admin panel routes).
+- Loại bỏ cách làm admin cũ dựa vào `users.is_admin` (quick hack), chuyển sang mô hình **admin account riêng** với session guard riêng.
+- Chuẩn hóa luồng dev/build để frontend build asset về `backend/public/build` cho Laravel serve.
+
+### 2) Thay đổi cấu trúc thư mục code
+
+- Di chuyển toàn bộ mã Laravel sang `backend/`:
+  - `app/`, `bootstrap/`, `config/`, `database/`, `routes/`, `public/`, `resources/`, `artisan`, `composer.*`, `phpunit.xml`, v.v.
+- Di chuyển mã React/Vite sang `frontend/`:
+  - `src/`, `vite.config.ts`, `postcss.config.*`, `tailwind.config.ts`, `tsconfig*.json`, `package*.json`, `eslint.config.js`, v.v.
+- Cập nhật ignore/build artifacts theo cấu trúc mới (`frontend/node_modules`, `backend/public/build`, ...).
+- Đồng bộ lại README và lệnh chạy theo 2 thư mục.
+
+### 3) Thay đổi toolchain sau khi tách thư mục
+
+- `frontend/vite.config.ts` được cấu hình để:
+  - chạy dev từ frontend,
+  - resolve đúng module trong `frontend/node_modules`,
+  - build output sang `backend/public/build`.
+- CSS frontend import trực tiếp từ backend resources:
+  - `frontend/src/main.tsx` import `../../backend/resources/css/app.css`.
+- Blade dùng entry mới:
+  - `@vite(['src/main.tsx'])` thay cho pattern cũ.
+- Xử lý tương thích PostCSS/Tailwind và ESM/CJS sau refactor (đã fix các lỗi resolve trước đó).
+
+### 4) Admin backend mới (khác logic ban đầu)
+
+#### 4.1. Mô hình auth/admin domain
+
+- Tạo bảng/domain riêng cho admin:
+  - `admins`
+  - `admin_action_logs`
+- Thêm model:
+  - `App\Models\Admin` (extends `Authenticatable`, có `logAction`)
+  - `App\Models\AdminActionLog`
+- Thêm factory + seeder admin mặc định:
+  - `AdminFactory`
+  - `AdminSeeder`
+- Đổi auth config:
+  - thêm guard `admin` (session driver)
+  - provider `admins` -> `App\Models\Admin`
+
+#### 4.2. Route tách riêng cho admin app
+
+- Tạo `backend/routes/admin.php` và nạp từ `routes/web.php`.
+- Tách toàn bộ admin API ra namespace/controller riêng:
+  - `POST /admin/login`, `POST /admin/logout`, `GET /admin/api/me`
+  - `dashboard`, `digests`, `signals`, `tweets`, `sources`, `categories`, `users`, `admins`
+  - source moderation queue riêng: `/admin/api/source-moderation`
+- Loại bỏ block admin cũ trong `routes/api.php` (tránh chồng chéo route + middleware cũ).
+
+#### 4.3. So sánh logic cũ vs logic mới
+
+- **Logic cũ:** user thường + cờ `users.is_admin` chia sẻ cùng auth domain user.
+- **Logic mới:** admin là thực thể độc lập:
+  - đăng nhập bằng email/password bảng `admins`,
+  - session guard riêng `auth:admin`,
+  - quyền `super_admin` cho quản trị tài khoản admin,
+  - audit action tách riêng `admin_action_logs`.
+
+### 5) Admin frontend mới (route và màn hình)
+
+- Tạo `AdminLayout` + `AdminRoute` cho toàn bộ `/admin/*`.
+- Login admin riêng tại `/admin/login`.
+- Tái cấu trúc router để admin panel có route độc lập:
+  - dashboard, digests, signals (+ detail), tweets, sources management, source moderation, categories, users, admins.
+- CRUD form tách riêng thành page cho create/update (không dùng prompt inline).
+- Đồng bộ list UX:
+  - phân trang 20 item/page,
+  - cột `#`,
+  - dòng `Showing X - Y of Z items`,
+  - search submit bằng Enter,
+  - reset filter.
+
+### 6) Điều chỉnh nghiệp vụ và quyền admin sau refactor
+
+- Admin account management chỉ cho role `super_admin`.
+- Role `admin` đã được loại bỏ ở nhánh hiện tại; chuẩn hóa còn:
+  - `super_admin`
+  - `moderator`
+- Có migration normalize role để chuyển dữ liệu role cũ về role mới.
+- User locale trong admin update flow được giới hạn theo scope hiện tại (`en`, `vi`).
+
+### 7) Tác động vận hành và cách chạy
+
+- Chạy dev tách riêng:
+  - backend: `cd backend && php artisan serve`
+  - frontend: `cd frontend && npm run dev`
+- Hoặc chạy bundle dev backend script như README.
+- Build frontend:
+  - `cd frontend && npm run build` -> output về `backend/public/build`.
+- Test tiết kiệm credits (không gọi LLM/Twitter API thật):
+  - frontend: `npm test`
+  - backend: `php vendor/bin/phpunit --filter AdminApiTest` (ưu tiên smoke/admin scope).
+
+### 8) Kết quả
+
+- Kiến trúc hiện tại đã chuyển từ mô hình “admin tạm trong user domain” sang mô hình **admin app đúng chuẩn hơn**:
+  - domain riêng,
+  - auth guard riêng,
+  - API route tách riêng,
+  - UI/CRUD quản trị tách biệt rõ với user-facing app.
+- Cấu trúc repo `frontend/` + `backend/` ổn định để tiếp tục mở rộng Sprint 2/3 mà không bị chồng chéo như ban đầu.
+
+---
+
 ## [2026-04-16] Task 3.3.3: Build Admin Source Moderation Screen #13 (React)
 
 **Sprint:** Sprint 3 — Billing + Admin + i18n
