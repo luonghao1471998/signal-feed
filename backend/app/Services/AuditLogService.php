@@ -30,6 +30,13 @@ class AuditLogService
             'digest.email.failed',
             'digest.email.skipped_empty',
             'digest.email.skipped_tier_restriction',
+            'digest.telegram.sent',
+            'digest.telegram.failed',
+            'digest.telegram.skipped_empty',
+            'digest.telegram.skipped_tier_restriction',
+            'telegram.connect.success',
+            'telegram.connect.denied_plan',
+            'telegram.connect.invalid_token',
         ];
 
         if (! in_array($eventType, $allowedEvents, true)) {

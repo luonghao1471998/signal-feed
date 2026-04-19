@@ -4,6 +4,8 @@ export interface DigestTopKol {
   handle: string;
   displayName: string;
   signalCount: number;
+  /** Ảnh profile từ API (sources.avatar_url) khi có. */
+  avatarUrl?: string | null;
 }
 
 export interface DigestSidebarSnapshot {

@@ -44,7 +44,7 @@ class DigestEmail extends Mailable
                 'user' => $this->user,
                 'signals' => $this->signals,
                 'date' => $this->date,
-                'appUrl' => rtrim((string) config('app.url', 'http://localhost:8000'), '/'),
+                'appUrl' => rtrim((string) (config('app.frontend_url') ?: config('app.url', 'http://localhost:8000')), '/'),
             ]
         );
     }

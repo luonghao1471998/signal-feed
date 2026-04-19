@@ -82,6 +82,7 @@ export const Av: React.FC<AvProps> = ({ src, name, size = 40, f = false, classNa
           src={src}
           alt={name}
           loading="lazy"
+          referrerPolicy="no-referrer"
           onError={() => setError(true)}
           style={{
             width: "100%",

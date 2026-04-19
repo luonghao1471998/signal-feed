@@ -61,7 +61,12 @@ const RightPanel: React.FC = () => {
           ) : kolRows.length === 0 ? (
             <p className="py-2 text-[14px] text-[#536471]">{t("rightPanel.noKolsToday")}</p>
           ) : (
-            visibleKolRows.map((row, i) => (
+            visibleKolRows.map((row, i) => {
+              const kolAvatarSrc =
+                row.avatarUrl && row.avatarUrl.trim() !== ""
+                  ? row.avatarUrl.trim()
+                  : avatarUrlForHandle(row.handle);
+              return (
               <a
                 key={row.handle}
                 href={xProfileUrlFromHandle(row.handle)}
@@ -73,7 +78,7 @@ const RightPanel: React.FC = () => {
                 )}
                 style={{ padding: "10px 4px" }}
               >
-                <Av src={avatarUrlForHandle(row.handle)} name={row.displayName} size={40} />
+                <Av src={kolAvatarSrc} name={row.displayName} size={40} />
                 <div className="min-w-0 flex-1">
                   <p className="text-[15px] font-bold leading-tight text-[#0f1419]">{row.displayName}</p>
                   <p className="text-[13px] leading-tight text-[#536471]">{row.handle}</p>
@@ -85,7 +90,8 @@ const RightPanel: React.FC = () => {
                   {row.signalCount} {t("rightPanel.signals")}
                 </span>
               </a>
-            ))
+              );
+            })
           )}
         </div>
         {kolRows.length > KOL_PREVIEW_COUNT ? (

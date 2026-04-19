@@ -16,6 +16,7 @@ export interface SettingsData {
   plan: {
     current: "free" | "pro" | "power" | string;
     features: string[];
+    subscription_ends_at?: string | null;
   };
   telegram: {
     connected: boolean;

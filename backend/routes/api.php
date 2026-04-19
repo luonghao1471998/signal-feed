@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\SignalController;
 use App\Http\Controllers\Api\SourceController;
 use App\Http\Controllers\Api\StripeWebhookController;
+use App\Http\Controllers\Api\TelegramWebhookController;
 use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\UpdateCurrentUserController;
 use Illuminate\Support\Facades\Route;
@@ -25,6 +26,7 @@ Route::get('/categories', [CategoryController::class, 'index']);
 Route::get('/sources', [SourceController::class, 'index']);
 
 Route::post('/webhooks/stripe', [StripeWebhookController::class, 'handle']);
+Route::post('/webhooks/telegram', [TelegramWebhookController::class, 'handle']);
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', CurrentUserController::class);
@@ -49,4 +51,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->whereNumber('id');
     Route::get('/signals/{id}', [SignalController::class, 'show'])->whereNumber('id');
     Route::post('/billing/checkout', [BillingController::class, 'checkout']);
+    Route::post('/billing/portal', [BillingController::class, 'portal']);
+    Route::get('/billing/history', [BillingController::class, 'history']);
+    Route::post('/subscriptions/upgrade', [SubscriptionController::class, 'upgradeSubscription']);
 });

@@ -3,6 +3,7 @@
 use App\Jobs\PersonalPipelineJob;
 use App\Jobs\PipelineCrawlJob;
 use App\Jobs\SendDigestEmailJob;
+use App\Jobs\SendTelegramDigestJob;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Inspiring;
@@ -119,6 +120,43 @@ Schedule::call(function () {
 })
     ->name('digest:delivery-fanout')
     ->description('Fan-out SendDigestEmailJob for users with active subscriptions')
+    ->dailyAt('08:00')
+    ->timezone('Asia/Ho_Chi_Minh')
+    ->withoutOverlapping(60)
+    ->onOneServer();
+
+// Fan-out gửi digest Telegram 08:00 VN — chỉ Power, đã nối bot, cùng điều kiện subscription như email.
+Schedule::call(function () {
+    $digestDate = Carbon::now('Asia/Ho_Chi_Minh');
+
+    $users = User::query()
+        ->where('plan', 'power')
+        ->whereNotNull('telegram_chat_id')
+        ->where('telegram_chat_id', '!=', '')
+        ->whereHas('sourceSubscriptions', function ($subscriptionQuery): void {
+            $subscriptionQuery->whereHas('source', function ($sourceQuery): void {
+                $sourceQuery->where('status', 'active');
+            });
+        })
+        ->get();
+
+    Log::channel('scheduler')->info('Telegram digest fan-out started', [
+        'total_users' => $users->count(),
+        'date' => $digestDate->toDateString(),
+        'scheduled_at_vn' => now('Asia/Ho_Chi_Minh')->toDateTimeString(),
+    ]);
+
+    $users->each(function (User $user) use ($digestDate): void {
+        SendTelegramDigestJob::dispatch($user, $digestDate->copy());
+    });
+
+    Log::channel('scheduler')->info('Telegram digest fan-out completed', [
+        'dispatched_jobs' => $users->count(),
+        'date' => $digestDate->toDateString(),
+    ]);
+})
+    ->name('digest:telegram-fanout')
+    ->description('Fan-out SendTelegramDigestJob for Power users with Telegram connected')
     ->dailyAt('08:00')
     ->timezone('Asia/Ho_Chi_Minh')
     ->withoutOverlapping(60)

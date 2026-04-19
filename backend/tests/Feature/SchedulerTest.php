@@ -30,4 +30,15 @@ class SchedulerTest extends TestCase
         $this->assertEquals('0 1,7,13,19 * * *', $event->expression);
         $this->assertEquals('Asia/Ho_Chi_Minh', $event->timezone);
     }
+
+    public function test_telegram_digest_fanout_schedule_registered(): void
+    {
+        $schedules = $this->app->make(Schedule::class)->events();
+
+        $found = collect($schedules)->contains(
+            fn ($e) => str_contains((string) ($e->description ?? ''), 'SendTelegramDigestJob')
+        );
+
+        $this->assertTrue($found);
+    }
 }

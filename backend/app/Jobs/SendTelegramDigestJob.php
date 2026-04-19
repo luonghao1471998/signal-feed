@@ -2,21 +2,22 @@
 
 namespace App\Jobs;
 
-use App\Mail\DigestEmail;
 use App\Models\User;
 use App\Services\AuditLogService;
 use App\Services\DigestDeliveryGateService;
 use App\Services\DigestSignalsService;
+use App\Services\TelegramBotService;
+use App\Services\TelegramDigestChunker;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\View;
 use Throwable;
 
-class SendDigestEmailJob implements ShouldQueue
+class SendTelegramDigestJob implements ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
@@ -42,12 +43,14 @@ class SendDigestEmailJob implements ShouldQueue
     public function handle(
         AuditLogService $auditLog,
         DigestDeliveryGateService $deliveryGate,
-        DigestSignalsService $digestSignals
+        DigestSignalsService $digestSignals,
+        TelegramBotService $telegram,
+        TelegramDigestChunker $chunker
     ): void {
         $currentUtc = now()->utc();
         if (! $deliveryGate->shouldDeliverToUser($this->user, $currentUtc)) {
             $auditLog->log(
-                eventType: 'digest.email.skipped_tier_restriction',
+                eventType: 'digest.telegram.skipped_tier_restriction',
                 userId: $this->user->id,
                 entityType: 'User',
                 entityId: $this->user->id,
@@ -60,14 +63,31 @@ class SendDigestEmailJob implements ShouldQueue
             return;
         }
 
-        if (empty($this->user->email)) {
+        if ((string) $this->user->plan !== 'power') {
             $auditLog->log(
-                eventType: 'digest.email.skipped_empty',
+                eventType: 'digest.telegram.skipped_tier_restriction',
                 userId: $this->user->id,
                 entityType: 'User',
                 entityId: $this->user->id,
                 metadata: [
-                    'reason' => 'user_email_null',
+                    'reason' => 'not_power_plan',
+                    'plan' => $this->user->plan,
+                    'date' => $this->date->toDateString(),
+                ]
+            );
+
+            return;
+        }
+
+        $chatId = (string) ($this->user->telegram_chat_id ?? '');
+        if ($chatId === '') {
+            $auditLog->log(
+                eventType: 'digest.telegram.skipped_empty',
+                userId: $this->user->id,
+                entityType: 'User',
+                entityId: $this->user->id,
+                metadata: [
+                    'reason' => 'telegram_not_connected',
                     'date' => $this->date->toDateString(),
                 ]
             );
@@ -78,7 +98,7 @@ class SendDigestEmailJob implements ShouldQueue
         $signals = $digestSignals->signalsForUserOnDate($this->user, $this->date);
         if ($signals->isEmpty()) {
             $auditLog->log(
-                eventType: 'digest.email.skipped_empty',
+                eventType: 'digest.telegram.skipped_empty',
                 userId: $this->user->id,
                 entityType: 'User',
                 entityId: $this->user->id,
@@ -91,16 +111,34 @@ class SendDigestEmailJob implements ShouldQueue
             return;
         }
 
-        $start = microtime(true);
+        $appUrl = rtrim((string) (config('app.frontend_url') ?: config('app.url', 'http://localhost:8000')), '/');
 
-        Mail::mailer('resend')
-            ->to($this->user->email)
-            ->send(new DigestEmail($this->user, $signals, $this->date));
+        $html = View::make('telegram.digest', [
+            'user' => $this->user,
+            'signals' => $signals,
+            'date' => $this->date,
+            'appUrl' => $appUrl,
+        ])->render();
+
+        $chunks = $chunker->chunk([$html]);
+        $start = microtime(true);
+        $allOk = true;
+
+        foreach ($chunks as $chunk) {
+            if (! $telegram->sendMessage($chatId, $chunk, 'HTML')) {
+                $allOk = false;
+                break;
+            }
+        }
 
         $durationMs = (int) ((microtime(true) - $start) * 1000);
 
+        if (! $allOk) {
+            throw new \RuntimeException('Telegram sendMessage returned failure');
+        }
+
         $auditLog->log(
-            eventType: 'digest.email.sent',
+            eventType: 'digest.telegram.sent',
             userId: $this->user->id,
             entityType: 'User',
             entityId: $this->user->id,
@@ -108,7 +146,7 @@ class SendDigestEmailJob implements ShouldQueue
                 'signal_count' => $signals->count(),
                 'duration_ms' => $durationMs,
                 'date' => $this->date->toDateString(),
-                'recipient' => $this->user->email,
+                'chunk_count' => count($chunks),
             ]
         );
     }
@@ -116,7 +154,7 @@ class SendDigestEmailJob implements ShouldQueue
     public function failed(Throwable $e): void
     {
         app(AuditLogService::class)->log(
-            eventType: 'digest.email.failed',
+            eventType: 'digest.telegram.failed',
             userId: $this->user->id,
             entityType: 'User',
             entityId: $this->user->id,
@@ -128,5 +166,4 @@ class SendDigestEmailJob implements ShouldQueue
             ]
         );
     }
-
 }

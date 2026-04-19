@@ -31,6 +31,7 @@ class User extends Authenticatable
         'locale',
         'delivery_preferences',
         'telegram_connect_token',
+        'telegram_chat_id',
         'is_admin',
         'stripe_customer_id',
         'stripe_subscription_id',
@@ -74,5 +75,13 @@ class User extends Authenticatable
     public function mySourceSubscriptions()
     {
         return $this->hasMany(MySourceSubscription::class, 'user_id');
+    }
+
+    /**
+     * @return HasMany<BillingInvoice, User>
+     */
+    public function billingInvoices(): HasMany
+    {
+        return $this->hasMany(BillingInvoice::class);
     }
 }

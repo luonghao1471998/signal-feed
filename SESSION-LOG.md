@@ -10397,3 +10397,58 @@ Audit, bổ sung và hoàn thiện Pipeline Monitor Dashboard cho admin:
 
 ---
 
+## [2026-04-18] Stripe: `users.stripe_customer_id` + đồng bộ Billing Invoice
+
+**Status:** ✅ COMPLETED
+
+**Sprint:** Sprint 3 — Billing (Stripe integration)
+
+### Problem
+
+- Cột `users.stripe_customer_id` thường **NULL** → `BillingInvoiceSyncService` không map được user theo `invoice.customer` → log `Billing invoice sync: no user for Stripe customer`, UI Billing History trống hoặc thiếu dữ liệu.
+- Rà soát ban đầu: trước fix, **`stripe_customer_id` chỉ được ghi trong webhook `checkout.session.completed`** (`StripeWebhookService::handleCheckoutSessionCompleted`); `StripeService::createCheckoutSession` không ghi DB. Race / thứ tự event (invoice trước `checkout.session.completed`) hoặc thiếu metadata subscription khiến sync fail.
+
+### Implementation Summary
+
+1. **`app/Services/StripeService.php`**
+   - Thêm **`subscription_data.metadata.user_id`** khi tạo Checkout Session (cùng `user_id` với `metadata` trên session) để object **Subscription** trên Stripe mang `user_id` cho webhook và API retrieve.
+
+2. **`app/Services/StripeWebhookService.php`**
+   - **`metadataUserId()`**: helper đọc `metadata.user_id` (object/array); dùng chung cho `handleCheckoutSessionCompleted` và subscription.
+   - **`findUserForSubscription()`**: sau khi tìm theo `stripe_subscription_id` / `stripe_customer_id`, fallback theo **`subscription.metadata.user_id`**; gọi **`ensureUserStripeIdsFromSubscription()`** để backfill `stripe_customer_id` / `stripe_subscription_id` khi đang trống (có kiểm tra không ghi trùng user khác).
+
+3. **`app/Services/BillingInvoiceSyncService.php`**
+   - Nếu không tìm user theo `stripe_customer_id`:
+     - Có `invoice.subscription` → **Stripe API** `subscriptions->retrieve` → đọc `metadata.user_id` → **`assignStripeIdsIfEmpty`**.
+     - Fallback: **`customers->retrieve`** → khớp **`users.email`** (`LOWER(TRIM(email))`).
+   - Lazy-init `StripeClient` từ `config('services.stripe.secret')`; nếu không có secret, giữ hành vi cũ (chỉ log).
+
+4. **Tests**
+   - **`tests/Unit/Services/BillingInvoiceSyncServiceTest.php`**: case user đã có `stripe_customer_id` → `upsertFromStripeInvoice` tạo/ cập nhật `billing_invoices` đúng.
+
+### Files Touched
+
+- `backend/app/Services/StripeService.php`
+- `backend/app/Services/StripeWebhookService.php`
+- `backend/app/Services/BillingInvoiceSyncService.php`
+- `backend/tests/Unit/Services/BillingInvoiceSyncServiceTest.php`
+
+### Testing Results
+
+| Scope | Method | Result |
+|-------|--------|--------|
+| Unit | `php artisan test tests/Unit/Services/BillingInvoiceSyncServiceTest.php` | ✅ PASS |
+| Full suite | `php artisan test` | ⚠️ Một số test fail **sẵn** (PipelineCrawlJob `handle` arity, Admin pipeline JSON structure, DraftCopy 403 body) — **không liên quan** thay đổi Stripe |
+| Manual (dev / Stripe Test mode) | Checkout test card + `stripe listen` forward webhook | ✅ Billing History UI hiển thị dòng **Paid**, mô tả plan (Power), số tiền |
+
+### Notes (hướng dẫn dev — không sửa repo trong phiên này)
+
+- Test mode: `sk_test_` / `pk_test_`, Price ID test trong `.env`, `stripe listen --forward-to …/api/webhooks/stripe`, `STRIPE_WEBHOOK_SECRET=whsec_...` từ CLI, thẻ test `4242 4242 4242 4242`.
+
+### Conversation Reference
+
+- Ask mode: giải thích luồng ghi `stripe_customer_id` và hướng dẫn test không thẻ thật.
+- Agent mode: triển khai code + unit test + tổng hợp thay đổi; user xác nhận dữ liệu trên màn **Plan & Billing → Billing History**.
+
+---
+

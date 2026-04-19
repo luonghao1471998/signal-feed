@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { ArrowRight, Check } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchCategories, type ApiCategory } from "@/services/signalService";
 import { updateCurrentUserMyCategories } from "@/services/authService";
@@ -22,6 +22,9 @@ const SLUG_EMOJI: Record<string, string> = {
 
 const OnboardingStep1: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const fromFollowStep =
+    (location.state as { fromFollowStep?: boolean } | null)?.fromFollowStep === true;
   const { user, authReady, refreshUser } = useAuth();
   const { t } = useLocale();
 
@@ -39,10 +42,17 @@ const OnboardingStep1: React.FC = () => {
       navigate("/login", { replace: true });
       return;
     }
-    if ((user.my_categories?.length ?? 0) > 0) {
+    if ((user.my_categories?.length ?? 0) > 0 && !fromFollowStep) {
       navigate("/digest", { replace: true });
     }
-  }, [authReady, user, navigate]);
+  }, [authReady, user, navigate, fromFollowStep]);
+
+  useEffect(() => {
+    if (!fromFollowStep || !user?.my_categories?.length) {
+      return;
+    }
+    setSelectedIds([...user.my_categories]);
+  }, [fromFollowStep, user?.my_categories]);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,14 +115,6 @@ const OnboardingStep1: React.FC = () => {
   return (
     <div className="min-h-screen bg-surface flex flex-col">
       <div className="border-b border-border/50 py-3 px-4 flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => navigate("/digest")}
-          className="p-1 hover:bg-secondary rounded-lg transition-colors"
-          aria-label={t("onboarding.back")}
-        >
-          <ArrowLeft className="w-5 h-5 text-muted-foreground" />
-        </button>
         <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
           <div className="h-full w-1/2 bg-slate-900 rounded-full" />
         </div>

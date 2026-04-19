@@ -60,11 +60,19 @@ return [
         'timeout' => (int) env('TWITTERAPI_TIMEOUT', 30),
     ],
 
+    'telegram' => [
+        'bot_token' => env('TELEGRAM_BOT_TOKEN'),
+        /** Secret token gửi kèm header `X-Telegram-Bot-Api-Secret-Token` khi setWebhook. */
+        'webhook_secret' => env('TELEGRAM_WEBHOOK_SECRET'),
+    ],
+
     'stripe' => [
         'key' => env('STRIPE_KEY', env('STRIPE_PUBLISHABLE_KEY')),
         'secret' => env('STRIPE_SECRET', env('STRIPE_SECRET_KEY')),
         'pro_price_id' => env('STRIPE_PRO_PRICE_ID'),
         'power_price_id' => env('STRIPE_POWER_PRICE_ID'),
+        /** Checkout `mode=setup` (Pro→Power) yêu cầu currency (Stripe API). */
+        'currency' => strtolower((string) env('STRIPE_CURRENCY', 'usd')),
         // Webhook: map Price ID → plan (SPEC-api constraint #13). Unknown price_id → free + log.
         'price_plan_map' => array_filter([
             (string) env('STRIPE_PRO_PRICE_ID') => 'pro',
@@ -73,11 +81,6 @@ return [
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
         'checkout_success_url' => env('STRIPE_CHECKOUT_SUCCESS_URL', env('APP_URL', 'http://localhost:8000').'/settings?billing=success'),
         'checkout_cancel_url' => env('STRIPE_CHECKOUT_CANCEL_URL', env('APP_URL', 'http://localhost:8000').'/settings?billing=cancelled'),
-
-        'price_plan_map' => [
-            env('STRIPE_PRO_PRICE_ID') => 'pro',
-            env('STRIPE_POWER_PRICE_ID') => 'power',
-        ],
     ],
 
 ];

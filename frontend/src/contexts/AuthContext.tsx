@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { fetchCurrentUser } from "@/services/authService";
 
 export interface AuthUser {
@@ -24,6 +24,11 @@ export interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+function clearStoredSession(): void {
+  localStorage.removeItem("auth_token");
+  localStorage.removeItem("user");
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setTokenState] = useState<string | null>(() => localStorage.getItem("auth_token"));
@@ -39,12 +44,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (u) {
             localStorage.setItem("user", JSON.stringify(u));
           } else {
-            localStorage.removeItem("user");
+            clearStoredSession();
+            setTokenState(null);
           }
         }
       } catch {
         if (!cancelled) {
           setUser(null);
+          clearStoredSession();
+          setTokenState(null);
         }
       } finally {
         if (!cancelled) {
@@ -72,19 +80,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     try {
       const u = await fetchCurrentUser();
       setUser(u);
       if (u) {
         localStorage.setItem("user", JSON.stringify(u));
       } else {
-        localStorage.removeItem("user");
+        clearStoredSession();
+        setTokenState(null);
       }
     } catch {
       setUser(null);
+      clearStoredSession();
+      setTokenState(null);
     }
-  };
+  }, []);
+
+  // Sau thời gian không dùng tab: khi quay lại, kiểm tra session — nếu hết hạn sẽ clear user và OnboardingGate đưa về /login.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        void refreshUser();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [refreshUser]);
 
   const value = useMemo(
     () => ({
@@ -95,7 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession,
       refreshUser,
     }),
-    [user, token, authReady],
+    [user, token, authReady, refreshUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Check, Copy, Loader2, X } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { Check, Copy, ExternalLink, Loader2, X } from "lucide-react";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,11 +13,35 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCategories, type Category } from "@/services/categoryService";
-import { createCheckoutSession, type BillingPlan } from "@/services/billingService";
+import {
+  fetchBillingHistory,
+  openBillingPortal,
+  startBillingCheckout,
+  type BillingHistoryRow,
+  type BillingPlan,
+} from "@/services/billingService";
 import { fetchSettings, type SettingsData, updateSettings } from "@/services/settingsService";
 import { useLocale, type Locale } from "@/i18n";
 
 type SettingsTab = "profile" | "digest" | "billing" | "telegram" | "language";
+
+const SETTINGS_TABS: SettingsTab[] = ["profile", "digest", "billing", "telegram", "language"];
+
+function isValidSettingsTab(value: string | null): value is SettingsTab {
+  return value !== null && SETTINGS_TABS.includes(value as SettingsTab);
+}
+
+/** Đọc tab từ URL: `?tab=`, hoặc `?billing=success` (Stripe return), mặc định Profile. */
+function resolveTabFromSearchParams(searchParams: URLSearchParams): SettingsTab {
+  const raw = searchParams.get("tab");
+  if (isValidSettingsTab(raw)) {
+    return raw;
+  }
+  if (searchParams.get("billing") === "success") {
+    return "billing";
+  }
+  return "profile";
+}
 
 const FEATURE_LABELS: Record<string, string> = {
   "3_digests_per_week": "3 digests per week",
@@ -87,21 +112,75 @@ function normalizeSettings(data: SettingsData): SettingsData {
       ...data.plan,
       current: data.plan.current ?? "free",
       features: Array.isArray(data.plan.features) ? data.plan.features : [],
+      subscription_ends_at: data.plan.subscription_ends_at ?? null,
     },
   };
 }
 
 const SettingsPage: React.FC = () => {
   const isMobile = useMediaQuery("(max-width: 767px)");
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { toast } = useToast();
-  const { t, setLocale: setAppLocale } = useLocale();
+  const { t, locale: appLocale, setLocale: setAppLocale } = useLocale();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState<SettingsTab>("digest");
+  const [activeTab, setActiveTab] = useState<SettingsTab>(() => resolveTabFromSearchParams(searchParams));
+
+  const goToTab = useCallback(
+    (tab: SettingsTab) => {
+      setActiveTab(tab);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("tab", tab);
+          next.delete("billing");
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  useEffect(() => {
+    const next = resolveTabFromSearchParams(searchParams);
+    setActiveTab((prev) => (prev === next ? prev : next));
+  }, [searchParams]);
+
+  /** Chuẩn hóa `?billing=success` → `?tab=billing` để F5 giữ đúng tab theo `tab`. */
+  useEffect(() => {
+    if (searchParams.get("billing") !== "success") {
+      return;
+    }
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (!next.get("tab")) {
+          next.set("tab", "billing");
+        }
+        next.delete("billing");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [searchParams, setSearchParams]);
   const [settings, setSettings] = useState<SettingsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [billingLoading, setBillingLoading] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [billingHistoryRows, setBillingHistoryRows] = useState<BillingHistoryRow[]>([]);
+  const [billingHistoryMeta, setBillingHistoryMeta] = useState<{
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+  } | null>(null);
+  const [billingHistoryLoading, setBillingHistoryLoading] = useState(false);
+  const [billingHistoryError, setBillingHistoryError] = useState<string | null>(null);
+  const [billingHistoryPage, setBillingHistoryPage] = useState(1);
+  const [billingHistoryRefresh, setBillingHistoryRefresh] = useState(0);
+  const billingActionInFlightRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
   const [displayName, setDisplayName] = useState("");
@@ -136,6 +215,37 @@ const SettingsPage: React.FC = () => {
   }, [toast]);
 
   useEffect(() => {
+    if (activeTab !== "billing") {
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        setBillingHistoryLoading(true);
+        setBillingHistoryError(null);
+        const { data, meta } = await fetchBillingHistory({ page: billingHistoryPage, perPage: 15 });
+        if (!cancelled) {
+          setBillingHistoryRows(data);
+          setBillingHistoryMeta(meta);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setBillingHistoryError(e instanceof Error ? e.message : t("common.error"));
+          setBillingHistoryRows([]);
+          setBillingHistoryMeta(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setBillingHistoryLoading(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, billingHistoryPage, billingHistoryRefresh, t]);
+
+  useEffect(() => {
     if (!settings) {
       return;
     }
@@ -158,11 +268,18 @@ const SettingsPage: React.FC = () => {
     | "free"
     | "pro"
     | "power";
-  const upgradeTarget = normalizedPlan === "free" ? "Pro" : normalizedPlan === "pro" ? "Power" : "Power";
-  const upgradePrice = upgradeTarget === "Pro" ? "$15/month" : "$30/month";
-  const upgradeButtonLabel = normalizedPlan === "free" ? "Upgrade to Pro" : "Upgrade to Power";
+  const subscriptionEndsRaw = settings?.plan.subscription_ends_at;
+  const subscriptionExpiresLabel =
+    typeof subscriptionEndsRaw === "string" && subscriptionEndsRaw.length > 0
+      ? new Date(subscriptionEndsRaw).toLocaleDateString(appLocale === "vi" ? "vi-VN" : "en-US", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        })
+      : null;
   const planFeatures = useMemo(
-    () => (settings?.plan.features ?? []).map((feature) => FEATURE_LABELS[feature] ?? feature.replaceAll("_", " ")),
+    () =>
+      (settings?.plan.features ?? []).map((feature) => FEATURE_LABELS[feature] ?? feature.split("_").join(" ")),
     [settings?.plan.features],
   );
 
@@ -270,20 +387,28 @@ const SettingsPage: React.FC = () => {
     }
   }
 
-  function showComingSoonToast(description: string) {
-    toast({
-      title: t("common.comingSoon"),
-      description,
-    });
-  }
-
-  async function handleStartFreeTrial() {
-    const targetPlan: BillingPlan = normalizedPlan === "free" ? "pro" : "power";
-
+  async function handleBillingCheckout(targetPlan: BillingPlan) {
+    if (billingActionInFlightRef.current) {
+      return;
+    }
+    billingActionInFlightRef.current = true;
+    setBillingLoading(true);
     try {
-      setBillingLoading(true);
-      const checkoutUrl = await createCheckoutSession(targetPlan);
-      window.location.href = checkoutUrl;
+      const result = await startBillingCheckout(targetPlan);
+      if (result.kind === "redirect") {
+        window.location.href = result.checkoutUrl;
+        return;
+      }
+      if (result.kind === "upgraded") {
+        const updated = await fetchSettings();
+        setSettings(normalizeSettings(updated));
+        await refreshUser();
+        setBillingHistoryRefresh((v) => v + 1);
+        toast({
+          title: t("settings.planUpdated"),
+          description: result.message ?? t("settings.planUpgradedPower"),
+        });
+      }
     } catch (e) {
       toast({
         title: t("common.error"),
@@ -291,7 +416,24 @@ const SettingsPage: React.FC = () => {
         variant: "destructive",
       });
     } finally {
+      billingActionInFlightRef.current = false;
       setBillingLoading(false);
+    }
+  }
+
+  async function handleOpenPortal() {
+    if (portalLoading) return;
+    setPortalLoading(true);
+    try {
+      const url = await openBillingPortal();
+      window.location.href = url;
+    } catch (e) {
+      toast({
+        title: t("common.error"),
+        description: e instanceof Error ? e.message : t("common.error"),
+        variant: "destructive",
+      });
+      setPortalLoading(false);
     }
   }
 
@@ -339,7 +481,7 @@ const SettingsPage: React.FC = () => {
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => setActiveTab(item.id)}
+                  onClick={() => goToTab(item.id)}
                   className={cn(
                     "shrink-0 border-b-2 px-3 py-3 text-sm font-medium transition-colors",
                     activeTab === item.id ? "border-blue-500 text-blue-500" : "border-transparent text-slate-400",
@@ -363,7 +505,7 @@ const SettingsPage: React.FC = () => {
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => setActiveTab(item.id)}
+                  onClick={() => goToTab(item.id)}
                   className={cn(navButtonClass(activeTab === item.id), "shrink-0")}
                 >
                   {item.label}
@@ -430,16 +572,13 @@ const SettingsPage: React.FC = () => {
               {user?.plan === "free" && (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-3 text-sm text-slate-700">
                   <p>{t("settings.freePlanDigestNotice")}</p>
-                  <a
-                    href="#"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      showComingSoonToast("Billing portal will be available in Sprint 3");
-                    }}
-                    className="text-blue-500 text-sm font-medium mt-1 inline-block"
+                  <button
+                    type="button"
+                    onClick={() => goToTab("billing")}
+                    className="text-blue-500 text-sm font-medium mt-1 inline-block hover:underline"
                   >
-                    {t("settings.upgradeToPro")}
-                  </a>
+                    {t("settings.viewPlansAndUpgrade")}
+                  </button>
                 </div>
               )}
 
@@ -496,53 +635,244 @@ const SettingsPage: React.FC = () => {
                     <FeatureRow ok={false}>{t("settings.noFeaturesConfigured")}</FeatureRow>
                   )}
                 </div>
+                {normalizedPlan !== "free" && subscriptionExpiresLabel !== null && (
+                  <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+                    <p>
+                      {t("settings.subscriptionExpiresNotice")
+                        .replace(
+                          "{{plan}}",
+                          normalizedPlan.charAt(0).toUpperCase() + normalizedPlan.slice(1),
+                        )
+                        .replace("{{date}}", subscriptionExpiresLabel)}
+                    </p>
+                  </div>
+                )}
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 mb-6">
-                <p className="text-lg font-semibold text-blue-500">Upgrade to {upgradeTarget}</p>
-                <p className="text-3xl font-bold text-slate-900 mt-1">
-                  {upgradePrice}
-                  <span className="text-sm font-normal text-slate-400"> / month</span>
-                </p>
-                <p className="text-xs text-slate-400">{t("settings.billedMonthly")}</p>
-                <Button
-                  className="w-full mt-4 rounded-full bg-blue-500 text-white py-3 font-bold hover:bg-blue-600"
-                  type="button"
-                  onClick={() => void handleStartFreeTrial()}
-                  disabled={billingLoading || normalizedPlan === "power"}
-                >
-                  {billingLoading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Redirecting...
-                    </span>
-                  ) : (
-                    `${upgradeButtonLabel} →`
-                  )}
-                </Button>
-              </div>
+              {normalizedPlan === "free" && (
+                <div className="mb-6 space-y-3">
+                  <p className="text-sm text-slate-600">{t("settings.billingPickPlanHint")}</p>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="border border-blue-200 bg-blue-50/80 rounded-2xl p-5 flex flex-col">
+                      <p className="text-base font-semibold text-blue-600">{t("settings.billingProTitle")}</p>
+                      <p className="text-2xl font-bold text-slate-900 mt-1">
+                        $15<span className="text-sm font-normal text-slate-500"> / month</span>
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1 flex-1">{t("settings.billedMonthly")}</p>
+                      <Button
+                        className="w-full mt-4 rounded-full bg-blue-500 text-white py-3 font-bold hover:bg-blue-600"
+                        type="button"
+                        onClick={() => void handleBillingCheckout("pro")}
+                        disabled={billingLoading}
+                      >
+                        {billingLoading ? (
+                          <span className="flex items-center justify-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            {t("settings.billingRedirecting")}
+                          </span>
+                        ) : (
+                          t("settings.upgradeToPro")
+                        )}
+                      </Button>
+                    </div>
+                    <div className="border border-indigo-200 bg-indigo-50/80 rounded-2xl p-5 flex flex-col">
+                      <p className="text-base font-semibold text-indigo-700">{t("settings.billingPowerTitle")}</p>
+                      <p className="text-2xl font-bold text-slate-900 mt-1">
+                        $30<span className="text-sm font-normal text-slate-500"> / month</span>
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1 flex-1">{t("settings.billedMonthly")}</p>
+                      <Button
+                        className="w-full mt-4 rounded-full bg-indigo-600 text-white py-3 font-bold hover:bg-indigo-700"
+                        type="button"
+                        onClick={() => void handleBillingCheckout("power")}
+                        disabled={billingLoading}
+                      >
+                        {billingLoading ? (
+                          <span className="flex items-center justify-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            {t("settings.billingRedirecting")}
+                          </span>
+                        ) : (
+                          t("settings.upgradeToPower")
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-500">{t("settings.billingStripeRedirectNote")}</p>
+                </div>
+              )}
+
+              {normalizedPlan === "pro" && (
+                <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 mb-6">
+                  <p className="text-lg font-semibold text-blue-600">{t("settings.billingUpgradeToPowerTitle")}</p>
+                  <p className="text-sm text-slate-600 mt-2">{t("settings.billingProrationHint")}</p>
+                  <p className="text-3xl font-bold text-slate-900 mt-3">
+                    $30<span className="text-sm font-normal text-slate-400"> / month</span>
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">{t("settings.billedMonthly")}</p>
+                  <Button
+                    className="w-full mt-4 rounded-full bg-blue-500 text-white py-3 font-bold hover:bg-blue-600"
+                    type="button"
+                    onClick={() => void handleBillingCheckout("power")}
+                    disabled={billingLoading}
+                  >
+                    {billingLoading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        {t("settings.billingProcessing")}
+                      </span>
+                    ) : (
+                      t("settings.upgradeToPower")
+                    )}
+                  </Button>
+                </div>
+              )}
+
+              {normalizedPlan === "power" && (
+                <div className="border border-slate-200 bg-slate-50 rounded-2xl p-6 mb-6">
+                  <p className="text-base font-semibold text-slate-900">{t("settings.billingHighestPlanTitle")}</p>
+                  <p className="text-sm text-slate-600 mt-2">{t("settings.billingHighestPlanBody")}</p>
+                </div>
+              )}
+
+              {normalizedPlan !== "free" && (
+                <div className="mb-6 flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-slate-800">{t("settings.managePaymentMethod")}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{t("settings.managePaymentMethodHint")}</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0"
+                    onClick={() => void handleOpenPortal()}
+                    disabled={portalLoading}
+                  >
+                    {portalLoading ? (
+                      <span className="flex items-center gap-1.5">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        {t("settings.billingProcessing")}
+                      </span>
+                    ) : (
+                      t("settings.managePaymentMethodCta")
+                    )}
+                  </Button>
+                </div>
+              )}
 
               <div>
                 <p className="font-semibold text-sm mb-3">{t("settings.billingHistory")}</p>
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <table className="w-full text-sm">
+                <div className="border border-slate-200 rounded-xl overflow-x-auto">
+                  <table className="w-full min-w-[520px] text-sm">
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
                         <th className="px-4 py-2 font-medium">{t("settings.date")}</th>
                         <th className="px-4 py-2 font-medium">{t("settings.description")}</th>
                         <th className="px-4 py-2 font-medium">{t("settings.amount")}</th>
                         <th className="px-4 py-2 font-medium">{t("settings.status")}</th>
+                        <th className="px-4 py-2 font-medium w-[1%] whitespace-nowrap">
+                          {t("settings.invoice")}
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr>
-                        <td colSpan={4} className="text-center text-slate-400 py-8">
-                          {t("settings.noBillingHistoryYet")}
-                        </td>
-                      </tr>
+                      {billingHistoryLoading ? (
+                        <tr>
+                          <td colSpan={5} className="text-center text-slate-500 py-8">
+                            <span className="inline-flex items-center gap-2">
+                              <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-hidden />
+                              {t("settings.loadingBillingHistory")}
+                            </span>
+                          </td>
+                        </tr>
+                      ) : billingHistoryError ? (
+                        <tr>
+                          <td colSpan={5} className="text-center py-8">
+                            <p className="text-red-600 mb-3">{billingHistoryError}</p>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setBillingHistoryError(null);
+                                setBillingHistoryRefresh((v) => v + 1);
+                              }}
+                            >
+                              {t("common.retry")}
+                            </Button>
+                          </td>
+                        </tr>
+                      ) : billingHistoryRows.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="text-center text-slate-400 py-8">
+                            {t("settings.noBillingHistoryYet")}
+                          </td>
+                        </tr>
+                      ) : (
+                        billingHistoryRows.map((row) => (
+                          <tr key={row.id} className="border-b border-slate-100 last:border-0">
+                            <td className="px-4 py-3 text-slate-800 whitespace-nowrap">
+                              {row.date
+                                ? new Date(row.date).toLocaleDateString(
+                                    appLocale === "vi" ? "vi-VN" : "en-US",
+                                    { year: "numeric", month: "short", day: "numeric" },
+                                  )
+                                : "—"}
+                            </td>
+                            <td className="px-4 py-3 text-slate-700 max-w-[200px] truncate" title={row.description}>
+                              {row.description || "—"}
+                            </td>
+                            <td className="px-4 py-3 text-slate-800 whitespace-nowrap">{row.amount}</td>
+                            <td className="px-4 py-3 text-slate-700 capitalize">{row.status.replace(/_/g, " ")}</td>
+                            <td className="px-4 py-3 text-center">
+                              {row.invoice_url ? (
+                                <a
+                                  href={row.invoice_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-blue-600 hover:underline text-xs font-medium whitespace-nowrap"
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                                  {t("settings.viewInvoice")}
+                                </a>
+                              ) : (
+                                <span className="text-slate-300">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
+                {billingHistoryMeta && billingHistoryMeta.last_page > 1 ? (
+                  <div className="mt-3 flex items-center justify-center gap-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={billingHistoryLoading || billingHistoryMeta.current_page <= 1}
+                      onClick={() => setBillingHistoryPage((p) => Math.max(1, p - 1))}
+                    >
+                      {t("digest.previous")}
+                    </Button>
+                    <span className="text-sm text-slate-600">
+                      {billingHistoryMeta.current_page} / {billingHistoryMeta.last_page}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={
+                        billingHistoryLoading || billingHistoryMeta.current_page >= billingHistoryMeta.last_page
+                      }
+                      onClick={() => setBillingHistoryPage((p) => p + 1)}
+                    >
+                      {t("digest.next")}
+                    </Button>
+                  </div>
+                ) : null}
               </div>
 
             </section>
@@ -601,16 +931,13 @@ const SettingsPage: React.FC = () => {
                   <p className="text-sm text-slate-700">
                     ⚡ {t("settings.telegramPowerNotice")}
                   </p>
-                  <a
-                    href="#"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      showComingSoonToast("Upgrade to Power plan available in Sprint 3");
-                    }}
-                    className="text-blue-500 text-sm font-medium mt-1 block"
+                  <button
+                    type="button"
+                    onClick={() => goToTab("billing")}
+                    className="text-blue-500 text-sm font-medium mt-1 block hover:underline text-left"
                   >
-                    {t("settings.upgradeToPower")}
-                  </a>
+                    {t("settings.viewPlansAndUpgrade")}
+                  </button>
                 </div>
               )}
             </section>

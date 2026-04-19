@@ -127,6 +127,7 @@ class SettingsController extends Controller
             'plan' => [
                 'current' => $user->plan,
                 'features' => $this->planFeatures((string) $user->plan),
+                'subscription_ends_at' => $user->subscription_ends_at?->toIso8601String(),
             ],
             'telegram' => [
                 'connected' => $user->telegram_chat_id !== null && $user->telegram_chat_id !== '',

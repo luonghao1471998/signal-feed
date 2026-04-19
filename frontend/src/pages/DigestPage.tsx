@@ -256,14 +256,27 @@ const DigestPage: React.FC = () => {
       s.sources.forEach((src) => handleSet.add(src.handle));
     });
 
-    const byHandle = new Map<string, { displayName: string; signalIds: Set<string> }>();
+    const byHandle = new Map<
+      string,
+      { displayName: string; signalIds: Set<string>; avatarUrl: string | null }
+    >();
     rawSignals.forEach((sig) => {
       sig.sources.forEach((src) => {
         const h = src.handle;
+        const avatarFromApi = src.avatar?.trim() ? src.avatar.trim() : null;
         if (!byHandle.has(h)) {
-          byHandle.set(h, { displayName: src.name, signalIds: new Set() });
+          byHandle.set(h, {
+            displayName: src.name,
+            signalIds: new Set([sig.id]),
+            avatarUrl: avatarFromApi,
+          });
+        } else {
+          const row = byHandle.get(h)!;
+          row.signalIds.add(sig.id);
+          if (!row.avatarUrl && avatarFromApi) {
+            row.avatarUrl = avatarFromApi;
+          }
         }
-        byHandle.get(h)!.signalIds.add(sig.id);
       });
     });
 
@@ -272,6 +285,7 @@ const DigestPage: React.FC = () => {
         handle,
         displayName: v.displayName,
         signalCount: v.signalIds.size,
+        avatarUrl: v.avatarUrl,
       }))
       .sort((a, b) => b.signalCount - a.signalCount);
 

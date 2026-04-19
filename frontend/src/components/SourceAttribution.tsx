@@ -1,8 +1,9 @@
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ExternalLink } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import type { SignalSource } from "@/types/signal";
 import { useLocale } from "@/i18n";
+import { avatarUrlForHandle } from "@/components/Avatar";
 
 interface SourceAttributionProps {
   source: SignalSource;
@@ -31,10 +32,21 @@ export function SourceAttribution({ source }: SourceAttributionProps) {
 
   const tweetText = source.tweet_text?.trim();
 
+  const avatarSrc =
+    source.avatar_url && source.avatar_url.trim() !== ""
+      ? source.avatar_url.trim()
+      : avatarUrlForHandle(source.handle);
+
   return (
     <div className="border-b border-gray-200 py-4 last:border-0">
       <div className="mb-2 flex items-center gap-3">
         <Avatar className="h-10 w-10">
+          <AvatarImage
+            src={avatarSrc}
+            alt=""
+            className="object-cover"
+            referrerPolicy="no-referrer"
+          />
           <AvatarFallback className="bg-blue-100 text-blue-700">{initials}</AvatarFallback>
         </Avatar>
 

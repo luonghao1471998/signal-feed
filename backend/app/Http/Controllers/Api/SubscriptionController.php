@@ -6,14 +6,25 @@ use App\Http\Controllers\Controller;
 use App\Models\MySourceSubscription;
 use App\Models\Source;
 use App\Models\User;
+use App\Services\StripeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
+use InvalidArgumentException;
+use RuntimeException;
+use Stripe\Exception\ApiErrorException;
 
 class SubscriptionController extends Controller
 {
+    public function __construct(
+        private readonly StripeService $stripeService
+    ) {}
+
     /**
      * POST /api/sources/{id}/subscribe — follow an active pool source (My KOLs).
      */
@@ -223,6 +234,122 @@ class SubscriptionController extends Controller
                 'upgrade_required' => $hitLimit && $user->plan === 'free',
             ], 201);
         });
+    }
+
+    /**
+     * POST /api/subscriptions/upgrade — Pro → Power: subscription.update + proration (cùng endpoint với luồng billing/checkout).
+     */
+    public function upgradeSubscription(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'plan' => ['required', 'string', 'in:power'],
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'VALIDATION_ERROR',
+                    'message' => (string) $validator->errors()->first('plan'),
+                ],
+            ], 400);
+        }
+
+        $user = $request->user();
+        if ($user === null) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated.'], 401);
+        }
+
+        $currentPlan = (string) ($user->plan ?? 'free');
+        if ($currentPlan !== 'pro') {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'INVALID_UPGRADE_PATH',
+                    'message' => 'Only Pro accounts can use this endpoint to upgrade to Power.',
+                    'current_plan' => $currentPlan,
+                ],
+            ], 400);
+        }
+
+        $lock = Cache::lock('billing:upgrade-power:'.$user->id, 25);
+        if (! $lock->get()) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'CONFLICT',
+                    'message' => 'An upgrade is already in progress. Please wait a few seconds.',
+                ],
+            ], 409);
+        }
+
+        try {
+            $this->stripeService->assertMayCheckoutUpgradeProToPower($user->fresh());
+            $this->stripeService->upgradeSubscriptionToPlan($user->fresh(), 'power');
+            $this->stripeService->syncLocalUserPlanAfterProToPowerUpgrade($request->user()->fresh());
+
+            $message = 'Your plan has been upgraded to Power. Prorated charges or credits appear on your Stripe invoice.';
+
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+                'plan' => 'power',
+                'data' => [
+                    'upgraded' => true,
+                    'plan' => 'power',
+                    'message' => $message,
+                ],
+            ]);
+        } catch (InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'VALIDATION_ERROR',
+                    'message' => $e->getMessage(),
+                ],
+            ], 400);
+        } catch (ApiErrorException $e) {
+            Log::error('Stripe Pro→Power upgrade failed', [
+                'user_id' => $user->id,
+                'message' => $e->getMessage(),
+                'stripe_code' => $e->getStripeCode(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'STRIPE_ERROR',
+                    'message' => 'Payment service could not apply the upgrade. Please try again.',
+                ],
+            ], 502);
+        } catch (RuntimeException $e) {
+            Log::error('Stripe configuration error (Pro→Power)', [
+                'user_id' => $user->id,
+                'message' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'CONFIG_ERROR',
+                    'message' => 'Billing service is not configured correctly.',
+                ],
+            ], 500);
+        } catch (\Throwable $e) {
+            Log::error('Unexpected Pro→Power upgrade error', [
+                'user_id' => $user->id,
+                'message' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'INTERNAL_ERROR',
+                    'message' => 'Unexpected billing error. Please try again.',
+                ],
+            ], 500);
+        } finally {
+            $lock->release();
+        }
     }
 
     /**
