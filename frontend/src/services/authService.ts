@@ -10,7 +10,18 @@ function normalizeUser(data: Record<string, unknown>): AuthUser | null {
   const x_username = typeof data.x_username === "string" ? data.x_username : undefined;
   const avatar_url = typeof data.avatar_url === "string" ? data.avatar_url : undefined;
   const my_categories = Array.isArray(data.my_categories)
-    ? data.my_categories.filter((x): x is number => typeof x === "number")
+    ? data.my_categories
+        .map((x) => {
+          if (typeof x === "number" && Number.isFinite(x)) {
+            return x;
+          }
+          if (typeof x === "string" && x.trim() !== "") {
+            const parsed = Number(x);
+            return Number.isFinite(parsed) ? parsed : null;
+          }
+          return null;
+        })
+        .filter((x): x is number => typeof x === "number" && x > 0)
     : [];
   const is_admin = data.is_admin === true;
   return { id, plan: p, x_username, avatar_url, my_categories, is_admin };

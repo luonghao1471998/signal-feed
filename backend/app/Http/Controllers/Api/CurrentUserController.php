@@ -26,12 +26,20 @@ class CurrentUserController extends Controller
             $plan = 'free';
         }
 
+        $myCategories = array_values(array_filter(
+            array_map(
+                static fn ($id): int => (int) $id,
+                is_array($user->my_categories) ? $user->my_categories : []
+            ),
+            static fn (int $id): bool => $id > 0
+        ));
+
         return response()->json([
             'id' => $user->id,
             'plan' => $plan,
             'x_username' => $user->x_username,
             'avatar_url' => $user->avatar_url,
-            'my_categories' => $user->my_categories ?? [],
+            'my_categories' => $myCategories,
             'is_admin' => (bool) $user->is_admin,
         ]);
     }

@@ -307,6 +307,15 @@ const SettingsPage: React.FC = () => {
   }
 
   async function handleSavePreferences() {
+    if (emailDigestEnabled && email.trim() === "") {
+      toast({
+        title: t("common.error"),
+        description: t("settings.emailRequiredForDigest"),
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setSaving(true);
       const updated = await updateSettings({
@@ -464,6 +473,7 @@ const SettingsPage: React.FC = () => {
   const avatarInitial = (displayName.trim().charAt(0) || "U").toUpperCase();
   const profileUsername = settings.profile.x_username ? `@${settings.profile.x_username}` : "@username";
   const languageChanged = locale !== settings.preferences.locale;
+  const hasDigestEmail = email.trim() !== "";
 
   return (
     <div className="min-h-screen bg-white">
@@ -566,8 +576,24 @@ const SettingsPage: React.FC = () => {
               <h2 className="text-sm font-bold text-slate-900 mb-3">{t("settings.emailDigest")}</h2>
               <div className="flex items-center justify-between gap-4 py-2">
                 <span className="text-sm text-slate-700">{t("settings.dailyDigestEmail")}</span>
-                <Switch checked={emailDigestEnabled} onCheckedChange={setEmailDigestEnabled} />
+                <Switch
+                  checked={emailDigestEnabled}
+                  onCheckedChange={(checked) => {
+                    if (checked && !hasDigestEmail) {
+                      toast({
+                        title: t("common.error"),
+                        description: t("settings.emailRequiredForDigest"),
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    setEmailDigestEnabled(checked);
+                  }}
+                />
               </div>
+              {!hasDigestEmail && (
+                <p className="text-xs text-amber-700 mt-1">{t("settings.emailRequiredForDigest")}</p>
+              )}
 
               {user?.plan === "free" && (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-3 text-sm text-slate-700">

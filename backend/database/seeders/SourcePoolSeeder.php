@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Schema;
 
 class SourcePoolSeeder extends Seeder
 {
-    private const CSV_PATH = 'database/seeders/data/source_pool.csv';
+    private const CSV_PATH = 'database/seeders/data/source_pool_v2.csv';
 
     private const TENANT_ID = 1;
 

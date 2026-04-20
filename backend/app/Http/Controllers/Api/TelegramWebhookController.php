@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class TelegramWebhookController extends Controller
 {
@@ -22,8 +23,10 @@ class TelegramWebhookController extends Controller
     {
         $secret = (string) config('services.telegram.webhook_secret');
         if ($secret !== '') {
-            $header = $request->header('X-Telegram-Bot-Api-Secret-Token');
-            if ($header !== $secret) {
+            $providedSecret = (string) ($request->header('X-Telegram-Bot-Api-Secret-Token') ?? $request->query('secret', ''));
+            if ($providedSecret === '' || ! hash_equals($secret, $providedSecret)) {
+                Log::warning('Telegram webhook rejected due to invalid secret token');
+
                 return response('', 403);
             }
         }
@@ -55,24 +58,44 @@ class TelegramWebhookController extends Controller
             return response('OK', 200);
         }
 
+        if (! $this->shouldProcessUpdate($updateId)) {
+            return response('OK', 200);
+        }
+
         try {
-            DB::transaction(function () use ($updateId, $text, $chatId): void {
-                $inserted = DB::table('processed_telegram_updates')->insertOrIgnore([
-                    'update_id' => $updateId,
-                    'created_at' => now(),
-                ]);
-
-                if ($inserted === 0) {
-                    return;
-                }
-
-                $this->processConnectMessage($text, $chatId);
-            });
+            $this->processConnectMessage($text, $chatId);
         } catch (\Throwable $e) {
             Log::error('Telegram webhook failed', ['error' => $e->getMessage()]);
         }
 
         return response('OK', 200);
+    }
+
+    private function shouldProcessUpdate(int $updateId): bool
+    {
+        if ($updateId === 0) {
+            return true;
+        }
+
+        try {
+            if (! Schema::hasTable('processed_telegram_updates')) {
+                return true;
+            }
+
+            $inserted = DB::table('processed_telegram_updates')->insertOrIgnore([
+                'update_id' => $updateId,
+                'created_at' => now(),
+            ]);
+
+            return $inserted === 1;
+        } catch (\Throwable $e) {
+            Log::warning('Telegram webhook idempotency fallback: unable to persist update id', [
+                'update_id' => $updateId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return true;
+        }
     }
 
     private function processConnectMessage(string $text, string $chatId): void

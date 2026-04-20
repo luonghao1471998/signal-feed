@@ -22,7 +22,7 @@ class TwitterAuthController extends Controller
         try {
             // Chỉ xin quyền đăng nhập + refresh token. `tweet.read` dễ fail nếu app chưa bật đủ product trên X Developer Portal.
             return Socialite::driver('twitter-oauth-2')
-                ->scopes(['users.read', 'offline.access'])
+                ->scopes(['users.read', 'users.email', 'offline.access'])
                 ->redirect();
         } catch (\Throwable $e) {
             Log::error('Twitter OAuth redirect failed', [
@@ -62,8 +62,14 @@ class TwitterAuthController extends Controller
                 'x_username' => $user->x_username,
             ]);
 
-            $cats = $user->my_categories ?? [];
-            $needsOnboarding = ! is_array($cats) || count($cats) === 0;
+            $cats = array_values(array_filter(
+                array_map(
+                    static fn ($id): int => (int) $id,
+                    is_array($user->my_categories) ? $user->my_categories : []
+                ),
+                static fn (int $id): bool => $id > 0
+            ));
+            $needsOnboarding = count($cats) === 0;
 
             return redirect($needsOnboarding ? '/onboarding' : '/digest')
                 ->with('success', 'Successfully logged in!');

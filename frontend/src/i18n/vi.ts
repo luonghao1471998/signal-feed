@@ -186,6 +186,7 @@ const vi = {
     upgradeToPower: "Nâng cấp lên Power →",
     displayNamePlaceholder: "Tên hiển thị",
     emailPlaceholder: "Thêm email để nhận digest",
+    emailRequiredForDigest: "Vui lòng thêm email ở mục Hồ sơ trước khi bật email digest.",
   },
   sidebar: {
     more: "Thêm",

@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class SettingsController extends Controller
 {
@@ -69,6 +70,19 @@ class SettingsController extends Controller
             array_key_exists('email_digest_enabled', $validated)
             || array_key_exists('email_digest_time', $validated)
         ) {
+            $nextEmail = array_key_exists('email', $validated)
+                ? trim((string) ($validated['email'] ?? ''))
+                : trim((string) ($user->email ?? ''));
+            $nextDigestEnabled = array_key_exists('email_digest_enabled', $validated)
+                ? (bool) $validated['email_digest_enabled']
+                : (bool) (($user->delivery_preferences['email'] ?? false));
+
+            if ($nextDigestEnabled && $nextEmail === '') {
+                throw ValidationException::withMessages([
+                    'email_digest_enabled' => ['Please add an email before enabling email digest.'],
+                ]);
+            }
+
             $deliveryPreferences = $user->delivery_preferences ?? [];
             if (! is_array($deliveryPreferences)) {
                 $deliveryPreferences = [];
