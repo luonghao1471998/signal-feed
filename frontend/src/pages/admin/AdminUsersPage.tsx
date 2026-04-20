@@ -118,47 +118,49 @@ const AdminUsersPage: React.FC = () => {
       {error && <p className="text-sm text-red-600">{error}</p>}
       {loading && <p className="text-sm text-slate-500">Loading...</p>}
 
-      <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+      <div className="rounded-xl border border-zinc-200 bg-white shadow-sm">
         <p className="px-4 pt-3 text-sm text-slate-600">{formatAdminTableRange(page, perPage, total)}</p>
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="px-4 py-3 text-left">#</th>
-              <th className="px-4 py-3 text-left">Username</th>
-              <th className="px-4 py-3 text-left">Plan</th>
-              <th className="px-4 py-3 text-left">Categories</th>
-              <th className="px-4 py-3 text-left">Display Name</th>
-              <th className="px-4 py-3 text-left">Email</th>
-              <th className="px-4 py-3 text-left">Created At</th>
-              <th className="px-4 py-3 text-left">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, idx) => (
-              <tr key={row.id} className="border-t">
-                <td className="px-4 py-3">{(page - 1) * perPage + idx + 1}</td>
-                <td className="px-4 py-3">{row.x_username}</td>
-                <td className="px-4 py-3">{row.plan}</td>
-                <td className="px-4 py-3">{row.my_categories.join(", ")}</td>
-                <td className="px-4 py-3">{row.display_name}</td>
-                <td className="px-4 py-3">{row.email}</td>
-                <td className="px-4 py-3">{row.created_at}</td>
-                <td className="px-4 py-3">
-                  <Button size="sm" variant="outline" asChild>
-                    <Link to={`/admin/users/update/${row.id}`}>Edit</Link>
-                  </Button>
-                </td>
-              </tr>
-            ))}
-            {rows.length === 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50">
               <tr>
-                <td className="px-4 py-5 text-center text-slate-500" colSpan={8}>
-                  No users found.
-                </td>
+                <th className="px-4 py-3 text-left">#</th>
+                <th className="px-4 py-3 text-left">Username</th>
+                <th className="px-4 py-3 text-left">Plan</th>
+                <th className="px-4 py-3 text-left">Categories</th>
+                <th className="px-4 py-3 text-left">Display Name</th>
+                <th className="px-4 py-3 text-left">Email</th>
+                <th className="px-4 py-3 text-left">Created At</th>
+                <th className="px-4 py-3 text-left">Action</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((row, idx) => (
+                <tr key={row.id} className="border-t">
+                  <td className="px-4 py-3">{(page - 1) * perPage + idx + 1}</td>
+                  <td className="px-4 py-3">{row.x_username}</td>
+                  <td className="px-4 py-3">{row.plan}</td>
+                  <td className="px-4 py-3">{row.my_categories.join(", ")}</td>
+                  <td className="px-4 py-3">{row.display_name}</td>
+                  <td className="px-4 py-3">{row.email}</td>
+                  <td className="px-4 py-3">{row.created_at}</td>
+                  <td className="px-4 py-3">
+                    <Button size="sm" variant="outline" asChild>
+                      <Link to={`/admin/users/update/${row.id}`}>Edit</Link>
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+              {rows.length === 0 && (
+                <tr>
+                  <td className="px-4 py-5 text-center text-slate-500" colSpan={8}>
+                    No users found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
         <AdminTableFooter page={page} perPage={perPage} total={total} onPageChange={setPage} />
       </div>
     </div>

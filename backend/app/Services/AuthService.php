@@ -22,12 +22,14 @@ class AuthService
                 ->first();
             $resolvedAvatarUrl = $this->resolveAvatarUrl($twitterUser);
             $resolvedEmail = $this->resolveEmail($twitterUser);
+            $resolvedDisplayName = $this->resolveDisplayName($twitterUser);
             $user = User::updateOrCreate(
                 [
                     'x_user_id' => $xUserId,
                 ],
                 [
                     'x_username' => $nickname !== '' ? $nickname : ($existingUser?->x_username ?? 'user_'.$xUserId),
+                    'display_name' => $resolvedDisplayName ?? $existingUser?->display_name,
                     'email' => $resolvedEmail ?? $existingUser?->email,
                     'avatar_url' => $resolvedAvatarUrl ?? $existingUser?->avatar_url,
                     'x_access_token' => $twitterUser->token,
@@ -47,6 +49,7 @@ class AuthService
                     'changes' => json_encode([
                         'oauth_provider' => 'twitter',
                         'x_username' => $user->x_username,
+                        'display_name' => $user->display_name,
                         'x_user_id' => (string) $twitterUser->getId(),
                     ]),
                     'ip_address' => request()->ip(),
@@ -63,6 +66,27 @@ class AuthService
 
             return $user;
         });
+    }
+
+    /**
+     * Tên hiển thị trên hồ sơ X (field "Name") — Socialite: {@see SocialiteUser::getName()}.
+     */
+    private function resolveDisplayName(SocialiteUser $twitterUser): ?string
+    {
+        $name = trim((string) ($twitterUser->getName() ?? ''));
+        if ($name === '') {
+            /** @var array<string, mixed> $raw */
+            $raw = $twitterUser->getRaw();
+            $rawName = $raw['name'] ?? null;
+            if (is_string($rawName)) {
+                $name = trim($rawName);
+            }
+        }
+        if ($name === '') {
+            return null;
+        }
+
+        return mb_substr($name, 0, 100);
     }
 
     private function resolveAvatarUrl(SocialiteUser $twitterUser): ?string

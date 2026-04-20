@@ -10452,3 +10452,240 @@ Audit, bổ sung và hoàn thiện Pipeline Monitor Dashboard cho admin:
 
 ---
 
+## [2026-04-20] Admin Responsive UI + Route Mặc Định + Scheduler Cleanup
+
+**Status:** ✅ COMPLETED  
+**Sprint:** Sprint 3 — Admin UX + Ops
+
+---
+
+### 1. Scheduler — Tạm Disable Pipeline & Avatar Backfill
+
+**Bối cảnh:** Đang trong giai đoạn dev/test, các tiến trình pipeline crawl và đồng bộ avatar cần chạy **bằng tay** để kiểm soát. Chỉ giữ 2 tiến trình tự động là digest email và Telegram.
+
+**Thay đổi (`backend/routes/console.php`):**
+- ✅ Comment out `Schedule::call` cho `pipeline:crawl-classify` (4×/ngày)
+- ✅ Comment out `Schedule::call` cho `personal-pipeline-fanout` (4×/ngày)
+- ✅ Comment out `Schedule::command('sources:backfill-avatars ...')` (03:30 VN)
+- ✅ **Giữ nguyên** `digest:delivery-fanout` (email 08:00 VN)
+- ✅ **Giữ nguyên** `digest:telegram-fanout` (Telegram 08:00 VN)
+
+**Lệnh chạy tay:**
+```bash
+# Pipeline crawl + classify (limit mặc định 10)
+php artisan pipeline:run
+php artisan pipeline:run --limit=20
+
+# Avatar backfill (command class sẵn có)
+php artisan sources:backfill-avatars --only-missing --limit=20
+```
+
+**Cron vẫn phải chạy** (chỉ activate 2 schedule còn lại):
+```
+* * * * * cd /var/www/signalfeed/backend && php artisan schedule:run >> /dev/null 2>&1
+```
+
+---
+
+### 2. Admin Responsive UI (Mobile)
+
+**Bối cảnh:** Admin panel hoàn toàn chưa responsive — sidebar cứng `w-[272px]`, bảng bị overflow trên mobile.
+
+#### `frontend/src/layouts/AdminLayout.tsx`
+
+- Thêm `sidebarOpen` state (mặc định `false`)
+- **Mobile top bar** (sticky, h-14, `lg:hidden`): nút hamburger `Menu` (lucide) + label "SignalFeed Admin"
+- **Sidebar**: Mobile = `fixed inset-y-0 left-0 z-50 w-[272px]` + slide-in (`-translate-x-full` → `translate-x-0`); Desktop (`lg:`) = `sticky top-0 h-screen` như cũ
+- **Backdrop overlay** khi sidebar mở → click đóng
+- Nút `X` trong sidebar header (chỉ hiện `lg:hidden`)
+- Sidebar tự đóng khi `location.pathname` thay đổi (navigate)
+- Main content wrap trong `<div className="flex flex-col">` + main padding mobile: `px-4 py-6 sm:px-6 lg:px-10 lg:py-8`
+- Import thêm `Menu`, `X` từ `lucide-react`
+
+#### Pages — `overflow-x-auto` cho bảng
+
+Tất cả các trang list dùng `<table>` plain HTML đã được bọc thêm `<div className="overflow-x-auto">` bên trong wrapper. Wrapper ngoài đổi từ `overflow-hidden` → không còn `overflow-hidden` (để scroll không bị clip).
+
+**Files cập nhật:**
+| File | Thay đổi |
+|------|----------|
+| `frontend/src/pages/admin/AdminDigestsPage.tsx` | Thêm `overflow-x-auto` wrapper quanh `<table>` |
+| `frontend/src/pages/admin/AdminSignalsPage.tsx` | Thêm `overflow-x-auto` wrapper quanh `<table>` |
+| `frontend/src/pages/admin/AdminTweetsPage.tsx` | Thêm `overflow-x-auto` wrapper quanh `<table>` |
+| `frontend/src/pages/admin/AdminSourcesManagementPage.tsx` | Thêm `overflow-x-auto` wrapper quanh `<table>` |
+| `frontend/src/pages/admin/AdminUsersPage.tsx` | Thêm `overflow-x-auto` wrapper quanh `<table>` |
+| `frontend/src/pages/admin/AdminAccountsPage.tsx` | Thêm `overflow-x-auto` wrapper quanh `<table>` |
+| `frontend/src/pages/admin/AdminCategoriesPage.tsx` | Thêm `overflow-x-auto` wrapper quanh `<table>` |
+| `frontend/src/pages/admin/AdminSourcesPage.tsx` | Bọc `<Tabs>` trong `<div className="overflow-x-auto pb-0.5">` + `TabsList className="w-max"` |
+
+> `AdminSourcesPage` đã dùng shadcn `Table` với `overflow-x-auto` sẵn ở wrapper ngoài — chỉ cần fix Tabs.
+
+**Build:** `npm run build` ✅ PASS (exit 0, 5.90s)
+
+---
+
+### 3. Route Mặc Định `/` → `/login`
+
+**Bối cảnh:** Dự án dùng ngrok static domain `https://plummier-tom-longheadedly.ngrok-free.dev/`. Yêu cầu: truy cập `/` redirect thẳng vào login; landing page chuyển sang `/landingpage`.
+
+**Thay đổi (`frontend/src/App.tsx`):**
+```tsx
+// Before:
+<Route path="/" element={<LandingPage />} />
+
+// After:
+<Route path="/" element={<Navigate to="/login" replace />} />
+<Route path="/landingpage" element={<LandingPage />} />
+```
+
+**Routes sau thay đổi:**
+| URL | Kết quả |
+|-----|---------|
+| `/` | Redirect 302 → `/login` |
+| `/login` | LoginPage |
+| `/landingpage` | LandingPage |
+
+**Build:** `npm run build` ✅ PASS (exit 0, 8.16s)
+
+---
+
+### 4. Tổng Hợp Logic Billing (Stripe)
+
+#### Luồng chính
+
+```
+User click "Upgrade"
+  → POST /api/billing/checkout          (BillingController::checkout)
+  → StripeService::createCheckoutSession
+      Free→Pro/Power: mode=subscription
+      Pro→Power: mode=setup (createSetupCheckoutForUpgrade)
+  → trả checkout_url → frontend redirect Stripe Checkout
+
+Stripe xử lý thanh toán
+  → POST /api/webhooks/stripe            (StripeWebhookController::handle)
+      Verify chữ ký (STRIPE_WEBHOOK_SECRET)
+      Idempotency: bảng processed_stripe_events (event_id UNIQUE)
+  → StripeWebhookService::processStripeEvent
+      checkout.session.completed   → cập nhật users (plan, stripe_*, subscription_ends_at)
+                                      hủy subscription trùng / cancel_at_period_end
+                                      sync invoice → BillingInvoiceSyncService
+      subscription.updated         → sync plan, downgrade free, cleanupSubscriptionsToPlanLimit
+      subscription.deleted         → downgrade free
+      invoice.payment_*            → BillingInvoiceSyncService::upsertFromStripeInvoice
+                                      dispatch SyncStripeInvoicesJob (delay, bắt proration)
+```
+
+#### Key files
+
+| File | Vai trò |
+|------|---------|
+| `app/Http/Controllers/Api/BillingController.php` | Checkout session, Billing Portal, History |
+| `app/Http/Controllers/Api/StripeWebhookController.php` | Verify + idempotency + delegate |
+| `app/Services/StripeService.php` | Tạo Checkout Session (Free→Pro, Pro→Power), Portal, Upgrade trực tiếp |
+| `app/Services/StripeWebhookService.php` | Xử lý nghiệp vụ webhook (~815 dòng) — findUser, ensureStripeIds, cleanupSubscriptions |
+| `app/Services/BillingInvoiceSyncService.php` | Upsert `billing_invoices` từ Stripe Invoice object; fallback map user theo subscription metadata / email |
+| `app/Jobs/SyncStripeInvoicesJob.php` | Background sync invoice sau proration |
+| `app/Models/BillingInvoice.php` | Model hóa đơn |
+| `app/Http/Middleware/CheckPlanFeature.php` | Gate middleware `plan_features` cho route Pro/Power |
+| `config/services.php` | `price_plan_map`: Price ID → plan name; webhook_secret; checkout URLs |
+| `database/migrations/*processed_stripe_events*` | Idempotency table |
+| `database/migrations/*billing_invoices*` | Invoice table |
+
+#### Nâng cấp Pro→Power (đặc biệt)
+
+- Dùng `mode=setup` (không `subscription`) → session `setup_intent` → `payment_method` attach vào Customer
+- Sau đó: webhook `checkout.session.completed` với `mode=setup` → `handleCheckoutSessionCompletedForSetup` → `StripeService::upgradeSubscriptionToPlan` → cập nhật Subscription Stripe + `user.plan = 'power'`
+- Cũng có route trực tiếp: `POST /api/subscriptions/upgrade` (không Checkout, phục vụ UI nâng cấp 1 bước)
+
+#### Plan enforcement
+
+- `POST /api/sources` → gate `add_source` (Pro/Power)
+- `POST /api/signals/{id}/draft/copy` → gate `draft_copy` (Pro/Power)
+- Downgrade: `cleanupSubscriptionsToPlanLimit` — giữ N subscription mới nhất, xóa thừa theo `created_at DESC`
+
+---
+
+### 5. Tổng Hợp Logic Gửi Digest Telegram
+
+#### Luồng kết nối tài khoản
+
+```
+User (Power) vào Settings → lấy connect_token (GET /api/settings → settings.telegram_connect_token)
+→ gửi lệnh /connect <token> cho @SignalFeedBot trên Telegram
+→ Telegram gọi POST /api/webhooks/telegram (TelegramWebhookController::handle)
+    Verify X-Telegram-Bot-Api-Secret-Token
+    Idempotency: processed_telegram_updates (update_id UNIQUE)
+    Chỉ Power plan → gán users.telegram_chat_id
+    Bot phản hồi xác nhận
+```
+
+#### Luồng gửi digest hằng ngày
+
+```
+Schedule: 08:00 Asia/Ho_Chi_Minh (routes/console.php: digest:telegram-fanout)
+  Query: plan='power' AND telegram_chat_id NOT NULL AND has active sourceSubscriptions
+  → fan-out: SendTelegramDigestJob::dispatch($user, $digestDate) per user
+
+SendTelegramDigestJob::handle()
+  1. DigestDeliveryGateService::canDeliver($user, $date)
+     Power → always (daily); Pro → daily; Free → không có Telegram
+  2. Kiểm tra lại plan=power + telegram_chat_id (guard trong job)
+  3. DigestSignalsService::signalsForUserOnDate($user, $date)
+     Power: type=0 (shared) + type=1 (personal WHERE user_id=$user->id), top 10 rank_score DESC
+  4. Render view telegram.digest (Blade → HTML)
+  5. TelegramDigestChunker::chunk($html)
+     Chia thành nhiều message nếu vượt giới hạn Telegram (4096 chars)
+  6. TelegramBotService::sendMessage($chat_id, $chunk, parse_mode='HTML') mỗi chunk
+  7. AuditLogService::log(digest.telegram.sent | failed | skipped_empty | skipped_tier_restriction)
+```
+
+#### Key files
+
+| File | Vai trò |
+|------|---------|
+| `app/Jobs/SendTelegramDigestJob.php` | Job chính — orchestrate toàn bộ flow |
+| `app/Http/Controllers/Api/TelegramWebhookController.php` | Nhận Telegram update, kết nối chat_id |
+| `app/Services/TelegramBotService.php` | Gọi Telegram Bot API (`sendMessage`) |
+| `app/Services/TelegramDigestChunker.php` | Chia HTML dài thành nhiều chunk ≤4096 chars |
+| `app/Services/DigestSignalsService.php` | Query signals theo user + date (dùng chung email + Telegram) |
+| `app/Services/DigestDeliveryGateService.php` | Gate tier: Free Mon/Wed/Fri; Pro/Power daily |
+| `resources/views/telegram/digest.blade.php` | Template HTML digest Telegram |
+| `database/migrations/*processed_telegram_updates*` | Idempotency table cho webhook |
+| `config/services.php` | `telegram.bot_token`, `telegram.webhook_secret` |
+
+#### Điều kiện nhận Telegram digest
+
+| Điều kiện | Bắt buộc |
+|-----------|----------|
+| `users.plan = 'power'` | ✅ |
+| `users.telegram_chat_id` NOT NULL | ✅ |
+| Có ít nhất 1 `sourceSubscriptions` tới source `active` | ✅ |
+| Có signal trong ngày (sau gate) | Nếu không → `skipped_empty` (audit) |
+
+#### Liên kết Billing ↔ Telegram
+
+Người dùng chỉ nhận được Telegram digest khi **plan = Power**. Plan Power được set qua:
+1. Stripe webhook `checkout.session.completed` / `subscription.updated` → `StripeWebhookService`
+2. Admin `UserManagementController` (set tay, không qua Stripe)
+
+---
+
+### Files Modified (session này)
+
+**Frontend:**
+- `frontend/src/layouts/AdminLayout.tsx` — Mobile responsive sidebar drawer
+- `frontend/src/pages/admin/AdminDigestsPage.tsx` — overflow-x-auto bảng
+- `frontend/src/pages/admin/AdminSignalsPage.tsx` — overflow-x-auto bảng
+- `frontend/src/pages/admin/AdminTweetsPage.tsx` — overflow-x-auto bảng
+- `frontend/src/pages/admin/AdminSourcesManagementPage.tsx` — overflow-x-auto bảng
+- `frontend/src/pages/admin/AdminUsersPage.tsx` — overflow-x-auto bảng
+- `frontend/src/pages/admin/AdminAccountsPage.tsx` — overflow-x-auto bảng
+- `frontend/src/pages/admin/AdminCategoriesPage.tsx` — overflow-x-auto bảng
+- `frontend/src/pages/admin/AdminSourcesPage.tsx` — Tabs scrollable trên mobile
+- `frontend/src/App.tsx` — Route `/` → redirect `/login`; thêm `/landingpage`
+
+**Backend (user thực hiện thủ công):**
+- `backend/routes/console.php` — Comment out 3 Schedule block (pipeline + personal-pipeline + avatar-backfill)
+
+---
+

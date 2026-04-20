@@ -124,56 +124,58 @@ const AdminSourcesManagementPage: React.FC = () => {
       {error && <p className="text-sm text-red-600">{error}</p>}
       {loading && <p className="text-sm text-slate-500">Loading...</p>}
 
-      <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+      <div className="rounded-xl border border-zinc-200 bg-white shadow-sm">
         <p className="px-4 pt-3 text-sm text-slate-600">{formatAdminTableRange(page, perPage, total)}</p>
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="px-4 py-3 text-left">#</th>
-              <th className="px-4 py-3 text-left">Handle</th>
-              <th className="px-4 py-3 text-left">Display Name</th>
-              <th className="px-4 py-3 text-left">Account Url</th>
-              <th className="px-4 py-3 text-left">Categories</th>
-              <th className="px-4 py-3 text-left">Type</th>
-              <th className="px-4 py-3 text-left">Status</th>
-              <th className="px-4 py-3 text-left">Created At</th>
-              <th className="px-4 py-3 text-left">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, idx) => (
-              <tr key={row.id} className="border-t align-top">
-                <td className="px-4 py-3">{(page - 1) * perPage + idx + 1}</td>
-                <td className="px-4 py-3">{row.x_handle}</td>
-                <td className="px-4 py-3">{row.display_name}</td>
-                <td className="px-4 py-3">
-                  <a className="text-blue-600 hover:underline" href={row.account_url} target="_blank" rel="noreferrer">
-                    {row.account_url}
-                  </a>
-                </td>
-                <td className="px-4 py-3">{row.categories.map((x) => x.name).join(", ")}</td>
-                <td className="px-4 py-3">{row.type}</td>
-                <td className="px-4 py-3">{row.status}</td>
-                <td className="px-4 py-3">{row.created_at}</td>
-                <td className="px-4 py-3">
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" asChild>
-                      <Link to={`/admin/sources/update/${row.id}`}>Edit</Link>
-                    </Button>
-                    <Button size="sm" variant="destructive" onClick={() => void onDelete(row.id)}>Delete</Button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {rows.length === 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50">
               <tr>
-                <td className="px-4 py-5 text-center text-slate-500" colSpan={9}>
-                  No sources found.
-                </td>
+                <th className="px-4 py-3 text-left">#</th>
+                <th className="px-4 py-3 text-left">Handle</th>
+                <th className="px-4 py-3 text-left">Display Name</th>
+                <th className="px-4 py-3 text-left">Account Url</th>
+                <th className="px-4 py-3 text-left">Categories</th>
+                <th className="px-4 py-3 text-left">Type</th>
+                <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-4 py-3 text-left">Created At</th>
+                <th className="px-4 py-3 text-left">Actions</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((row, idx) => (
+                <tr key={row.id} className="border-t align-top">
+                  <td className="px-4 py-3">{(page - 1) * perPage + idx + 1}</td>
+                  <td className="px-4 py-3">{row.x_handle}</td>
+                  <td className="px-4 py-3">{row.display_name}</td>
+                  <td className="px-4 py-3">
+                    <a className="text-blue-600 hover:underline" href={row.account_url} target="_blank" rel="noreferrer">
+                      {row.account_url}
+                    </a>
+                  </td>
+                  <td className="px-4 py-3">{row.categories.map((x) => x.name).join(", ")}</td>
+                  <td className="px-4 py-3">{row.type}</td>
+                  <td className="px-4 py-3">{row.status}</td>
+                  <td className="px-4 py-3">{row.created_at}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" asChild>
+                        <Link to={`/admin/sources/update/${row.id}`}>Edit</Link>
+                      </Button>
+                      <Button size="sm" variant="destructive" onClick={() => void onDelete(row.id)}>Delete</Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {rows.length === 0 && (
+                <tr>
+                  <td className="px-4 py-5 text-center text-slate-500" colSpan={9}>
+                    No sources found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
         <AdminTableFooter page={page} perPage={perPage} total={total} onPageChange={setPage} />
       </div>
     </div>

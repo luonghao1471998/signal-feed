@@ -93,35 +93,37 @@ const AdminDigestsPage: React.FC = () => {
       {error && <p className="text-sm text-red-600">{error}</p>}
       {loading && <p className="text-sm text-slate-500">Loading...</p>}
 
-      <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+      <div className="rounded-xl border border-zinc-200 bg-white shadow-sm">
         <p className="px-4 pt-3 text-sm text-slate-600">{formatAdminTableRange(page, perPage, total)}</p>
-        <table className="w-full text-sm">
-          <thead className="border-b border-slate-100/60 bg-gradient-to-r from-slate-50/90 via-white to-slate-50/50">
-            <tr>
-              <th className="px-4 py-3 text-left">#</th>
-              <th className="px-4 py-3 text-left">Title</th>
-              <th className="px-4 py-3 text-left">Total Signals</th>
-              <th className="px-4 py-3 text-left">Created At</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, idx) => (
-              <tr key={row.id} className="border-t">
-                <td className="px-4 py-3">{(page - 1) * perPage + idx + 1}</td>
-                <td className="px-4 py-3">{row.title}</td>
-                <td className="px-4 py-3">{row.total_signals}</td>
-                <td className="px-4 py-3">{row.created_at}</td>
-              </tr>
-            ))}
-            {rows.length === 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="border-b border-slate-100/60 bg-gradient-to-r from-slate-50/90 via-white to-slate-50/50">
               <tr>
-                <td className="px-4 py-5 text-center text-slate-500" colSpan={4}>
-                  No digests found.
-                </td>
+                <th className="px-4 py-3 text-left">#</th>
+                <th className="px-4 py-3 text-left">Title</th>
+                <th className="px-4 py-3 text-left">Total Signals</th>
+                <th className="px-4 py-3 text-left">Created At</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((row, idx) => (
+                <tr key={row.id} className="border-t">
+                  <td className="px-4 py-3">{(page - 1) * perPage + idx + 1}</td>
+                  <td className="px-4 py-3">{row.title}</td>
+                  <td className="px-4 py-3">{row.total_signals}</td>
+                  <td className="px-4 py-3">{row.created_at}</td>
+                </tr>
+              ))}
+              {rows.length === 0 && (
+                <tr>
+                  <td className="px-4 py-5 text-center text-slate-500" colSpan={4}>
+                    No digests found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
         <AdminTableFooter page={page} perPage={perPage} total={total} onPageChange={setPage} />
       </div>
     </div>

@@ -10,6 +10,8 @@ import {
   Activity,
   Users,
   UserCog,
+  Menu,
+  X,
 } from "lucide-react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -21,6 +23,7 @@ const AdminLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [loggingOut, setLoggingOut] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const nav = [
     { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -38,6 +41,7 @@ const AdminLayout: React.FC = () => {
   React.useEffect(() => {
     const match = nav.find((item) => location.pathname.startsWith(item.to));
     document.title = `${match?.label ?? "Admin"} | SignalFeed Admin`;
+    setSidebarOpen(false);
   }, [location.pathname]);
 
   const handleLogout = async () => {
@@ -74,9 +78,32 @@ const AdminLayout: React.FC = () => {
 
   return (
     <div className="admin-shell flex min-h-screen text-slate-900">
-      <aside className="sticky top-0 flex h-screen w-[272px] shrink-0 flex-col bg-slate-900 text-slate-200 shadow-xl shadow-slate-950/40">
-        <div className="border-b border-white/10 px-5 pb-5 pt-6">
+      {/* Mobile backdrop overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-sm lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex h-full w-[272px] flex-col bg-slate-900 text-slate-200 shadow-xl shadow-slate-950/40 transition-transform duration-300 ease-in-out",
+          "lg:sticky lg:top-0 lg:h-screen lg:shrink-0 lg:translate-x-0",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
+        <div className="flex items-center justify-between border-b border-white/10 px-5 pb-5 pt-6">
           <p className="mt-2 text-2xl font-bold uppercase tracking-[0.18em] text-white">SIGNALFEED</p>
+          <button
+            type="button"
+            className="mt-2 rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Close menu"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
           {nav.map((item) => (
@@ -119,11 +146,31 @@ const AdminLayout: React.FC = () => {
           </Button>
         </div>
       </aside>
-      <main className="admin-shell__main-bg min-w-0 flex-1">
-        <div className="min-h-screen px-6 py-8 sm:px-8 lg:px-10">
-          <Outlet />
-        </div>
-      </main>
+
+      {/* Main content wrapper */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Mobile top bar */}
+        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center border-b border-slate-200/60 bg-white/90 px-4 backdrop-blur-md lg:hidden">
+          <button
+            type="button"
+            className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 active:bg-slate-200"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <span className="ml-3 text-sm font-semibold uppercase tracking-wider text-slate-700">
+            SignalFeed Admin
+          </span>
+        </header>
+
+        {/* Page content */}
+        <main className="admin-shell__main-bg min-w-0 flex-1">
+          <div className="min-h-screen px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+            <Outlet />
+          </div>
+        </main>
+      </div>
     </div>
   );
 };

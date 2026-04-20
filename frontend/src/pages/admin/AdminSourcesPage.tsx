@@ -232,15 +232,17 @@ const AdminSourcesPage: React.FC = () => {
         </Button>
       </div>
 
-      <Tabs value={status} onValueChange={setStatusTab}>
-        <TabsList>
-          {statusOptions.map((option) => (
-            <TabsTrigger key={option.value} value={option.value}>
-              {option.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+      <div className="overflow-x-auto pb-0.5">
+        <Tabs value={status} onValueChange={setStatusTab}>
+          <TabsList className="w-max">
+            {statusOptions.map((option) => (
+              <TabsTrigger key={option.value} value={option.value}>
+                {option.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <Input

@@ -1,9 +1,9 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-17 (Tasks 3.4.1 + 3.4.2 + 3.4.3 completed)
+**Last Updated:** 2026-04-20 (Admin responsive UI + Route mặc định + Scheduler cleanup + Logic docs Billing & Telegram)
 **Current Phase:** Giai đoạn 3 - Implementation
-**Current Sprint:** Sprint 3 — Billing + Admin + i18n
-**Sprint Status:** 🔄 In Progress (3/4 feature groups done)
+**Current Sprint:** Sprint 3 — Billing + Admin + i18n + UX Polish
+**Sprint Status:** 🔄 In Progress (3/4 feature groups done + UX polish 2026-04-20)
 **Previous Sprint:** Sprint 2.6 — Personal Signals Pipeline ✅ COMPLETED
 **Blocker:** None — Stripe price IDs resolved ✅
 
@@ -110,6 +110,52 @@
 - 📋 Backlog: background alert notifications (email/Slack)
 
 **Sprint 3**: 12/14 tasks done
+
+---
+
+## [2026-04-20] Admin Responsive UI + Route + Scheduler + Docs
+
+### Admin Panel — Mobile Responsive ✅
+
+**`frontend/src/layouts/AdminLayout.tsx`:**
+- Sidebar desktop: `sticky top-0 h-screen` (giữ nguyên)
+- Sidebar mobile: `fixed` drawer slide-in từ trái, `sidebarOpen` state
+- Mobile top bar: hamburger `Menu` icon + label (sticky, `lg:hidden`)
+- Backdrop overlay + nút `X` trong sidebar để đóng
+- Sidebar tự đóng khi navigate
+
+**Tables `overflow-x-auto`** — tất cả 7 trang list admin đã có `<div className="overflow-x-auto">` bọc `<table>`:
+`AdminDigestsPage`, `AdminSignalsPage`, `AdminTweetsPage`, `AdminSourcesManagementPage`, `AdminUsersPage`, `AdminAccountsPage`, `AdminCategoriesPage`
+
+**AdminSourcesPage**: Tabs scrollable trên mobile (`overflow-x-auto` + `w-max`)
+
+**Build:** `npm run build` ✅ PASS
+
+### Route Mặc Định ✅
+
+**`frontend/src/App.tsx`:**
+- `/` → `<Navigate to="/login" replace />` (trước: `LandingPage`)
+- `/landingpage` → `LandingPage` (route mới)
+- `/login` → `LoginPage` (giữ nguyên)
+
+**Build:** `npm run build` ✅ PASS
+
+### Scheduler — Chỉ Giữ Email + Telegram Tự Động ✅
+
+**`backend/routes/console.php`** (user thực hiện):
+- ❌ Comment out: `pipeline:crawl-classify` (4×/ngày)
+- ❌ Comment out: `personal-pipeline-fanout` (4×/ngày)
+- ❌ Comment out: `sources:avatar-backfill` (03:30 VN)
+- ✅ Giữ: `digest:delivery-fanout` (email 08:00 VN)
+- ✅ Giữ: `digest:telegram-fanout` (Telegram 08:00 VN)
+
+Lệnh chạy tay: `php artisan pipeline:run [--limit=N]`, `php artisan sources:backfill-avatars [--only-missing] [--limit=N]`
+
+### Logic Documentation
+
+- ✅ Tổng hợp đầy đủ luồng **Stripe Billing**: Checkout → Webhook → plan update → invoice sync → downgrade cleanup → feature gate middleware
+- ✅ Tổng hợp đầy đủ luồng **Telegram Digest**: connect account → scheduler fan-out → job → gate → signals → chunk → send → audit
+- ✅ Ghi nhận vào `SESSION-LOG.md [2026-04-20]`
 
 ---
 
