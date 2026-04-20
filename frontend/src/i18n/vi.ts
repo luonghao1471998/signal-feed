@@ -31,6 +31,8 @@ const vi = {
     seen3Today: "Bạn đã xem 3 tín hiệu của hôm nay.",
     fullDigestDrafts: "Nâng cấp Pro để xem đầy đủ digest hằng ngày + bản nháp tweet.",
     upgradeToProCta: "Nâng cấp lên Pro →",
+    newSignalsAvailable: "Có {count} tin mới",
+    loadNewSignals: "Tải thêm",
   },
   myKols: {
     browse: "Khám phá",

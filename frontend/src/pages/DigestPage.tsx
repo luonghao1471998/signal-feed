@@ -101,6 +101,7 @@ const DigestPage: React.FC = () => {
   const [archivedIds, setArchivedIds] = useState<Set<number>>(new Set());
   const [archiveLoadingIds, setArchiveLoadingIds] = useState<Set<number>>(new Set());
   const [deepLinkHandledSignalId, setDeepLinkHandledSignalId] = useState<number | null>(null);
+  const [newSignalsCount, setNewSignalsCount] = useState(0);
 
   const isMobile = useMediaQuery("(max-width: 767px)");
   const { activeCategory, selectCategory } = useCategoryFilter();
@@ -228,6 +229,55 @@ const DigestPage: React.FC = () => {
     activeTags,
   ]);
 
+  const checkForNewSignals = useCallback(async () => {
+    if (!authReady || (!user && !token) || loading) {
+      return;
+    }
+
+    try {
+      const categoryIdsForApi = isMobile
+        ? activeCategory === "all"
+          ? []
+          : (() => {
+              const id = resolveCategoryId(activeCategory, apiCategories);
+              return id ? [id] : [];
+            })()
+        : selectedCategoryIds;
+
+      const mySourcesOnly = myKolsOnly;
+      const topicTag =
+        userPlan !== "free" && activeTags.length === 1 ? activeTags[0].replace(/^#/, "") : undefined;
+
+      const response = await fetchSignals({
+        date: filterDate,
+        categoryIds: categoryIdsForApi.length ? categoryIdsForApi : undefined,
+        mySourcesOnly,
+        topicTag,
+        page: 1,
+        perPage: 1,
+      });
+
+      const diff = response.meta.total - total;
+      setNewSignalsCount(diff > 0 ? diff : 0);
+    } catch {
+      setNewSignalsCount(0);
+    }
+  }, [
+    authReady,
+    user,
+    token,
+    loading,
+    isMobile,
+    activeCategory,
+    apiCategories,
+    selectedCategoryIds,
+    myKolsOnly,
+    userPlan,
+    activeTags,
+    filterDate,
+    total,
+  ]);
+
   useEffect(() => {
     if (!authReady) {
       return;
@@ -239,7 +289,19 @@ const DigestPage: React.FC = () => {
       return;
     }
     void loadSignals();
+    setNewSignalsCount(0);
   }, [loadSignals, authReady, user, token]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void checkForNewSignals();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [checkForNewSignals]);
 
   const aggregatedTopicTags = useMemo(() => {
     const uniq = new Set<string>();
@@ -736,6 +798,26 @@ const DigestPage: React.FC = () => {
         )}
 
         <div className="px-0 pt-0 md:px-0">
+          {newSignalsCount > 0 && (
+            <div className="px-4 pt-4 md:px-5">
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-[#cfe8ff] bg-[#eef7ff] px-4 py-3">
+                <span className="text-sm font-medium text-[#0f1419]">
+                  {t("digest.newSignalsAvailable").replace("{count}", String(newSignalsCount))}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void loadSignals();
+                    setNewSignalsCount(0);
+                  }}
+                  className="shrink-0 rounded-full bg-[#1d9bf0] px-3 py-1.5 text-xs font-semibold text-white"
+                >
+                  {t("digest.loadNewSignals")}
+                </button>
+              </div>
+            </div>
+          )}
+
           {userPlan !== "free" && myKolsOnly && (
             <MySourcesStatsBar signalCount={signalCount} topHandles={myKolsTopHandles} loading={loading} />
           )}

@@ -31,6 +31,8 @@ const en = {
     seen3Today: "You've seen 3 of today's signals.",
     fullDigestDrafts: "Upgrade to Pro for full daily digest + draft tweets.",
     upgradeToProCta: "Upgrade to Pro →",
+    newSignalsAvailable: "{count} new signals available",
+    loadNewSignals: "Load now",
   },
   myKols: {
     browse: "Browse",

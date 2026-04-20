@@ -29,6 +29,23 @@ function clearStoredSession(): void {
   localStorage.removeItem("user");
 }
 
+function isSameUser(a: AuthUser | null, b: AuthUser | null): boolean {
+  if (!a && !b) {
+    return true;
+  }
+  if (!a || !b) {
+    return false;
+  }
+  return (
+    a.id === b.id &&
+    a.plan === b.plan &&
+    a.x_username === b.x_username &&
+    a.avatar_url === b.avatar_url &&
+    a.is_admin === b.is_admin &&
+    JSON.stringify(a.my_categories ?? []) === JSON.stringify(b.my_categories ?? [])
+  );
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setTokenState] = useState<string | null>(() => localStorage.getItem("auth_token"));
@@ -83,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshUser = useCallback(async () => {
     try {
       const u = await fetchCurrentUser();
-      setUser(u);
+      setUser((prev) => (isSameUser(prev, u) ? prev : u));
       if (u) {
         localStorage.setItem("user", JSON.stringify(u));
       } else {
