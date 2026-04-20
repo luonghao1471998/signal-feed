@@ -102,6 +102,9 @@ export function deleteSignal(id: number) {
 export function listTweets(params: URLSearchParams) {
   return request<{ data: unknown[]; meta: unknown; filters?: unknown }>(`/admin/api/tweets?${params.toString()}`);
 }
+export function getTweet(id: number) {
+  return request<{ data: unknown }>(`/admin/api/tweets/${id}`);
+}
 export function createTweet(payload: unknown) {
   return request("/admin/api/tweets", "POST", payload);
 }

@@ -51,6 +51,7 @@ class MySourcesController extends Controller
                 'id' => $source->id,
                 'handle' => '@'.$source->x_handle,
                 'display_name' => $source->display_name,
+                'avatar_url' => $source->avatar_url,
                 'account_url' => $source->account_url,
                 'categories' => $source->categories->map(static function ($category): array {
                     return [

@@ -28,6 +28,32 @@ function mapSources(s: Signal): KOLSource[] {
   }));
 }
 
+function toTimeAgo(iso: string | null | undefined): string {
+  if (!iso) {
+    return "—";
+  }
+
+  const timestamp = new Date(iso).getTime();
+  if (Number.isNaN(timestamp)) {
+    return "—";
+  }
+
+  const diffMs = Math.max(0, Date.now() - timestamp);
+  const minutes = Math.floor(diffMs / 60000);
+
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 export function mapApiSignalToDigest(
   s: Signal,
   rank: number,
@@ -52,7 +78,7 @@ export function mapApiSignalToDigest(
     kolCount: s.source_count,
     sourceCount: s.source_count,
     sources: mapSources(s),
-    timeAgo: "—",
+    timeAgo: toTimeAgo(s.published_at ?? (s.date ? `${s.date}T00:00:00Z` : null)),
     defaultExpanded: false,
     isArchived: s.is_archived === true,
   };

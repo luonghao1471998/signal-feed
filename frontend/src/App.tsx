@@ -28,6 +28,7 @@ import AdminSignalsPage from "./pages/admin/AdminSignalsPage";
 import AdminSourcesManagementPage from "./pages/admin/AdminSourcesManagementPage";
 import AdminSourceFormPage from "./pages/admin/AdminSourceFormPage";
 import AdminTweetsPage from "./pages/admin/AdminTweetsPage";
+import AdminTweetDetailPage from "./pages/admin/AdminTweetDetailPage";
 import AdminUserFormPage from "./pages/admin/AdminUserFormPage";
 import AdminUsersPage from "./pages/admin/AdminUsersPage";
 import { CategoryFilterProvider } from "./contexts/CategoryFilterContext";
@@ -68,6 +69,7 @@ function AppRoutes() {
         <Route path="signals" element={<AdminSignalsPage />} />
         <Route path="signals/:id" element={<AdminSignalDetailPage />} />
         <Route path="tweets" element={<AdminTweetsPage />} />
+        <Route path="tweets/:id" element={<AdminTweetDetailPage />} />
         <Route path="sources" element={<AdminSourcesManagementPage />} />
         <Route path="sources/create" element={<AdminSourceFormPage />} />
         <Route path="sources/update/:id" element={<AdminSourceFormPage />} />

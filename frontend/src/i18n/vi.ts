@@ -73,6 +73,7 @@ const vi = {
     followingProgress: "Đang theo dõi...",
     kols: "KOL",
     noRecentSignals: "Không có tín hiệu gần đây",
+    lastActive: "Hoạt động gần nhất",
     noRecentActivity: "Không có hoạt động gần đây",
     followingSince: "Theo dõi từ",
     unfollow: "Bỏ theo dõi",
@@ -246,6 +247,8 @@ const vi = {
     opening: "Đang mở...",
     copying: "Đang sao chép...",
     copyToX: "Sao chép sang X",
+    shareOnX: "Đăng lên X ↗",
+    shareCancelled: "Đã huỷ chia sẻ",
     errorTitle: "Lỗi",
   },
   pipelineFooter: {

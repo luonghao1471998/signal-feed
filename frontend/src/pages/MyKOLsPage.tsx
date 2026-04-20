@@ -32,40 +32,42 @@ import {
   unsubscribeFromSource,
 } from "@/services/sourceService";
 import { toast } from "sonner";
-import { useLocale } from "@/i18n";
+import { useLocale, type Locale } from "@/i18n";
 
-const formatSubscribedDate = (value: string): string => {
+const localeTag = (locale: Locale): string => (locale === "vi" ? "vi-VN" : "en-US");
+
+const formatSubscribedDate = (value: string, locale: Locale): string => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     return "Unknown";
   }
 
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat(localeTag(locale), {
     month: "short",
     day: "numeric",
     year: "numeric",
   }).format(date);
 };
 
-const formatShortDate = (value: string): string => {
+const formatShortDate = (value: string, locale: Locale): string => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     return value;
   }
 
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat(localeTag(locale), {
     month: "short",
     day: "numeric",
   }).format(date);
 };
 
-const formatSubmissionDate = (value: string): string => {
+const formatSubmissionDate = (value: string, locale: Locale): string => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     return "Unknown";
   }
 
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat(localeTag(locale), {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -87,7 +89,7 @@ const SUBMISSION_STATUS_LABELS: Record<string, string> = {
 };
 
 const MyKOLsPage = () => {
-  const { t: tr } = useLocale();
+  const { t: tr, locale } = useLocale();
   const { user, authReady } = useAuth();
   const canAddSource = Boolean(user && (user.plan === "pro" || user.plan === "power"));
   const canViewSubmittedTab = Boolean(user && (user.plan === "pro" || user.plan === "power"));
@@ -681,7 +683,7 @@ const MyKOLsPage = () => {
                       ? tr("myKols.signalsLast7Days").replace("{count}", String(signalCount))
                       : tr("myKols.noRecentSignals");
                   const lastActiveText = source.stats.last_active_date
-                    ? `last active ${source.stats.last_active_date}`
+                    ? `${tr("myKols.lastActive")} ${formatSubscribedDate(source.stats.last_active_date, locale)}`
                     : tr("myKols.noRecentActivity");
                   const isBusy = followingBusySourceId === source.id;
 
@@ -707,7 +709,7 @@ const MyKOLsPage = () => {
                         <p className="text-[13px] text-[#536471]">{lastActiveText}</p>
                         <p className="text-[12px] text-[#536471]">
                           {tr("myKols.followingSince")}{" "}
-                          {source.subscribed_at ? formatSubscribedDate(source.subscribed_at) : tr("common.unknown")}
+                          {source.subscribed_at ? formatSubscribedDate(source.subscribed_at, locale) : tr("common.unknown")}
                         </p>
                       </div>
                       <Button
@@ -818,7 +820,7 @@ const MyKOLsPage = () => {
                           </div>
                         ) : null}
                         <p className="mt-1 text-[12px] text-[#536471]">
-                          {tr("myKols.submittedPrefix")}: {formatSubmissionDate(source.submitted_at)}
+                          {tr("myKols.submittedPrefix")}: {formatSubmissionDate(source.submitted_at, locale)}
                         </p>
                       </div>
                       {source.status === "active" && !source.is_subscribed ? (
@@ -1002,7 +1004,7 @@ const MyKOLsPage = () => {
                       <LineChart
                         data={statsData.trend_7day.map((point) => ({
                           ...point,
-                          display_date: formatShortDate(point.date),
+                          display_date: formatShortDate(point.date, locale),
                         }))}
                         margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
                       >

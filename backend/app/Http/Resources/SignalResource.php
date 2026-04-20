@@ -64,6 +64,9 @@ class SignalResource extends JsonResource
                 ]
                 : [],
             'date' => $digestDate,
+            'published_at' => $signal->created_at
+                ? $signal->created_at->copy()->utc()->toIso8601String()
+                : null,
             'type' => $type,
             'is_personal' => $type === 1,
             'is_archived' => (bool) ($signal->is_archived ?? false),

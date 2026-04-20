@@ -20,6 +20,8 @@ interface FilterSheetProps {
   showMySourcesToggle?: boolean;
   /** Tag hiển thị trong sheet (mặc định DIGEST_TOPIC_TAGS). */
   topicTagOptions?: readonly string[];
+  /** Danh sách category động (signals có hôm nay). Mặc định: toàn bộ DIGEST_FILTER_CATEGORIES. */
+  categoryOptions?: ReadonlyArray<{ key: CategoryFilterKey; label: string }>;
 }
 
 const FilterSheet: React.FC<FilterSheetProps> = ({
@@ -34,9 +36,11 @@ const FilterSheet: React.FC<FilterSheetProps> = ({
   userPlan = "free",
   showMySourcesToggle = false,
   topicTagOptions,
+  categoryOptions,
 }) => {
   const { t } = useLocale();
   const tagOptions = topicTagOptions?.length ? topicTagOptions : DIGEST_TOPIC_TAGS;
+  const cats = categoryOptions?.length ? categoryOptions : DIGEST_FILTER_CATEGORIES;
   const [localCat, setLocalCat] = useState(activeCategory);
   const [localTags, setLocalTags] = useState<string[]>(activeTags);
   const [localMySources, setLocalMySources] = useState(mySourcesOnly);
@@ -89,7 +93,7 @@ const FilterSheet: React.FC<FilterSheetProps> = ({
         <div className="flex-1 overflow-y-auto px-4 min-h-0">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">{t("filterSheet.category")}</p>
           <div className="grid grid-cols-3 gap-2">
-            {DIGEST_FILTER_CATEGORIES.map((cat) => {
+            {cats.map((cat) => {
               const active = localCat === cat.key;
               return (
                 <button

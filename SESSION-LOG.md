@@ -10689,3 +10689,141 @@ Người dùng chỉ nhận được Telegram digest khi **plan = Power**. Plan 
 
 ---
 
+## [2026-04-20] Twitter API (twitterapi.io) — Tối ưu tiết kiệm credit
+
+**Status:** ✅ COMPLETED  
+**Mục tiêu:** Giảm số HTTP request trùng lặp / không cần thiết tới `twitter/user/last_tweets`, tiết kiệm credit dashboard.
+
+### 1. `TwitterCrawlerService.php`
+
+**Retry (`makeLastTweetsRequest`):**
+- Giảm `maxAttempts` từ **3 → 2** (chỉ retry khi `ConnectionException`).
+- Giảm `sleep` giữa các lần retry từ **5s → 3s**.
+- **Tác động:** Trường hợp mạng lỗi tối đa **2 request** thay vì 3.
+
+**Avatar refresh trong `syncSourceProfile` (gọi từ `crawlSource`):**
+- Cửa sổ refresh avatar: **1 ngày → 7 ngày** (`subDay()` → `subDays(7)`).
+- Chỉ cập nhật `avatar_url` / `avatar_synced_at` khi `shouldRefresh` (null hoặc `avatar_synced_at` cũ hơn 7 ngày).
+- **Tác động:** Ít ghi đè avatar từ response crawl khi URL đã “đủ mới”; avatar KOL ít đổi nên 7 ngày hợp lý.
+
+**`refreshSourceProfile` (backfill / sync avatar riêng):**
+- **Early return** (không gọi API) khi đồng thời:
+  - `last_crawled_at` trong **24h** gần đây,
+  - `avatar_url` không rỗng,
+  - `avatar_synced_at` trong **7 ngày** gần đây.
+- Log kênh `crawler` (debug): `refreshSourceProfile skipped (recently crawled, avatar fresh)`.
+- **Tác động:** Sau khi `tweets:crawl` vừa chạy, chạy backfill cùng source **không** tốn thêm request.
+
+### 2. `BackfillSourceAvatarsCommand.php`
+
+**Option mới:** `--force` — bỏ qua filter “freshness” trên `avatar_synced_at`.
+
+**Filter mặc định (khi không `--force`):**
+- Chỉ lấy source có `avatar_synced_at` **null** hoặc **≤ 7 ngày trước** (UTC).
+- **Tác động:** Không gọi API cho source đã sync avatar trong 7 ngày (trừ khi ép `--force`).
+
+**Message khi rỗng:** `No sources need avatar backfill (all synced within 7 days). Use --force to override.`
+
+### Hành vi vận hành (nhắc lại)
+
+| Lệnh | Avatar |
+|------|--------|
+| `php artisan tweets:crawl --source=… --limit=…` | Một request `last_tweets` đã kèm profile; `syncSourceProfile` cập nhật avatar khi `shouldRefresh` (7 ngày). |
+| `php artisan sources:backfill-avatars --only-missing` | Chỉ source thiếu `avatar_url` + (mặc định) bỏ qua đã sync trong 7 ngày. |
+| `php artisan sources:backfill-avatars --force` | Bỏ filter freshness — dùng khi cần refresh hàng loạt (ví dụ đổi policy). |
+
+### Files touched
+
+- `backend/app/Services/TwitterCrawlerService.php`
+- `backend/app/Console/Commands/BackfillSourceAvatarsCommand.php`
+
+---
+
+
+## [2026-04-20 16:25 +07] PWA Share UX + Digest Category Consistency + Cost Planning
+
+### 1) PWA mobile — Ready to Share dùng Web Share API (native share sheet)
+
+**Bối cảnh:** Modal detail phần "Ready to Share" đang yêu cầu user chọn mode (browser/app), UX mobile chưa tối ưu.
+
+**Thay đổi:**
+- `frontend/src/components/SignalDetailModal.tsx`
+  - Mobile (`isMobile`): bỏ RadioGroup mode, thay bằng **1 CTA duy nhất** `Post on X ↗`.
+  - Ưu tiên `navigator.share({ text })` để mở native share sheet trên iOS/Android.
+  - Nếu không hỗ trợ Web Share API: fallback copy clipboard + toast hướng dẫn paste.
+  - Desktop giữ nguyên flow cũ (RadioGroup + copy/open intent).
+- i18n:
+  - `frontend/src/i18n/en.ts`: thêm `signalDetail.shareOnX`, `signalDetail.shareCancelled`.
+  - `frontend/src/i18n/vi.ts`: thêm `signalDetail.shareOnX`, `signalDetail.shareCancelled`.
+
+**Kết quả UX:**
+- Mobile PWA: thao tác share đúng pattern native, không phải tự chọn mode.
+- Desktop: không đổi behavior hiện tại.
+
+### 2) Digest date locale trên mobile
+
+**Issue:** input date trên mobile hiển thị tiếng Việt dù app locale = English.
+
+**Thay đổi:**
+- `frontend/src/pages/DigestPage.tsx`
+  - `digestSubtitleFromParam(...)` chuyển sang locale-aware (`en-US` / `vi-VN`).
+  - Date input thêm `lang={locale === 'vi' ? 'vi-VN' : 'en-US'}`.
+
+**Ghi chú:** iOS/Safari có thể vẫn bị ảnh hưởng bởi system locale cho native date picker UI; text format trong app đã theo locale app.
+
+### 3) Digest category filters — thống nhất desktop & PWA mobile
+
+**Bối cảnh:** Desktop dùng category list động theo signal, mobile FilterSheet dùng `DIGEST_FILTER_CATEGORIES` hardcoded -> mismatch.
+
+**Logic mới (đã implement):**
+- "Categories có signal hôm nay + ưu tiên `users.my_categories` lên trước".
+- Nếu ngày không có signal: hiện `my_categories` (hoặc all nếu trống) ở trạng thái disabled.
+
+**Files:**
+- `frontend/src/pages/DigestPage.tsx`
+  - Rework `categoryPills` theo logic mới.
+  - Thêm `mobileCategoryOptions` convert từ `categoryPills` -> `CategoryFilterKey` cho mobile.
+  - Truyền `categoryOptions` vào `FilterSheet`.
+- `frontend/src/components/FilterSheet.tsx`
+  - Thêm prop `categoryOptions`.
+  - Nếu có prop thì render list động, fallback về `DIGEST_FILTER_CATEGORIES`.
+
+### 4) Fix label mismatch: "Tech News" vs "Tech Policy"
+
+**Root cause:** filter pills lấy tên DB (`ALL_CATEGORIES.name`) còn signal badges lấy UI mapping (`CategoryBadge`), nên cùng slug có thể ra label khác nhau.
+
+**Fix:**
+- `frontend/src/components/CategoryBadge.tsx`
+  - Export helper `categoryLabel(key)`.
+- `frontend/src/pages/DigestPage.tsx`
+  - Khi build `categoryPills`, map slug -> UI key -> lấy label qua `categoryLabel(...)`.
+
+**Kết quả:** pills và badge đồng bộ tên hiển thị (Tech Policy, Indie SaaS, Startup / VC, ...).
+
+### 5) Avatar My KOLs + locale formatting bổ sung
+
+- `backend/app/Http/Controllers/Api/MySourcesController.php`
+  - `GET /api/my-sources` trả thêm `avatar_url` -> tab Following hiển thị avatar thật.
+- `frontend/src/pages/MyKOLsPage.tsx`
+  - Date formatting chuyển theo `useLocale()` (`en-US` / `vi-VN`) cho following/submitted/stats trend labels.
+- `frontend/src/pages/ArchivePage.tsx`
+  - Group header date (`Today / Yesterday / Date`) format theo locale app.
+- `frontend/src/layouts/PWALayout.tsx`
+  - Thêm tab `Archive` cho bottom nav trên PWA/mobile.
+
+### 6) Cost planning note (500 KOL, 4 runs/day)
+
+**Ước tính theo input thực tế user cung cấp:**
+- twitterapi.io: ~300 token / request / KOL
+- 500 KOL × 4 lần/ngày = 2,000 requests/ngày
+- Token/ngày: 2,000 × 300 = **600,000 token/ngày** (~18,000,000 token/tháng)
+
+**Nhận định:** chi phí crawl sẽ là phần lớn nhất; cần chiến lược crawl tiered (active KOL chạy dày, long-tail chạy thưa) để tối ưu OPEX.
+
+### Build / verify
+
+- `npm run build` (frontend) đã chạy nhiều vòng sau từng cụm thay đổi -> ✅ PASS.
+- Cảnh báo chunk size của Vite vẫn là warning non-blocking.
+
+---
+

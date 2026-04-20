@@ -58,9 +58,9 @@ class CategorySeeder extends Seeder
                 'updated_at' => $now,
             ],
             [
-                'name' => 'Tech News',
-                'slug' => 'tech-news',
-                'description' => 'Technology industry news, Product releases',
+                'name' => 'Tech Policy',
+                'slug' => 'tech-policy',
+                'description' => 'Technology industry policy, Tech policy news',
                 'tenant_id' => 1,
                 'created_at' => $now,
                 'updated_at' => $now,

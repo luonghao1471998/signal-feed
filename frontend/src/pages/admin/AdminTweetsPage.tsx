@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { listTweets } from "@/services/adminPanelService";
@@ -118,6 +119,7 @@ const AdminTweetsPage: React.FC = () => {
                 <th className="px-4 py-3 text-left">Posted At</th>
                 <th className="px-4 py-3 text-left">Signal Score</th>
                 <th className="px-4 py-3 text-left">Created At</th>
+                <th className="px-4 py-3 text-left">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -128,11 +130,16 @@ const AdminTweetsPage: React.FC = () => {
                   <td className="px-4 py-3">{row.posted_at}</td>
                   <td className="px-4 py-3">{row.signal_score}</td>
                   <td className="px-4 py-3">{row.created_at}</td>
+                  <td className="px-4 py-3">
+                    <Button size="sm" variant="outline" asChild>
+                      <Link to={`/admin/tweets/${row.id}`}>Detail</Link>
+                    </Button>
+                  </td>
                 </tr>
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td className="px-4 py-5 text-center text-slate-500" colSpan={5}>
+                  <td className="px-4 py-5 text-center text-slate-500" colSpan={6}>
                     No tweets found.
                   </td>
                 </tr>

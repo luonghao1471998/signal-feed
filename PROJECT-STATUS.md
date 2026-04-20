@@ -1,9 +1,9 @@
 # SignalFeed - Project Status
 
-**Last Updated:** 2026-04-20 (Admin responsive UI + Route mặc định + Scheduler cleanup + Logic docs Billing & Telegram)
+**Last Updated:** 2026-04-20 (PWA mobile share UX + category consistency + locale/date fixes + cost planning)
 **Current Phase:** Giai đoạn 3 - Implementation
 **Current Sprint:** Sprint 3 — Billing + Admin + i18n + UX Polish
-**Sprint Status:** 🔄 In Progress (3/4 feature groups done + UX polish 2026-04-20)
+**Sprint Status:** 🔄 In Progress (3/4 feature groups done + PWA UX polish 2026-04-20)
 **Previous Sprint:** Sprint 2.6 — Personal Signals Pipeline ✅ COMPLETED
 **Blocker:** None — Stripe price IDs resolved ✅
 
@@ -149,13 +149,62 @@
 - ✅ Giữ: `digest:delivery-fanout` (email 08:00 VN)
 - ✅ Giữ: `digest:telegram-fanout` (Telegram 08:00 VN)
 
-Lệnh chạy tay: `php artisan pipeline:run [--limit=N]`, `php artisan sources:backfill-avatars [--only-missing] [--limit=N]`
+Lệnh chạy tay: `php artisan pipeline:run [--limit=N]`, `php artisan sources:backfill-avatars [--only-missing] [--limit=N] [--force]`
+
+### Twitter API (twitterapi.io) — Tiết kiệm credit ✅
+
+**Files:** `app/Services/TwitterCrawlerService.php`, `app/Console/Commands/BackfillSourceAvatarsCommand.php`
+
+| Thay đổi | Mục đích |
+|----------|----------|
+| Retry `last_tweets`: 3→**2** lần, sleep 5s→**3s** | Giảm tối đa số request khi lỗi kết nối |
+| `syncSourceProfile`: refresh avatar **7 ngày** (trước: 1 ngày) | Ít ghi đè avatar từ mỗi lần crawl |
+| `refreshSourceProfile`: skip API nếu crawl **24h** + có avatar + `avatar_synced_at` **7 ngày** | Tránh request trùng sau crawl |
+| `sources:backfill-avatars`: filter `avatar_synced_at` >7 ngày (mặc định); thêm **`--force`** | Backfill không spam API cho source “fresh” |
+
+**Ghi chú:** `tweets:crawl` vẫn **một request** / source / lần chạy; avatar lấy từ cùng response — không cần backfill chỉ để có avatar nếu crawl đã chạy và điều kiện refresh thỏa.
+
+Chi tiết: `SESSION-LOG.md` — mục **[2026-04-20] Twitter API (twitterapi.io) — Tối ưu tiết kiệm credit**.
 
 ### Logic Documentation
 
 - ✅ Tổng hợp đầy đủ luồng **Stripe Billing**: Checkout → Webhook → plan update → invoice sync → downgrade cleanup → feature gate middleware
 - ✅ Tổng hợp đầy đủ luồng **Telegram Digest**: connect account → scheduler fan-out → job → gate → signals → chunk → send → audit
 - ✅ Ghi nhận vào `SESSION-LOG.md [2026-04-20]`
+
+---
+
+## [2026-04-20] PWA UX Polish + Category Consistency + Cost Planning
+
+### Mobile PWA UX & i18n ✅
+
+- `My KOLs` Following: backend `GET /api/my-sources` trả thêm `avatar_url` để render avatar thật.
+- Date formatting trên PWA chuyển sang locale-aware (`en-US`/`vi-VN`) ở `MyKOLsPage`, `ArchivePage`, `DigestPage`.
+- `PWALayout` thêm tab `Archive` để parity với desktop.
+- `DigestPage` date subtitle dùng locale app; mobile date input có `lang` hint theo locale.
+
+### Ready to Share (mobile only) ✅
+
+- `SignalDetailModal`: mobile dùng **Web Share API** (`navigator.share`) để mở native share sheet.
+- Fallback clipboard + toast nếu device/browser không hỗ trợ Web Share API.
+- Desktop giữ nguyên flow cũ (radio mode + copy intent) để tránh regression.
+
+### Category Filter Consistency (desktop = mobile) ✅
+
+- Logic thống nhất: **hiện category có signal trong ngày**, ưu tiên category thuộc `users.my_categories` lên trước.
+- Mobile `FilterSheet` nhận `categoryOptions` động từ `DigestPage` thay vì danh sách hardcode.
+- Fix mismatch label (ví dụ `Tech News` vs `Tech Policy`): pills và badge cùng dùng mapping qua `CategoryBadge.categoryLabel()`.
+
+### Build Status
+
+- `npm run build` đã chạy sau mỗi cụm thay đổi lớn: ✅ PASS.
+- Vite chunk-size warnings vẫn là non-blocking.
+
+### Cost Planning Snapshot (Scale: 500 KOL × 4 runs/day)
+
+- twitterapi.io: 1 request/KOL/run, ~300 token/request.
+- Tổng crawl: **2,000 requests/day** ≈ **600,000 token/day** ≈ **18,000,000 token/month**.
+- Kết luận: chi phí crawl là thành phần dominant; hướng tối ưu ưu tiên là crawl theo tier hoạt động (active/high-impact KOL chạy dày, long-tail chạy thưa).
 
 ---
 

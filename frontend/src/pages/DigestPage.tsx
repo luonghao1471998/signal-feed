@@ -5,6 +5,7 @@ import DigestSignalCard from "../components/DigestSignalCard";
 import PipelineFooter from "../components/PipelineFooter";
 import MySourcesStatsBar from "../components/MySourcesStatsBar";
 import { SignalDetailModal } from "@/components/SignalDetailModal";
+import { categoryLabel } from "@/components/CategoryBadge";
 import FilterSheet from "../components/FilterSheet";
 import { useCategoryFilter } from "@/contexts/CategoryFilterContext";
 import type { CategoryFilterKey } from "@/contexts/CategoryFilterContext";
@@ -24,7 +25,7 @@ import {
 } from "@/services/signalService";
 import { getCurrentSubscriptionCount } from "@/services/sourceService";
 import { mapApiSignalToDigest } from "@/lib/mapApiSignalToDigest";
-import { categoryFilterKeyToDbSlug } from "@/lib/categorySlugMap";
+import { categoryFilterKeyToDbSlug, apiSlugToCategoryKey } from "@/lib/categorySlugMap";
 import type { DigestSignal } from "@/types/digestUi";
 import { useLocale } from "@/i18n";
 
@@ -52,12 +53,16 @@ function shiftDateYmd(ymd: string, deltaDays: number): string {
   return `${yy}-${mm}-${dd}`;
 }
 
-function digestSubtitleFromParam(dateParam: string | undefined, todayLabel: string): string {
+function digestSubtitleFromParam(dateParam: string | undefined, todayLabel: string, locale: "en" | "vi"): string {
   if (!dateParam) return todayLabel;
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateParam);
   if (!m) return dateParam;
   const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return d.toLocaleDateString(locale === "vi" ? "vi-VN" : "en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 function resolveCategoryId(activeCategory: CategoryFilterKey, categories: ApiCategory[]): number | null {
@@ -74,7 +79,7 @@ const DigestPage: React.FC = () => {
   const location = useLocation();
   const { date: dateParam } = useParams<{ date?: string }>();
   const { user, token, authReady } = useAuth();
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const userPlan = user?.plan ?? "free";
 
   const [filterDate, setFilterDate] = useState(() => dateParam ?? todayYmd());
@@ -419,47 +424,77 @@ const DigestPage: React.FC = () => {
   const categoryPills = useMemo((): CategoryPill[] => {
     const signals = rawSignals;
     const activeCategoryIds = new Set(signals.flatMap((s) => s.categoryIds));
-
     const myCats = user?.my_categories ?? [];
-    if (myCats.length > 0) {
+
+    /** Chuyển DB slug → display name đồng bộ với badge trên signal card. */
+    const resolveDisplayName = (slug: string, fallback: string): string => {
+      const uiKey = apiSlugToCategoryKey(slug);
+      return uiKey ? categoryLabel(uiKey) : fallback;
+    };
+
+    // Không có signal hôm nay: hiện my_categories (hoặc tất cả) ở trạng thái disabled
+    if (activeCategoryIds.size === 0) {
+      const base =
+        myCats.length > 0
+          ? ALL_CATEGORIES.filter((cat) => myCats.includes(cat.id))
+          : [...ALL_CATEGORIES];
       return [
-        {
-          id: null,
-          name: t("common.all"),
-          slug: "all",
-          hasSignals: signals.length > 0,
-        },
-        ...ALL_CATEGORIES.filter((cat) => myCats.includes(cat.id)).map((cat) => ({
+        { id: null, name: t("common.all"), slug: "all", hasSignals: false },
+        ...base.map((cat) => ({
           id: cat.id,
-          name: cat.name,
+          name: resolveDisplayName(cat.slug, cat.name),
           slug: cat.slug,
-          hasSignals: activeCategoryIds.has(cat.id),
+          hasSignals: false,
         })),
       ];
     }
 
-    if (signals.length > 0 && activeCategoryIds.size > 0) {
-      const rest = ALL_CATEGORIES.filter((cat) => activeCategoryIds.has(cat.id))
-        .map((cat) => ({
-          id: cat.id,
-          name: cat.name,
-          slug: cat.slug,
-          hasSignals: true,
-        }))
-        .sort((a, b) => a.name.localeCompare(b.name));
-      return [{ id: null, name: t("common.all"), slug: "all", hasSignals: true }, ...rest];
-    }
+    // Có signal: chỉ hiện categories có signal ngày đang xem
+    // my_categories ưu tiên lên đầu, còn lại sort alphabet
+    const active = ALL_CATEGORIES.filter((cat) => activeCategoryIds.has(cat.id));
+    active.sort((a, b) => {
+      const aIsMine = myCats.includes(a.id);
+      const bIsMine = myCats.includes(b.id);
+      if (aIsMine && !bIsMine) return -1;
+      if (!aIsMine && bIsMine) return 1;
+      return a.name.localeCompare(b.name);
+    });
 
     return [
-      { id: null, name: t("common.all"), slug: "all", hasSignals: false },
-      ...ALL_CATEGORIES.map((cat) => ({
+      { id: null, name: t("common.all"), slug: "all", hasSignals: true },
+      ...active.map((cat) => ({
         id: cat.id,
-        name: cat.name,
+        name: resolveDisplayName(cat.slug, cat.name),
         slug: cat.slug,
-        hasSignals: false,
+        hasSignals: true,
       })),
     ];
   }, [rawSignals, user?.my_categories, t]);
+
+  /**
+   * Convert categoryPills → format cho FilterSheet mobile (CategoryFilterKey + label).
+   * Deduplicate: saas + indie-hacking đều map về "indie-saas" → chỉ lấy một.
+   */
+  const mobileCategoryOptions = useMemo((): Array<{ key: CategoryFilterKey; label: string }> => {
+    const seen = new Set<string>();
+    const result: Array<{ key: CategoryFilterKey; label: string }> = [];
+
+    for (const pill of categoryPills) {
+      if (pill.id === null) {
+        if (!seen.has("all")) {
+          seen.add("all");
+          result.push({ key: "all", label: pill.name });
+        }
+        continue;
+      }
+      const uiKey = apiSlugToCategoryKey(pill.slug);
+      if (!uiKey || seen.has(uiKey)) continue;
+      seen.add(uiKey);
+      result.push({ key: uiKey, label: pill.name });
+    }
+
+    return result;
+  }, [categoryPills]);
 
   const handleCategoryClick = useCallback(
     (categoryId: number | null) => {
@@ -479,7 +514,7 @@ const DigestPage: React.FC = () => {
     [categoryPills],
   );
 
-  const centerTitle = `${t("nav.digest")} · ${digestSubtitleFromParam(filterDate, t("digest.today"))}`;
+  const centerTitle = `${t("nav.digest")} · ${digestSubtitleFromParam(filterDate, t("digest.today"), locale)}`;
 
   const toggleTopicTag = (tag: string) => {
     setActiveTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
@@ -538,6 +573,7 @@ const DigestPage: React.FC = () => {
 
             <input
               type="date"
+              lang={locale === "vi" ? "vi-VN" : "en-US"}
               value={filterDate}
               max={todayYmd()}
               onChange={(event) => {
@@ -588,7 +624,7 @@ const DigestPage: React.FC = () => {
                   <ChevronLeft className="h-4 w-4" />
                 </button>
                 <span className="px-1 text-sm font-semibold text-[#0f1419]">
-                  {digestSubtitleFromParam(filterDate, t("digest.today"))}
+                  {digestSubtitleFromParam(filterDate, t("digest.today"), locale)}
                 </span>
                 <button
                   type="button"
@@ -817,6 +853,7 @@ const DigestPage: React.FC = () => {
             userPlan={userPlan}
             showMySourcesToggle={showMySourcesToggle}
             topicTagOptions={topicTagsForHeader}
+            categoryOptions={mobileCategoryOptions}
           />
         </>
       )}

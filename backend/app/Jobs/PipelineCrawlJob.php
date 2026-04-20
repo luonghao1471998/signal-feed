@@ -38,8 +38,13 @@ class PipelineCrawlJob implements ShouldQueue
 
     public int $timeout = 600;
 
+    /**
+     * @param  list<string>  $sourceHandles  Giới hạn crawl cho một số handle cụ thể ([] = tất cả active).
+     */
     public function __construct(
-        public int $tweetsPerSource = 10
+        public int $tweetsPerSource = 10,
+        public bool $skipCrawl = false,
+        public array $sourceHandles = [],
     ) {
         $this->tweetsPerSource = max(1, min(100, $this->tweetsPerSource));
     }
@@ -56,27 +61,44 @@ class PipelineCrawlJob implements ShouldQueue
 
         Log::channel('crawler')->info('=== PipelineCrawlJob started ===', [
             'tweets_per_source' => $this->tweetsPerSource,
+            'skip_crawl' => $this->skipCrawl,
+            'source_filter' => $this->sourceHandles ?: 'all',
         ]);
 
-        $sources = Source::query()
-            ->forCrawl()
-            ->orderBy('id')
-            ->get();
+        if ($this->skipCrawl) {
+            Log::channel('crawler')->info('PipelineCrawlJob: crawl phase SKIPPED (--skip-crawl)');
+        } else {
+            $query = Source::query()->forCrawl()->orderBy('id');
 
-        foreach ($sources as $index => $source) {
-            $result = $crawler->crawlSource($source, $this->tweetsPerSource);
-
-            if (! ($result['success'] ?? false)) {
-                Log::channel('crawler')->warning('PipelineCrawlJob crawl source failed', [
-                    'source_id' => $source->id,
-                    'x_handle' => $source->x_handle,
-                    'message' => $result['message'] ?? 'unknown',
-                ]);
+            if ($this->sourceHandles !== []) {
+                $normalized = array_map(
+                    static fn (string $h): string => ltrim(trim($h), '@'),
+                    $this->sourceHandles
+                );
+                $query->whereIn('x_handle', $normalized);
             }
 
-            $isLast = $index === $sources->count() - 1;
-            if (! $isLast) {
-                sleep(3);
+            $sources = $query->get();
+
+            Log::channel('crawler')->info('PipelineCrawlJob: crawling sources', [
+                'count' => $sources->count(),
+            ]);
+
+            foreach ($sources as $index => $source) {
+                $result = $crawler->crawlSource($source, $this->tweetsPerSource);
+
+                if (! ($result['success'] ?? false)) {
+                    Log::channel('crawler')->warning('PipelineCrawlJob crawl source failed', [
+                        'source_id' => $source->id,
+                        'x_handle' => $source->x_handle,
+                        'message' => $result['message'] ?? 'unknown',
+                    ]);
+                }
+
+                $isLast = $index === $sources->count() - 1;
+                if (! $isLast) {
+                    sleep(3);
+                }
             }
         }
 

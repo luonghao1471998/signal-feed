@@ -26,6 +26,11 @@ const categoryConfig: Record<CategoryKey, { label: string; bgVar: string; textVa
   "tech-policy": { label: "Tech Policy", bgVar: "var(--cat-tech-policy-bg)", textVar: "var(--cat-tech-policy-text)" },
 };
 
+/** Lấy display label theo CategoryKey — dùng để đồng bộ tên giữa pill filter và badge signal. */
+export function categoryLabel(key: CategoryKey): string {
+  return categoryConfig[key].label;
+}
+
 interface CategoryBadgeProps {
   category: CategoryKey;
   className?: string;

@@ -73,6 +73,7 @@ const en = {
     followingProgress: "Following...",
     kols: "KOLs",
     noRecentSignals: "No recent signals",
+    lastActive: "Last active",
     noRecentActivity: "No recent activity",
     followingSince: "Following since",
     unfollow: "Unfollow",
@@ -246,6 +247,8 @@ const en = {
     opening: "Opening...",
     copying: "Copying...",
     copyToX: "Copy to X",
+    shareOnX: "Post on X ↗",
+    shareCancelled: "Share cancelled",
     errorTitle: "Error",
   },
   pipelineFooter: {

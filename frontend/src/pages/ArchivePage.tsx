@@ -17,7 +17,13 @@ import { useLocale } from "@/i18n";
 
 type DateRangeFilter = "today" | "yesterday" | "last7" | "last30";
 
-function formatDateGroupHeader(groupKey: string, todayLabel: string, yesterdayLabel: string, datePrefix: string): string {
+function formatDateGroupHeader(
+  groupKey: string,
+  todayLabel: string,
+  yesterdayLabel: string,
+  datePrefix: string,
+  locale: "en" | "vi",
+): string {
   const d = new Date(`${groupKey}T00:00:00`);
   const today = new Date();
   const todayKey = today.toISOString().slice(0, 10);
@@ -25,9 +31,10 @@ function formatDateGroupHeader(groupKey: string, todayLabel: string, yesterdayLa
   y.setDate(y.getDate() - 1);
   const yesterdayKey = y.toISOString().slice(0, 10);
   const prefix = groupKey === todayKey ? todayLabel : groupKey === yesterdayKey ? yesterdayLabel : datePrefix;
+  const localeTag = locale === "vi" ? "vi-VN" : "en-US";
   const formatted = Number.isNaN(d.getTime())
     ? groupKey
-    : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    : d.toLocaleDateString(localeTag, { month: "short", day: "numeric", year: "numeric" });
   return `${prefix} — ${formatted}`;
 }
 
@@ -88,7 +95,7 @@ function mapArchivedSignalToCard(
 }
 
 const ArchivePage: React.FC = () => {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const [searchQuery, setSearchQuery] = useState("");
   const [dateRange, setDateRange] = useState<DateRangeFilter>("last30");
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
@@ -319,7 +326,13 @@ const ArchivePage: React.FC = () => {
               groupedSignals.map((group) => (
                 <section key={group.date}>
                   <p className="text-xs text-slate-400 font-medium uppercase py-2 px-4">
-                    {formatDateGroupHeader(group.date, t("archive.today"), t("archive.yesterday"), t("archive.datePrefix"))}
+                    {formatDateGroupHeader(
+                      group.date,
+                      t("archive.today"),
+                      t("archive.yesterday"),
+                      t("archive.datePrefix"),
+                      locale,
+                    )}
                   </p>
                   <div className="border-t border-slate-100">
                     {group.signals.map((signal) => (

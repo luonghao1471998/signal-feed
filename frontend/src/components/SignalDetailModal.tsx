@@ -137,6 +137,71 @@ export function SignalDetailModal({
     }
   };
 
+  /**
+   * Mobile-only: dùng Web Share API (native share sheet).
+   * Phải gọi navigator.share() đồng bộ ngay trong click handler (yêu cầu của iOS Safari).
+   * Sau khi share xong mới fire-and-forget gọi backend để tracking.
+   */
+  const handleMobileShare = () => {
+    const draftText = signal?.draft_tweets[0]?.text ?? "";
+    if (!draftText) return;
+
+    const canUseShare =
+      typeof navigator !== "undefined" &&
+      typeof navigator.share === "function" &&
+      (navigator.canShare == null || navigator.canShare({ text: draftText }));
+
+    if (canUseShare) {
+      // Gọi share() ngay lập tức — không được await trước đó (iOS Safari requirement)
+      navigator
+        .share({ text: draftText })
+        .then(() => {
+          // Track về backend sau khi user share thành công
+          if (signal?.id) {
+            void copyDraft(signal.id).catch(() => undefined);
+          }
+        })
+        .catch((err: unknown) => {
+          // AbortError = user tự huỷ share sheet → không hiện error
+          if (err instanceof Error && err.name === "AbortError") return;
+          toast({
+            title: t("signalDetail.errorTitle"),
+            description: t("signalDetail.failedCopyDraft"),
+            variant: "destructive",
+          });
+        });
+      return;
+    }
+
+    // Fallback khi Web Share API không được hỗ trợ: copy vào clipboard
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      navigator.clipboard
+        .writeText(draftText)
+        .then(() => {
+          toast({
+            title: t("signalDetail.draftCopied"),
+            description: t("signalDetail.draftCopiedApp"),
+          });
+          if (signal?.id) {
+            void copyDraft(signal.id).catch(() => undefined);
+          }
+        })
+        .catch(() => {
+          toast({
+            title: t("signalDetail.errorTitle"),
+            description: t("signalDetail.failedCopyDraft"),
+            variant: "destructive",
+          });
+        });
+    } else {
+      toast({
+        title: t("signalDetail.errorTitle"),
+        description: t("signalDetail.failedCopyDraft"),
+        variant: "destructive",
+      });
+    }
+  };
+
   useEffect(() => {
     if (!signalId || !isOpen) {
       setSignal(null);
@@ -238,56 +303,71 @@ export function SignalDetailModal({
           {userPlan !== "free" && signal.draft_tweets.length > 0 ? (
             <div className="rounded-lg bg-blue-50 p-4">
               <h3 className="mb-2 font-semibold">{t("signalDetail.readyToShare")}</h3>
-              <p className="mb-3 text-sm text-gray-700">{signal.draft_tweets[0].text}</p>
-              <div className="mb-4 space-y-2">
-                <p className="text-xs font-medium text-slate-800">{t("signalDetail.howUseX")}</p>
-                <RadioGroup
-                  value={xClientMode}
-                  onValueChange={handleXContentModeChange}
-                  className="grid gap-3"
+              <p className="mb-4 text-sm text-gray-700">{signal.draft_tweets[0].text}</p>
+
+              {isMobile ? (
+                /* ── Mobile: Web Share API — native share sheet ── */
+                <Button
+                  type="button"
+                  className="w-full bg-[#0f1419] hover:bg-[#272c30] active:bg-[#0f1419]"
+                  onClick={handleMobileShare}
                 >
-                  <div className="flex items-start gap-2">
-                    <RadioGroupItem value="browser_tab" id="signalfeed-x-browser" className="mt-0.5" />
-                    <Label htmlFor="signalfeed-x-browser" className="cursor-pointer text-sm font-normal leading-snug">
-                      <span className="font-medium text-slate-900">{t("signalDetail.browserTab")}</span>
-                      <span className="block text-slate-600">
-                        {t("signalDetail.browserTabHint")}
-                      </span>
-                    </Label>
+                  {t("signalDetail.shareOnX")}
+                </Button>
+              ) : (
+                /* ── Desktop: RadioGroup + copy-to-intent flow (giữ nguyên) ── */
+                <>
+                  <div className="mb-4 space-y-2">
+                    <p className="text-xs font-medium text-slate-800">{t("signalDetail.howUseX")}</p>
+                    <RadioGroup
+                      value={xClientMode}
+                      onValueChange={handleXContentModeChange}
+                      className="grid gap-3"
+                    >
+                      <div className="flex items-start gap-2">
+                        <RadioGroupItem value="browser_tab" id="signalfeed-x-browser" className="mt-0.5" />
+                        <Label htmlFor="signalfeed-x-browser" className="cursor-pointer text-sm font-normal leading-snug">
+                          <span className="font-medium text-slate-900">{t("signalDetail.browserTab")}</span>
+                          <span className="block text-slate-600">
+                            {t("signalDetail.browserTabHint")}
+                          </span>
+                        </Label>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <RadioGroupItem value="x_desktop_app" id="signalfeed-x-pwa" className="mt-0.5" />
+                        <Label htmlFor="signalfeed-x-pwa" className="cursor-pointer text-sm font-normal leading-snug">
+                          <span className="font-medium text-slate-900">{t("signalDetail.desktopApp")}</span>
+                          <span className="block text-slate-600">
+                            {t("signalDetail.desktopAppHint")}
+                          </span>
+                        </Label>
+                      </div>
+                    </RadioGroup>
                   </div>
-                  <div className="flex items-start gap-2">
-                    <RadioGroupItem value="x_desktop_app" id="signalfeed-x-pwa" className="mt-0.5" />
-                    <Label htmlFor="signalfeed-x-pwa" className="cursor-pointer text-sm font-normal leading-snug">
-                      <span className="font-medium text-slate-900">{t("signalDetail.desktopApp")}</span>
-                      <span className="block text-slate-600">
-                        {t("signalDetail.desktopAppHint")}
-                      </span>
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </div>
-              {copyError ? (
-                <p className="mb-2 text-sm text-red-600" role="alert">
-                  {copyError}
-                </p>
-              ) : null}
-              <Button
-                type="button"
-                className="bg-blue-600 hover:bg-blue-700"
-                disabled={copyLoading}
-                onClick={() => {
-                  void handleCopyDraft();
-                }}
-              >
-                {copyLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-                    {xClientMode === "browser_tab" ? t("signalDetail.opening") : t("signalDetail.copying")}
-                  </>
-                ) : (
-                  t("signalDetail.copyToX")
-                )}
-              </Button>
+                  {copyError ? (
+                    <p className="mb-2 text-sm text-red-600" role="alert">
+                      {copyError}
+                    </p>
+                  ) : null}
+                  <Button
+                    type="button"
+                    className="bg-blue-600 hover:bg-blue-700"
+                    disabled={copyLoading}
+                    onClick={() => {
+                      void handleCopyDraft();
+                    }}
+                  >
+                    {copyLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                        {xClientMode === "browser_tab" ? t("signalDetail.opening") : t("signalDetail.copying")}
+                      </>
+                    ) : (
+                      t("signalDetail.copyToX")
+                    )}
+                  </Button>
+                </>
+              )}
             </div>
           ) : null}
         </div>

@@ -48,6 +48,25 @@ class TwitterCrawlerService
 
     public function refreshSourceProfile(Source $source): bool
     {
+        // Bỏ qua API call nếu source đã crawl trong 24h gần đây VÀ đã có avatar mới sync trong 7 ngày.
+        // crawlSource() đã sync profile trong response đó nên không cần thêm request riêng.
+        $hasRecentCrawl = $source->last_crawled_at !== null
+            && Carbon::parse($source->last_crawled_at)->utc()->gte(now('UTC')->subHours(24));
+        $hasRecentAvatar = $source->avatar_synced_at !== null
+            && Carbon::parse($source->avatar_synced_at)->utc()->gte(now('UTC')->subDays(7));
+        $hasAvatar = ! empty($source->avatar_url);
+
+        if ($hasRecentCrawl && $hasAvatar && $hasRecentAvatar) {
+            Log::channel('crawler')->debug('TwitterCrawlerService::refreshSourceProfile skipped (recently crawled, avatar fresh)', [
+                'source_id' => $source->id,
+                'x_handle' => $source->x_handle,
+                'last_crawled_at' => $source->last_crawled_at?->toIso8601String(),
+                'avatar_synced_at' => $source->avatar_synced_at,
+            ]);
+
+            return true;
+        }
+
         try {
             $userName = ltrim(trim($source->x_handle), '@');
             $fetchResult = $this->fetchTweetsFromAPI($userName, 1);
@@ -342,7 +361,7 @@ class TwitterCrawlerService
     {
         $shouldRefresh = $forceRefresh
             || $source->avatar_synced_at === null
-            || Carbon::parse($source->avatar_synced_at)->utc()->lte(now('UTC')->subDay());
+            || Carbon::parse($source->avatar_synced_at)->utc()->lte(now('UTC')->subDays(7));
 
         if ($profile['x_user_id'] !== null && (string) $source->x_user_id === '') {
             $source->x_user_id = $profile['x_user_id'];
@@ -453,8 +472,9 @@ class TwitterCrawlerService
 
         $attempt = 0;
         $lastException = null;
+        $maxAttempts = 2;
 
-        while ($attempt < 3) {
+        while ($attempt < $maxAttempts) {
             $attempt++;
 
             try {
@@ -473,15 +493,16 @@ class TwitterCrawlerService
                 $lastException = $e;
                 Log::warning('twitterapi.io connection failed', [
                     'attempt' => $attempt,
+                    'max_attempts' => $maxAttempts,
                     'url' => $url,
                     'message' => $e->getMessage(),
                 ]);
 
-                if ($attempt >= 3) {
+                if ($attempt >= $maxAttempts) {
                     throw new \RuntimeException('Network error: '.$e->getMessage(), 0, $e);
                 }
 
-                sleep(5);
+                sleep(3);
             }
         }
 

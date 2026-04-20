@@ -15,13 +15,56 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Artisan::command('pipeline:run {--limit=10 : Max tweets per source}', function () {
-    $limit = max(1, min(100, (int) $this->option('limit')));
-    $mock = config('app.mock_llm') ? 'FakeLLMClient' : 'Anthropic LLMClient';
-    $this->info("Running pipeline (classifier: {$mock}, limit={$limit})…");
-    dispatch_sync(new PipelineCrawlJob($limit));
-    $this->info('Done.');
-})->purpose('Run crawl + classify once (honours MOCK_LLM / .env)');
+//php artisan pipeline:run --limit=10 --skip-crawl --source=karpathy --source=sama
+Artisan::command(
+    'pipeline:run
+    {--limit=5    : Max tweets per source (1–100)}
+    {--skip-crawl : Bỏ qua bước crawl Twitter — chỉ chạy AI classify/cluster/… trên data DB hiện có}
+    {--source=*   : Giới hạn crawl cho handle cụ thể, có thể truyền nhiều lần: --source=karpathy --source=sama}',
+    function () {
+        $limit      = max(1, min(100, (int) $this->option('limit')));
+        $skipCrawl  = (bool) $this->option('skip-crawl');
+        /** @var list<string> $sources */
+        $sources    = (array) $this->option('source');
+        $mock       = config('app.mock_llm') ? 'FakeLLMClient' : 'Anthropic LLMClient';
+
+        $crawlNote  = $skipCrawl ? ' [CRAWL SKIPPED — AI only]' : '';
+        $srcNote    = $sources !== [] ? ' sources=['.implode(',', $sources).']' : ' sources=all';
+        $this->info("Running pipeline (classifier: {$mock}, limit={$limit}{$srcNote}){$crawlNote}…");
+
+        dispatch_sync(new PipelineCrawlJob($limit, $skipCrawl, $sources));
+        $this->info('Done.');
+    }
+)->purpose('Full pipeline (crawl + AI) — dùng --skip-crawl để bỏ crawl, --source=handle để giới hạn source');
+
+// Shortcut: chỉ chạy phase AI (classify → cluster → summarize → rank → draft) trên data hiện có.
+// Không tốn credit Twitter API. Hữu ích khi test AI pipeline hoặc sau khi đã crawl riêng.
+Artisan::command(
+    'pipeline:process
+    {--lookback=0 : Giới hạn tweets theo số giờ gần đây (0 = toàn bộ chưa classify)}',
+    function () {
+        $lookback = max(0, (int) $this->option('lookback'));
+        $mock     = config('app.mock_llm') ? 'FakeLLMClient' : 'Anthropic LLMClient';
+
+        $this->info("Running AI pipeline only (classifier: {$mock}, lookback={$lookback}h)…");
+
+        // Ghi đè lookback trong config nếu được truyền qua option
+        if ($lookback === 0) {
+            config(['signalfeed.classify_lookback_hours' => 0]);
+            config(['signalfeed.cluster_lookback_hours'  => 0]);
+        } else {
+            config(['signalfeed.classify_lookback_hours' => $lookback]);
+            config(['signalfeed.cluster_lookback_hours'  => $lookback]);
+        }
+
+        dispatch_sync(new PipelineCrawlJob(
+            tweetsPerSource: 0,
+            skipCrawl: true,
+            sourceHandles: [],
+        ));
+        $this->info('Done.');
+    }
+)->purpose('AI-only pipeline (no crawl) — classify + cluster + summarize + rank + draft trên data DB hiện có');
 
 // Pipeline: crawl + classify — 4×/ngày VN (dispatch_sync: không phụ thuộc queue worker khi QUEUE_CONNECTION=redis)
 // Tiến trình chạy pipeline signal chung crawl + classify 4×/ngày VN (dispatch_sync: không phụ thuộc queue worker khi QUEUE_CONNECTION=redis)

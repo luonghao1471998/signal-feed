@@ -1,6 +1,6 @@
 import React from "react";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
-import { Newspaper, Settings, Users, Zap, X } from "lucide-react";
+import { Archive, Newspaper, Settings, Users, Zap, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 import OnboardingGate from "@/components/OnboardingGate";
@@ -8,6 +8,7 @@ import OnboardingGate from "@/components/OnboardingGate";
 const tabs = [
   { to: "/digest", label: "Digest", icon: Newspaper },
   { to: "/my-kols", label: "My KOLs", icon: Users },
+  { to: "/archive", label: "Archive", icon: Archive },
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 

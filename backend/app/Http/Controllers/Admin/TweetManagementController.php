@@ -64,13 +64,23 @@ class TweetManagementController extends Controller
 
     public function show(int $id): JsonResponse
     {
-        $tweet = Tweet::query()->with('source:id,x_handle,display_name')->findOrFail($id);
+        $tweet = Tweet::query()
+            ->with(['source:id,x_handle,display_name,account_url'])
+            ->findOrFail($id);
+
+        $source = $tweet->source;
 
         return response()->json([
             'data' => [
                 'id' => $tweet->id,
                 'tweet_id' => $tweet->tweet_id,
-                'source' => $tweet->source,
+                'source_id' => $tweet->source_id,
+                'source' => $source === null ? null : [
+                    'id' => $source->id,
+                    'x_handle' => $source->x_handle,
+                    'display_name' => $source->display_name,
+                    'account_url' => $source->account_url,
+                ],
                 'text' => $tweet->text,
                 'url' => $tweet->url,
                 'posted_at' => $tweet->posted_at?->format('Y-m-d H:i:s'),
