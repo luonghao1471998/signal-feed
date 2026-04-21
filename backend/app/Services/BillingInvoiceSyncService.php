@@ -96,19 +96,19 @@ class BillingInvoiceSyncService
         $status = (string) ($invoice->status ?? 'unknown');
 
         $periodStart = isset($invoice->period_start) && is_numeric($invoice->period_start)
-            ? Carbon::createFromTimestamp((int) $invoice->period_start)->utc()
+            ? Carbon::createFromTimestamp((int) $invoice->period_start)
             : null;
         $periodEnd = isset($invoice->period_end) && is_numeric($invoice->period_end)
-            ? Carbon::createFromTimestamp((int) $invoice->period_end)->utc()
+            ? Carbon::createFromTimestamp((int) $invoice->period_end)
             : null;
 
         $paidAt = null;
         if (isset($invoice->status_transitions->paid_at) && is_numeric($invoice->status_transitions->paid_at)) {
-            $paidAt = Carbon::createFromTimestamp((int) $invoice->status_transitions->paid_at)->utc();
+            $paidAt = Carbon::createFromTimestamp((int) $invoice->status_transitions->paid_at);
         }
 
         $stripeCreatedAt = isset($invoice->created) && is_numeric($invoice->created)
-            ? Carbon::createFromTimestamp((int) $invoice->created)->utc()
+            ? Carbon::createFromTimestamp((int) $invoice->created)
             : null;
 
         $hostedUrl = is_string($invoice->hosted_invoice_url ?? null) ? $invoice->hosted_invoice_url : null;

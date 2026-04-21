@@ -102,7 +102,7 @@ class SourcePoolSeeder extends Seeder
             $this->validateCsvHeader($header);
 
             $rowNumber = 1;
-            $now       = Carbon::now('UTC');
+            $now       = now();
 
             while (($row = fgetcsv($handle)) !== false) {
                 $rowNumber++;
@@ -295,7 +295,7 @@ class SourcePoolSeeder extends Seeder
             return null;
         }
 
-        $now         = Carbon::now('UTC');
+        $now         = now();
         $categoryIds = $this->resolveCategoryIds($categoryNames, $now);
 
         return [

@@ -42,7 +42,7 @@ class BackfillSourceAvatarsCommand extends Command
         // Bỏ qua source đã sync avatar trong 7 ngày gần đây (trừ khi --force).
         // Tiết kiệm credit: không gọi API cho source mà avatar đã "đủ mới".
         if (! $force) {
-            $freshCutoff = Carbon::now('UTC')->subDays(7);
+            $freshCutoff = Carbon::now()->subDays(7);
             $query->where(function ($q) use ($freshCutoff): void {
                 $q->whereNull('avatar_synced_at')
                     ->orWhere('avatar_synced_at', '<=', $freshCutoff);

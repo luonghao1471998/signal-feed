@@ -119,7 +119,7 @@ class StripeService
         }
 
         if ($ts !== null) {
-            $user->subscription_ends_at = Carbon::createFromTimestamp($ts)->utc();
+            $user->subscription_ends_at = Carbon::createFromTimestamp($ts);
         }
         $user->save();
     }

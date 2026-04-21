@@ -44,8 +44,8 @@ class SendDigestEmailJob implements ShouldQueue
         DigestDeliveryGateService $deliveryGate,
         DigestSignalsService $digestSignals
     ): void {
-        $currentUtc = now()->utc();
-        if (! $deliveryGate->shouldDeliverToUser($this->user, $currentUtc)) {
+        $now = now();
+        if (! $deliveryGate->shouldDeliverToUser($this->user, $now)) {
             $auditLog->log(
                 eventType: 'digest.email.skipped_tier_restriction',
                 userId: $this->user->id,
@@ -53,7 +53,7 @@ class SendDigestEmailJob implements ShouldQueue
                 entityId: $this->user->id,
                 metadata: [
                     'plan' => $this->user->plan,
-                    'date' => $currentUtc->toDateString(),
+                    'date' => $now->toDateString(),
                 ]
             );
 

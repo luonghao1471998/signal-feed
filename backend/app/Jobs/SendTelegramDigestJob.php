@@ -47,8 +47,8 @@ class SendTelegramDigestJob implements ShouldQueue
         TelegramBotService $telegram,
         TelegramDigestChunker $chunker
     ): void {
-        $currentUtc = now()->utc();
-        if (! $deliveryGate->shouldDeliverToUser($this->user, $currentUtc)) {
+        $now = now();
+        if (! $deliveryGate->shouldDeliverToUser($this->user, $now)) {
             $auditLog->log(
                 eventType: 'digest.telegram.skipped_tier_restriction',
                 userId: $this->user->id,
@@ -56,7 +56,7 @@ class SendTelegramDigestJob implements ShouldQueue
                 entityId: $this->user->id,
                 metadata: [
                     'plan' => $this->user->plan,
-                    'date' => $currentUtc->toDateString(),
+                    'date' => $now->toDateString(),
                 ]
             );
 

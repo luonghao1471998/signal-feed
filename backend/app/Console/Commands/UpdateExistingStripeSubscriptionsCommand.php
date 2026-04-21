@@ -69,7 +69,7 @@ class UpdateExistingStripeSubscriptionsCommand extends Command
             }
 
             if (isset($subscription->current_period_end) && is_numeric($subscription->current_period_end)) {
-                $user->subscription_ends_at = Carbon::createFromTimestamp((int) $subscription->current_period_end)->utc();
+                $user->subscription_ends_at = Carbon::createFromTimestamp((int) $subscription->current_period_end);
                 $user->save();
             }
         }

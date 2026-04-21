@@ -55,7 +55,7 @@ class AuditLogService
                 'ip_address' => request()?->ip(),
                 'user_agent' => request()?->userAgent(),
                 'tenant_id' => 1,
-                'created_at' => now()->utc(),
+                'created_at' => now(),
             ]);
         } catch (\Throwable $e) {
             Log::warning('audit_logs insert failed', [

@@ -642,7 +642,7 @@ class StripeWebhookService
             $ts = (int) $subscription->cancel_at;
         }
 
-        return $ts !== null ? Carbon::createFromTimestamp($ts)->utc() : null;
+        return $ts !== null ? Carbon::createFromTimestamp($ts) : null;
     }
 
     /**
@@ -716,7 +716,7 @@ class StripeWebhookService
                 'ip_address' => request()?->ip(),
                 'user_agent' => request()?->userAgent(),
                 'tenant_id' => 1,
-                'created_at' => now()->utc(),
+                'created_at' => now(),
             ]);
         } catch (\Throwable $e) {
             Log::warning('audit_logs subscription_cleanup insert failed', [
@@ -774,7 +774,7 @@ class StripeWebhookService
                 'ip_address' => request()?->ip(),
                 'user_agent' => request()?->userAgent(),
                 'tenant_id' => 1,
-                'created_at' => now()->utc(),
+                'created_at' => now(),
             ]);
         } catch (\Throwable $e) {
             Log::warning('audit_logs plan_change insert failed', [
@@ -802,7 +802,7 @@ class StripeWebhookService
                 'ip_address' => request()?->ip(),
                 'user_agent' => request()?->userAgent(),
                 'tenant_id' => 1,
-                'created_at' => now()->utc(),
+                'created_at' => now(),
             ]);
         } catch (\Throwable $e) {
             Log::warning('audit_logs webhook_received insert failed', [

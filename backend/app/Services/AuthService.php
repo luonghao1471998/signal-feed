@@ -36,7 +36,7 @@ class AuthService
                     'x_access_token' => $twitterUser->token,
                     'x_refresh_token' => $twitterUser->refreshToken,
                     'x_token_expires_at' => $twitterUser->expiresIn
-                        ? now()->utc()->addSeconds($twitterUser->expiresIn)
+                        ? now()->addSeconds($twitterUser->expiresIn)
                         : null,
                 ]
             );
@@ -56,7 +56,7 @@ class AuthService
                     'ip_address' => request()->ip(),
                     'user_agent' => request()->userAgent(),
                     'tenant_id' => $user->tenant_id ?? 1,
-                    'created_at' => now()->utc(),
+                    'created_at' => now(),
                 ]);
             } catch (\Throwable $e) {
                 Log::warning('audit_logs oauth_login insert failed (user vẫn được lưu)', [

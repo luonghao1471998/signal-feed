@@ -21,7 +21,7 @@ class AdminPipelineMetricsService
      */
     public function snapshotToday(): array
     {
-        $today = CarbonImmutable::today('UTC');
+        $today = CarbonImmutable::today();
 
         return $this->snapshotForRange(
             $today->toDateString(),
@@ -40,14 +40,14 @@ class AdminPipelineMetricsService
     public function snapshotForRange(?string $startDate, ?string $endDate): array
     {
         $start = $startDate !== null
-            ? CarbonImmutable::parse($startDate, 'UTC')->startOfDay()
-            : CarbonImmutable::today('UTC')->startOfDay();
+            ? CarbonImmutable::parse($startDate)->startOfDay()
+            : CarbonImmutable::today()->startOfDay();
         $end = $endDate !== null
-            ? CarbonImmutable::parse($endDate, 'UTC')->endOfDay()
-            : CarbonImmutable::today('UTC')->endOfDay();
+            ? CarbonImmutable::parse($endDate)->endOfDay()
+            : CarbonImmutable::today()->endOfDay();
 
         $lastCrawl = Source::query()->max('last_crawled_at');
-        $lastRun = $lastCrawl !== null ? Carbon::parse($lastCrawl)->utc()->toIso8601String() : null;
+        $lastRun = $lastCrawl !== null ? Carbon::parse($lastCrawl)->toIso8601String() : null;
 
         $tweetsInRange = Tweet::query()
             ->whereBetween('created_at', [$start->toDateTimeString(), $end->toDateTimeString()])

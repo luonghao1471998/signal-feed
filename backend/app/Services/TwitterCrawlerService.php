@@ -51,9 +51,9 @@ class TwitterCrawlerService
         // Bỏ qua API call nếu source đã crawl trong 24h gần đây VÀ đã có avatar mới sync trong 7 ngày.
         // crawlSource() đã sync profile trong response đó nên không cần thêm request riêng.
         $hasRecentCrawl = $source->last_crawled_at !== null
-            && Carbon::parse($source->last_crawled_at)->utc()->gte(now('UTC')->subHours(24));
+            && Carbon::parse($source->last_crawled_at)->gte(now()->subHours(24));
         $hasRecentAvatar = $source->avatar_synced_at !== null
-            && Carbon::parse($source->avatar_synced_at)->utc()->gte(now('UTC')->subDays(7));
+            && Carbon::parse($source->avatar_synced_at)->gte(now()->subDays(7));
         $hasAvatar = ! empty($source->avatar_url);
 
         if ($hasRecentCrawl && $hasAvatar && $hasRecentAvatar) {
@@ -131,7 +131,7 @@ class TwitterCrawlerService
 
                 DB::transaction(function () use ($source, $profile): void {
                     $this->syncSourceProfile($source, $profile);
-                    $source->last_crawled_at = now('UTC');
+                    $source->last_crawled_at = now();
                     $source->save();
                 });
 
@@ -166,7 +166,7 @@ class TwitterCrawlerService
                 $storeResult = $this->storeTweets($source, $toStore);
                 $this->syncSourceProfile($source, $profile);
                 $this->syncUserEmailFromProfile($source, $profile);
-                $source->last_crawled_at = now('UTC');
+                $source->last_crawled_at = now();
                 $source->save();
             });
 
@@ -188,7 +188,7 @@ class TwitterCrawlerService
             // Track last crawl attempt even when vendor/API call fails.
             // NOTE: this timestamp no longer means "last successful crawl".
             try {
-                $source->last_crawled_at = now('UTC');
+                $source->last_crawled_at = now();
                 $source->save();
             } catch (\Throwable $saveError) {
                 Log::channel('crawler-errors')->warning('TwitterCrawlerService::crawlSource failed to persist last_crawled_at after error', [
@@ -254,7 +254,7 @@ class TwitterCrawlerService
                 continue;
             }
 
-            $postedAt = Carbon::parse((string) $createdRaw)->utc();
+            $postedAt = Carbon::parse((string) $createdRaw)->setTimezone(config('app.timezone'));
 
             $normalized[] = [
                 'tweet_id' => $tweetId,
@@ -361,7 +361,7 @@ class TwitterCrawlerService
     {
         $shouldRefresh = $forceRefresh
             || $source->avatar_synced_at === null
-            || Carbon::parse($source->avatar_synced_at)->utc()->lte(now('UTC')->subDays(7));
+            || Carbon::parse($source->avatar_synced_at)->lte(now()->subDays(7));
 
         if ($profile['x_user_id'] !== null && (string) $source->x_user_id === '') {
             $source->x_user_id = $profile['x_user_id'];
@@ -371,7 +371,7 @@ class TwitterCrawlerService
             if ((string) $source->avatar_url !== $profile['avatar_url']) {
                 $source->avatar_url = $profile['avatar_url'];
             }
-            $source->avatar_synced_at = now('UTC');
+            $source->avatar_synced_at = now();
         }
     }
 
@@ -421,7 +421,7 @@ class TwitterCrawlerService
     }
 
     /**
-     * Giữ tweets có posted_at sau lần crawl trước (UTC).
+     * Giữ tweets có posted_at sau lần crawl trước (theo múi giờ ứng dụng).
      *
      * @param  list<array{tweet_id: string, text: string, posted_at: string, url: string}>  $tweets
      * @return list<array{tweet_id: string, text: string, posted_at: string, url: string}>
@@ -432,11 +432,11 @@ class TwitterCrawlerService
             return $tweets;
         }
 
-        $cutoff = Carbon::parse($lastCrawledAt)->utc();
+        $cutoff = Carbon::parse($lastCrawledAt);
 
         $filtered = array_filter($tweets, function (array $row) use ($cutoff): bool {
             try {
-                $postedAt = Carbon::parse($row['posted_at'])->utc();
+                $postedAt = Carbon::parse($row['posted_at']);
 
                 return $postedAt->greaterThan($cutoff);
             } catch (\Throwable $e) {

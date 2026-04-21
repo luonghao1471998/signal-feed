@@ -19,8 +19,8 @@ class DigestDeliveryGateService
             return false;
         }
 
-        $utcDate = $date->copy()->utc();
+        $vnDate = $date->copy()->timezone('Asia/Ho_Chi_Minh');
 
-        return $utcDate->isMonday() || $utcDate->isWednesday() || $utcDate->isFriday();
+        return $vnDate->isMonday() || $vnDate->isWednesday() || $vnDate->isFriday();
     }
 }

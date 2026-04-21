@@ -84,7 +84,7 @@ class ArchiveController extends Controller
                 })->values()->all(),
                 'date' => $this->signalDisplayDate($signal),
                 'archived_at' => $signal->archived_at !== null
-                    ? Carbon::parse($signal->archived_at)->utc()->toIso8601String()
+                    ? Carbon::parse($signal->archived_at)->toIso8601String()
                     : null,
             ];
         })->values()->all();
@@ -159,7 +159,7 @@ class ArchiveController extends Controller
 
     private function applyDateRangeFilter(Builder $query, string $dateRange): void
     {
-        $now = Carbon::now('UTC');
+        $now = Carbon::now();
 
         match ($dateRange) {
             'today' => $query->whereBetween('uas.created_at', [

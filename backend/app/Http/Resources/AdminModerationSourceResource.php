@@ -35,7 +35,7 @@ class AdminModerationSourceResource extends JsonResource
                 ]
             ),
             'categories' => CategoryResource::collection($this->whenLoaded('categories')),
-            'created_at' => $this->created_at?->utc()->toIso8601String(),
+            'created_at' => $this->created_at?->toIso8601String(),
             'signal_count' => (int) ($this->signal_count ?? 0),
             'noise_ratio' => $this->noise_ratio === null ? null : round((float) $this->noise_ratio, 2),
         ];

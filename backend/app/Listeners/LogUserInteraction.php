@@ -18,7 +18,7 @@ class LogUserInteraction
                 'signal_id' => $event->signal->id,
             ],
             'tenant_id' => $event->user->tenant_id ?? 1,
-            'created_at' => now()->utc(),
+            'created_at' => now(),
         ]);
     }
 }

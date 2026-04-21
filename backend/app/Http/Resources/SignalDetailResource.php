@@ -56,7 +56,7 @@ class SignalDetailResource extends JsonResource
                     'tweet_url' => $tweet?->url,
                     'tweet_text' => $tweet?->text ?? '',
                     'posted_at' => $tweet?->posted_at
-                        ? $tweet->posted_at->copy()->utc()->toIso8601String()
+                        ? $tweet->posted_at->copy()->toIso8601String()
                         : null,
                     'is_my_source' => $source->is_my_source ?? null,
                 ];
@@ -71,7 +71,7 @@ class SignalDetailResource extends JsonResource
                 : [],
             'date' => $digestDate,
             'published_at' => $signal->created_at
-                ? $signal->created_at->copy()->utc()->toIso8601String()
+                ? $signal->created_at->copy()->toIso8601String()
                 : null,
             'type' => $type,
             'is_personal' => $type === 1,

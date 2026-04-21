@@ -121,7 +121,7 @@ SQL;
                 'x_handle' => $updated->x_handle,
                 'status' => $updated->status,
                 'category_ids' => $updated->categories->pluck('id')->values()->all(),
-                'updated_at' => $updated->updated_at?->utc()->toIso8601String(),
+                'updated_at' => $updated->updated_at?->toIso8601String(),
             ],
         ]);
     }
