@@ -187,6 +187,8 @@ const en = {
     displayNamePlaceholder: "Display name",
     emailPlaceholder: "Add email for digest delivery",
     emailRequiredForDigest: "Please add an email in Profile before enabling email digest.",
+    emailRequiredForDigestBefore: "Please add an email in ",
+    emailRequiredForDigestAfter: " before enabling email digest.",
   },
   sidebar: {
     more: "More",

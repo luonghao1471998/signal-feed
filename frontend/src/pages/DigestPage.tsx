@@ -841,7 +841,7 @@ const DigestPage: React.FC = () => {
               {showUpgradeCta && (
                 <div className="mt-4">
                   <a
-                    href="/settings"
+                    href="/settings?tab=billing"
                     className="inline-block rounded-md bg-[#1d9bf0] px-4 py-2 text-sm font-bold text-white no-underline hover:bg-[#1a8cd8]"
                   >
                     {t("digest.upgradeToPro")}

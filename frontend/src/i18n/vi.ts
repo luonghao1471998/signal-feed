@@ -187,6 +187,8 @@ const vi = {
     displayNamePlaceholder: "Tên hiển thị",
     emailPlaceholder: "Thêm email để nhận digest",
     emailRequiredForDigest: "Vui lòng thêm email ở mục Hồ sơ trước khi bật email digest.",
+    emailRequiredForDigestBefore: "Vui lòng thêm email ở mục ",
+    emailRequiredForDigestAfter: " trước khi bật email digest.",
   },
   sidebar: {
     more: "Thêm",

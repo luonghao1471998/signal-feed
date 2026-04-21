@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Check, Copy, ExternalLink, Loader2, X } from "lucide-react";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { Badge } from "@/components/ui/badge";
@@ -592,7 +592,16 @@ const SettingsPage: React.FC = () => {
                 />
               </div>
               {!hasDigestEmail && (
-                <p className="text-xs text-amber-700 mt-1">{t("settings.emailRequiredForDigest")}</p>
+                <p className="text-xs text-amber-700 mt-1">
+                  {t("settings.emailRequiredForDigestBefore")}
+                  <Link
+                    to="/settings?tab=profile"
+                    className="font-medium text-amber-900 underline underline-offset-2 hover:text-amber-950"
+                  >
+                    {t("settings.profile")}
+                  </Link>
+                  {t("settings.emailRequiredForDigestAfter")}
+                </p>
               )}
 
               {user?.plan === "free" && (
