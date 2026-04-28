@@ -291,86 +291,306 @@ class StripeWebhookService
                 return;
             }
 
+            // --- Retrieve SetupIntent & PaymentMethod ---
             try {
                 $setupIntent = $this->stripe->setupIntents->retrieve((string) $setupIntentId, []);
                 $paymentMethodId = is_string($setupIntent->payment_method)
                     ? $setupIntent->payment_method
                     : ($setupIntent->payment_method->id ?? null);
+            } catch (\Stripe\Exception\ApiErrorException $e) {
+                Log::error('Pro→Power: failed to retrieve SetupIntent', [
+                    'user_id' => $userId,
+                    'setup_intent_id' => $setupIntentId,
+                    'error' => $e->getMessage(),
+                ]);
 
-                if ($paymentMethodId === null || $paymentMethodId === '') {
-                    Log::error('Stripe setup checkout: no payment_method on setup_intent', [
-                        'setup_intent_id' => $setupIntentId,
-                    ]);
+                return;
+            }
 
-                    return;
-                }
+            if ($paymentMethodId === null || $paymentMethodId === '') {
+                Log::error('Pro→Power: no payment_method on setup_intent', [
+                    'setup_intent_id' => $setupIntentId,
+                ]);
 
-                // Set PM là default cho customer → proration invoice dùng thẻ này.
-                $customerId = is_string($session->customer)
-                    ? $session->customer
-                    : ($session->customer->id ?? null);
+                return;
+            }
 
-                if ($customerId !== null && $customerId !== '') {
+            $customerId = is_string($session->customer)
+                ? $session->customer
+                : ($session->customer->id ?? null);
+
+            // --- Set default payment method cho customer ---
+            if ($customerId !== null && $customerId !== '') {
+                try {
                     $this->stripe->customers->update($customerId, [
                         'invoice_settings' => ['default_payment_method' => $paymentMethodId],
                     ]);
-                }
+                    Log::info('Pro→Power: set default payment method on customer', [
+                        'customer_id' => $customerId,
+                        'payment_method_id' => $paymentMethodId,
+                    ]);
+                } catch (\Stripe\Exception\ApiErrorException $e) {
+                    Log::error('Pro→Power: failed to update customer default PM', [
+                        'customer_id' => $customerId,
+                        'error' => $e->getMessage(),
+                    ]);
 
-                // Upgrade subscription Pro → Power với proration (always_invoice = charge ngay).
+                    return;
+                }
+            }
+
+            // --- Lấy subscription hiện tại ---
+            try {
                 $subscription = $this->stripe->subscriptions->retrieve($subscriptionId, []);
-                $items = $subscription->items->data ?? [];
+            } catch (\Stripe\Exception\ApiErrorException $e) {
+                Log::error('Pro→Power: failed to retrieve subscription', [
+                    'subscription_id' => $subscriptionId,
+                    'error' => $e->getMessage(),
+                ]);
 
-                if (empty($items[0]->id)) {
-                    Log::error('Stripe setup checkout: subscription has no items', ['subscription_id' => $subscriptionId]);
+                return;
+            }
 
-                    return;
-                }
+            $items = $subscription->items->data ?? [];
+            if (empty($items[0]->id)) {
+                Log::error('Pro→Power: subscription has no items', ['subscription_id' => $subscriptionId]);
 
-                $powerPriceId = config('services.stripe.power_price_id');
-                if (empty($powerPriceId)) {
-                    Log::error('Stripe setup checkout: power_price_id is not configured');
+                return;
+            }
 
-                    return;
-                }
+            $powerPriceId = config('services.stripe.power_price_id');
+            if (empty($powerPriceId)) {
+                Log::error('Pro→Power: power_price_id is not configured');
 
+                return;
+            }
+
+            // --- Bước 1: Reset cancel_at_period_end để proration tính đúng 2 chiều ---
+            Log::info('Pro→Power Step 1: Reset cancel_at_period_end to false', [
+                'subscription_id' => $subscriptionId,
+            ]);
+            try {
+                $this->stripe->subscriptions->update($subscriptionId, [
+                    'cancel_at_period_end' => false,
+                ]);
+                Log::info('Pro→Power Step 1: completed');
+            } catch (\Stripe\Exception\ApiErrorException $e) {
+                Log::error('Pro→Power Step 1: FAILED', [
+                    'subscription_id' => $subscriptionId,
+                    'error' => $e->getMessage(),
+                ]);
+
+                return;
+            }
+
+            // --- Bước 2: Đổi giá lên Power; create_prorations tạo pending items (không auto-charge) ---
+            Log::info('Pro→Power Step 2: Update subscription to Power price', [
+                'subscription_id' => $subscriptionId,
+                'power_price_id' => $powerPriceId,
+                'item_id' => (string) $items[0]->id,
+            ]);
+            try {
                 $this->stripe->subscriptions->update($subscriptionId, [
                     'items' => [
                         ['id' => (string) $items[0]->id, 'price' => (string) $powerPriceId],
                     ],
-                    'proration_behavior' => 'always_invoice',
+                    'proration_behavior' => 'create_prorations',
                     'default_payment_method' => $paymentMethodId,
                 ]);
 
-                // Refresh subscription sau update để lấy period end mới.
+                // Retrieve full object — update() trả về object thiếu current_period_end trên Stripe API mới.
                 $updatedSub = $this->stripe->subscriptions->retrieve($subscriptionId, []);
-                $oldPlan = (string) $user->plan;
-                $user->plan = 'power';
-                $user->subscription_ends_at = $this->subscriptionPeriodEndFromStripe($updatedSub);
-                if ($customerId !== null && $customerId !== '') {
-                    $user->stripe_customer_id = $customerId;
-                }
-                $user->save();
 
-                $this->auditPlanChangeIfNeeded($user->id, $oldPlan, 'power', (string) $event->id);
-                $this->auditWebhookStripe('checkout.session.setup.completed', $user->id, [
-                    'event_id' => $event->id,
-                    'effect' => 'subscription.upgraded_pro_to_power',
+                $periodEndTs = is_numeric($updatedSub->current_period_end ?? null)
+                    ? (int) $updatedSub->current_period_end
+                    : null;
+
+                Log::info('Pro→Power Step 2: completed', [
+                    'subscription_id' => $subscriptionId,
+                    'current_period_end' => $periodEndTs !== null ? date('Y-m-d H:i:s', $periodEndTs) : 'null',
+                    'status' => $updatedSub->status ?? null,
+                ]);
+            } catch (\Stripe\Exception\ApiErrorException $e) {
+                Log::error('Pro→Power Step 2: FAILED', [
+                    'subscription_id' => $subscriptionId,
+                    'error' => $e->getMessage(),
                 ]);
 
-                Log::info('Stripe setup checkout: Pro→Power upgrade completed', [
-                    'user_id' => $userId,
+                return;
+            }
+
+            // Chờ Stripe gắn proration items vào customer trước khi tạo invoice.
+            sleep(5);
+            Log::info('Pro→Power Step 2→3: waited 5s for Stripe to attach proration items');
+
+            // --- Bước 3: Tạo invoice mới gom toàn bộ pending proration items ---
+            // auto_advance: true → Stripe tự finalize nếu Step 4 không kịp chạy.
+            Log::info('Pro→Power Step 3: Create proration invoice', [
+                'customer_id' => (string) $customerId,
+                'subscription_id' => $subscriptionId,
+                'payment_method_id' => $paymentMethodId,
+            ]);
+            try {
+                $prorationInvoice = $this->stripe->invoices->create([
+                    'customer' => (string) $customerId,
+                    'subscription' => $subscriptionId,
+                    'auto_advance' => true,
+                    'default_payment_method' => $paymentMethodId,
+                ]);
+
+                $lineItems = $prorationInvoice->lines->data ?? [];
+                $lineItemsSummary = array_map(
+                    static fn ($item): array => [
+                        'description' => $item->description ?? null,
+                        'amount' => ($item->amount ?? 0) / 100,
+                        'type' => ($item->amount ?? 0) > 0 ? 'charge' : 'credit',
+                    ],
+                    $lineItems
+                );
+
+                Log::info('Pro→Power Step 3: completed', [
+                    'invoice_id' => $prorationInvoice->id,
+                    'status' => $prorationInvoice->status,
+                    'amount_due' => ($prorationInvoice->amount_due ?? 0) / 100,
+                    'line_items_count' => count($lineItems),
+                    'line_items' => $lineItemsSummary,
+                ]);
+
+                if (count($lineItems) === 0) {
+                    Log::error('Pro→Power Step 3: invoice has NO line items — proration items were not attached', [
+                        'invoice_id' => $prorationInvoice->id,
+                        'customer_id' => (string) $customerId,
+                        'subscription_id' => $subscriptionId,
+                    ]);
+
+                    throw new \RuntimeException('Proration invoice is empty — Stripe did not attach pending items.');
+                }
+
+                $hasChargeItem = false;
+                foreach ($lineItems as $lineItem) {
+                    if (($lineItem->amount ?? 0) > 0) {
+                        $hasChargeItem = true;
+                        break;
+                    }
+                }
+
+                if (! $hasChargeItem) {
+                    Log::error('Pro→Power Step 3: invoice has NO charge items — only credit, missing Power charge', [
+                        'invoice_id' => $prorationInvoice->id,
+                        'amount_due' => ($prorationInvoice->amount_due ?? 0) / 100,
+                        'line_items' => $lineItemsSummary,
+                    ]);
+
+                    throw new \RuntimeException('Proration invoice missing charge items — only credit line found. Stripe may need more time to attach proration items.');
+                }
+            } catch (\Stripe\Exception\ApiErrorException $e) {
+                Log::error('Pro→Power Step 3: FAILED', [
+                    'customer_id' => (string) $customerId,
                     'subscription_id' => $subscriptionId,
+                    'error' => $e->getMessage(),
+                ]);
+
+                return;
+            }
+
+            // --- Bước 4: Finalize invoice (draft → open) ---
+            Log::info('Pro→Power Step 4: Finalize invoice', ['invoice_id' => $prorationInvoice->id]);
+            try {
+                $finalizedInvoice = $this->stripe->invoices->finalizeInvoice(
+                    (string) $prorationInvoice->id,
+                    []
+                );
+                Log::info('Pro→Power Step 4: completed', [
+                    'invoice_id' => $finalizedInvoice->id,
+                    'status' => $finalizedInvoice->status,
+                    'amount_due' => ($finalizedInvoice->amount_due ?? 0) / 100,
+                ]);
+            } catch (\Stripe\Exception\ApiErrorException $e) {
+                Log::error('Pro→Power Step 4: FAILED to finalize invoice', [
+                    'invoice_id' => $prorationInvoice->id,
+                    'error' => $e->getMessage(),
+                ]);
+
+                return;
+            }
+
+            // --- Bước 5: Pay invoice ngay lập tức ---
+            if ((int) ($finalizedInvoice->amount_due ?? 0) > 0) {
+                Log::info('Pro→Power Step 5: Pay invoice', [
+                    'invoice_id' => $finalizedInvoice->id,
+                    'amount_due' => ($finalizedInvoice->amount_due ?? 0) / 100,
                     'payment_method_id' => $paymentMethodId,
                 ]);
+                try {
+                    $paidInvoice = $this->stripe->invoices->pay(
+                        (string) $finalizedInvoice->id,
+                        ['payment_method' => $paymentMethodId]
+                    );
+                    Log::info('Pro→Power Step 5: completed', [
+                        'invoice_id' => $paidInvoice->id,
+                        'status' => $paidInvoice->status,
+                        'amount_paid' => ($paidInvoice->amount_paid ?? 0) / 100,
+                    ]);
+                } catch (\Stripe\Exception\ApiErrorException $e) {
+                    Log::error('Pro→Power Step 5: FAILED to pay invoice', [
+                        'invoice_id' => $finalizedInvoice->id,
+                        'payment_method_id' => $paymentMethodId,
+                        'error' => $e->getMessage(),
+                    ]);
 
-                $this->syncInvoicesImmediately($subscriptionId, $userId);
-            } catch (\Throwable $e) {
-                Log::error('Stripe setup checkout: upgrade failed', [
-                    'user_id' => $userId,
-                    'session_id' => $session->id ?? null,
-                    'message' => $e->getMessage(),
+                    return;
+                }
+            } else {
+                Log::warning('Pro→Power Step 5: Skipped — amount_due is 0', [
+                    'invoice_id' => $finalizedInvoice->id,
                 ]);
             }
+
+            // --- Bước 6: Khôi phục cancel_at_period_end để subscription tự hủy cuối kỳ ---
+            $periodEnd = (int) ($updatedSub->current_period_end ?? 0);
+            $restoreParams = ['cancel_at_period_end' => true];
+            if ($periodEnd > 0) {
+                $restoreParams['cancel_at'] = $periodEnd;
+            }
+            Log::info('Pro→Power Step 6: Restore cancel_at_period_end', [
+                'subscription_id' => $subscriptionId,
+                'cancel_at' => $periodEnd > 0 ? date('Y-m-d H:i:s', $periodEnd) : null,
+            ]);
+            try {
+                $this->stripe->subscriptions->update($subscriptionId, $restoreParams);
+                Log::info('Pro→Power Step 6: completed', [
+                    'subscription_id' => $subscriptionId,
+                ]);
+            } catch (\Stripe\Exception\ApiErrorException $e) {
+                Log::error('Pro→Power Step 6: FAILED to restore cancel_at_period_end', [
+                    'subscription_id' => $subscriptionId,
+                    'error' => $e->getMessage(),
+                ]);
+                // Không return — plan đã được upgrade thành công, lỗi step 6 không block ghi DB.
+            }
+
+            // --- Cập nhật DB ---
+            $oldPlan = (string) $user->plan;
+            $user->plan = 'power';
+            $user->subscription_ends_at = $this->subscriptionPeriodEndFromStripe($updatedSub);
+            if ($customerId !== null && $customerId !== '') {
+                $user->stripe_customer_id = $customerId;
+            }
+            $user->save();
+
+            $this->auditPlanChangeIfNeeded($user->id, $oldPlan, 'power', (string) $event->id);
+            $this->auditWebhookStripe('checkout.session.setup.completed', $user->id, [
+                'event_id' => $event->id,
+                'effect' => 'subscription.upgraded_pro_to_power',
+            ]);
+
+            Log::info('Pro→Power: upgrade completed successfully', [
+                'user_id' => $userId,
+                'subscription_id' => $subscriptionId,
+                'payment_method_id' => $paymentMethodId,
+            ]);
+
+            $this->syncInvoicesImmediately($subscriptionId, $userId);
         });
     }
 

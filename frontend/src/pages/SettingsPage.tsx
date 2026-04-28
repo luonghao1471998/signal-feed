@@ -20,6 +20,7 @@ import {
   type BillingHistoryRow,
   type BillingPlan,
 } from "@/services/billingService";
+import UpgradeConfirmationModal from "@/components/UpgradeConfirmationModal";
 import { fetchSettings, type SettingsData, updateSettings } from "@/services/settingsService";
 import { useLocale, type Locale } from "@/i18n";
 
@@ -181,6 +182,7 @@ const SettingsPage: React.FC = () => {
   const [billingHistoryPage, setBillingHistoryPage] = useState(1);
   const [billingHistoryRefresh, setBillingHistoryRefresh] = useState(0);
   const billingActionInFlightRef = useRef(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [displayName, setDisplayName] = useState("");
@@ -746,19 +748,12 @@ const SettingsPage: React.FC = () => {
                   </p>
                   <p className="text-xs text-slate-500 mt-1">{t("settings.billedMonthly")}</p>
                   <Button
-                    className="w-full mt-4 rounded-full bg-blue-500 text-white py-3 font-bold hover:bg-blue-600"
+                    className="w-full mt-4 rounded-full bg-indigo-600 text-white py-3 font-bold hover:bg-indigo-700"
                     type="button"
-                    onClick={() => void handleBillingCheckout("power")}
+                    onClick={() => setShowUpgradeModal(true)}
                     disabled={billingLoading}
                   >
-                    {billingLoading ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        {t("settings.billingProcessing")}
-                      </span>
-                    ) : (
-                      t("settings.upgradeToPower")
-                    )}
+                    {t("settings.upgradeToPower")}
                   </Button>
                 </div>
               )}
@@ -795,6 +790,21 @@ const SettingsPage: React.FC = () => {
                   </Button>
                 </div>
               )}
+
+              <UpgradeConfirmationModal
+                open={showUpgradeModal}
+                onClose={() => setShowUpgradeModal(false)}
+                onUpgraded={async () => {
+                  const updated = await fetchSettings();
+                  setSettings(normalizeSettings(updated));
+                  await refreshUser();
+                  setBillingHistoryRefresh((v) => v + 1);
+                  toast({
+                    title: t("settings.planUpdated"),
+                    description: t("settings.planUpgradedPower"),
+                  });
+                }}
+              />
 
               <div>
                 <p className="font-semibold text-sm mb-3">{t("settings.billingHistory")}</p>

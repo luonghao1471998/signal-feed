@@ -262,3 +262,48 @@ export async function fetchBillingHistory(params?: {
 
   return { data, meta };
 }
+
+export interface UpgradePreviewLineItem {
+  description: string;
+  amount: number;
+  type: "charge" | "credit";
+}
+
+export interface UpgradePreview {
+  current_plan: "pro";
+  upgrade_to: "power";
+  billing_period: {
+    start: string | null;
+    end: string | null;
+  };
+  line_items: UpgradePreviewLineItem[];
+  amount_due: number;
+  currency: string;
+}
+
+interface PreviewEnvelope {
+  data?: UpgradePreview;
+  error?: { code?: string; message?: string };
+  message?: string;
+}
+
+export async function fetchUpgradePreview(plan: "power" = "power"): Promise<UpgradePreview> {
+  await ensureSanctumCsrf();
+
+  const response = await fetch(`/api/billing/preview-upgrade?plan=${plan}`, {
+    method: "GET",
+    headers: authFetchHeaders(),
+    credentials: "same-origin",
+  });
+
+  if (!response.ok) {
+    throw await parseError(response, "Failed to load upgrade preview");
+  }
+
+  const json = (await response.json()) as PreviewEnvelope;
+  if (json.data) {
+    return json.data;
+  }
+
+  throw new Error(json.error?.message ?? json.message ?? "Invalid preview response");
+}

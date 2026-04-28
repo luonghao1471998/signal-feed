@@ -71,17 +71,51 @@ class StripeService
             return;
         }
 
-        // 'always_invoice' tạo và charge proration invoice ngay lập tức thay vì pending items.
-        // Quan trọng: khi cancel_at_period_end=true, pending items từ create_prorations có thể không bao giờ được xuất hóa đơn.
+        $customerId = is_string($subscription->customer)
+            ? $subscription->customer
+            : ($subscription->customer->id ?? null);
+
+        // Bước 1: Reset cancel_at_period_end để proration tính đúng 2 chiều (credit + charge).
         $this->stripe->subscriptions->update($subscriptionId, [
+            'cancel_at_period_end' => false,
+        ]);
+
+        // Bước 2: Đổi giá lên plan mới; create_prorations tạo pending items (không auto-charge).
+        $updatedSub = $this->stripe->subscriptions->update($subscriptionId, [
             'items' => [
                 [
                     'id' => $subscriptionItemId,
                     'price' => $newPriceId,
                 ],
             ],
-            'proration_behavior' => 'always_invoice',
+            'proration_behavior' => 'create_prorations',
         ]);
+
+        // Bước 3: Tạo + finalize + pay invoice ngay cho pending proration items.
+        if ($customerId !== null && $customerId !== '') {
+            $prorationInvoice = $this->stripe->invoices->create([
+                'customer' => $customerId,
+                'subscription' => $subscriptionId,
+                'auto_advance' => false,
+            ]);
+
+            $finalizedInvoice = $this->stripe->invoices->finalizeInvoice(
+                (string) $prorationInvoice->id,
+                []
+            );
+
+            if ((int) ($finalizedInvoice->amount_due ?? 0) > 0) {
+                $this->stripe->invoices->pay((string) $finalizedInvoice->id, []);
+            }
+        }
+
+        // Bước 4: Khôi phục cancel_at_period_end để subscription tự hủy cuối kỳ.
+        $periodEnd = (int) ($updatedSub->current_period_end ?? 0);
+        $restoreParams = ['cancel_at_period_end' => true];
+        if ($periodEnd > 0) {
+            $restoreParams['cancel_at'] = $periodEnd;
+        }
+        $this->stripe->subscriptions->update($subscriptionId, $restoreParams);
     }
 
     /**
@@ -370,6 +404,116 @@ class StripeService
         }
 
         return $url;
+    }
+
+    /**
+     * Preview proration invoice khi upgrade Pro → Power (dùng Stripe Invoice Upcoming).
+     * Trả về breakdown line items, amount_due và billing period.
+     *
+     * @return array<string, mixed>
+     * @throws ApiErrorException
+     */
+    /**
+     * Preview proration khi upgrade Pro → Power bằng cách tính thủ công.
+     *
+     * Lý do không dùng Invoice::upcoming(): Stripe từ chối khi subscription có
+     * `cancel_at_period_end: true`, trả lỗi "Cannot generate an upcoming invoice
+     * for a subscription that is scheduled to cancel".
+     *
+     * Công thức giống hệt Stripe: amount = price × (remaining_seconds / total_seconds).
+     * Sai số ≤ vài cent do rounding — chấp nhận được cho preview.
+     *
+     * @return array<string, mixed>
+     * @throws ApiErrorException
+     */
+    public function previewUpgradeToPower(User $user): array
+    {
+        if ((string) ($user->plan ?? 'free') !== 'pro') {
+            throw new InvalidArgumentException('Preview upgrade is only available for Pro plan users.');
+        }
+
+        $subscriptionId = $user->stripe_subscription_id ?? '';
+        if ($subscriptionId === '') {
+            throw new InvalidArgumentException('No active subscription found.');
+        }
+
+        $subscription = $this->stripe->subscriptions->retrieve((string) $subscriptionId, []);
+        $status = (string) ($subscription->status ?? '');
+        if (! in_array($status, ['active', 'trialing'], true)) {
+            throw new InvalidArgumentException('Subscription is not active. Status: '.$status);
+        }
+
+        // Stripe API mới đặt current_period_start/end trong items[0], không ở top-level.
+        $items = $subscription->items->data ?? [];
+        $periodStartTs = null;
+        $periodEndTs = null;
+
+        if (! empty($items[0])) {
+            if (is_numeric($items[0]->current_period_start ?? null)) {
+                $periodStartTs = (int) $items[0]->current_period_start;
+            }
+            if (is_numeric($items[0]->current_period_end ?? null)) {
+                $periodEndTs = (int) $items[0]->current_period_end;
+            }
+        }
+        if ($periodStartTs === null && is_numeric($subscription->current_period_start ?? null)) {
+            $periodStartTs = (int) $subscription->current_period_start;
+        }
+        if ($periodEndTs === null && is_numeric($subscription->current_period_end ?? null)) {
+            $periodEndTs = (int) $subscription->current_period_end;
+        }
+        // Fallback: cancel_at khi cancel_at_period_end = true
+        if ($periodEndTs === null && ! empty($subscription->cancel_at_period_end) && is_numeric($subscription->cancel_at ?? null)) {
+            $periodEndTs = (int) $subscription->cancel_at;
+        }
+
+        if ($periodStartTs === null || $periodEndTs === null || $periodEndTs <= $periodStartTs) {
+            throw new \RuntimeException('Could not determine subscription billing period from Stripe.');
+        }
+
+        $now = time();
+        if ($now >= $periodEndTs) {
+            throw new InvalidArgumentException('Subscription billing period has already ended.');
+        }
+        // Clamp: không để now < period_start (edge case subscription vừa tạo xong)
+        $effectiveNow = max($now, $periodStartTs);
+
+        // Giá tháng cố định theo plan (USD cents → float).
+        // Dùng giá cứng vì config chỉ lưu price_id, không lưu amount.
+        $proMonthlyPrice = 15.00;
+        $powerMonthlyPrice = 30.00;
+
+        $totalSeconds = $periodEndTs - $periodStartTs;
+        $remainingSeconds = $periodEndTs - $effectiveNow;
+
+        $creditAmount = round(($proMonthlyPrice / $totalSeconds) * $remainingSeconds, 2);
+        $chargeAmount = round(($powerMonthlyPrice / $totalSeconds) * $remainingSeconds, 2);
+        $netAmount = round($chargeAmount - $creditAmount, 2);
+
+        $lineItems = [
+            [
+                'description' => 'Unused time on Pro Plan after '.date('M d, Y', $effectiveNow),
+                'amount' => -$creditAmount,
+                'type' => 'credit',
+            ],
+            [
+                'description' => 'Power Plan ('.date('M d', $effectiveNow).' – '.date('M d, Y', $periodEndTs).')',
+                'amount' => $chargeAmount,
+                'type' => 'charge',
+            ],
+        ];
+
+        return [
+            'current_plan' => 'pro',
+            'upgrade_to' => 'power',
+            'billing_period' => [
+                'start' => date('Y-m-d', $periodStartTs),
+                'end' => date('Y-m-d', $periodEndTs),
+            ],
+            'line_items' => $lineItems,
+            'amount_due' => $netAmount,
+            'currency' => 'usd',
+        ];
     }
 
     private function resolvePriceId(string $plan): string

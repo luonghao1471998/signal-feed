@@ -53,5 +53,6 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/billing/checkout', [BillingController::class, 'checkout']);
     Route::post('/billing/portal', [BillingController::class, 'portal']);
     Route::get('/billing/history', [BillingController::class, 'history']);
+    Route::get('/billing/preview-upgrade', [BillingController::class, 'previewUpgrade']);
     Route::post('/subscriptions/upgrade', [SubscriptionController::class, 'upgradeSubscription']);
 });

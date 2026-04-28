@@ -188,6 +188,81 @@ class BillingController extends Controller
     }
 
     /**
+     * GET /api/billing/preview-upgrade?plan=power
+     * Preview proration breakdown trước khi upgrade Pro → Power.
+     */
+    public function previewUpgrade(Request $request): JsonResponse
+    {
+        $plan = (string) $request->query('plan', 'power');
+        if ($plan !== 'power') {
+            return response()->json([
+                'error' => [
+                    'code' => 'VALIDATION_ERROR',
+                    'message' => 'Preview upgrade is only available for the Power plan.',
+                ],
+            ], 400);
+        }
+
+        $user = $request->user();
+
+        if ((string) ($user->plan ?? 'free') !== 'pro') {
+            return response()->json([
+                'error' => [
+                    'code' => 'NOT_PRO',
+                    'message' => 'Preview upgrade is only available for users on the Pro plan.',
+                ],
+            ], 400);
+        }
+
+        if (empty($user->stripe_subscription_id)) {
+            return response()->json([
+                'error' => [
+                    'code' => 'NO_SUBSCRIPTION',
+                    'message' => 'No active subscription found. Please complete a Pro checkout first.',
+                ],
+            ], 400);
+        }
+
+        try {
+            $preview = $this->stripeService->previewUpgradeToPower($user);
+
+            return response()->json(['data' => $preview]);
+        } catch (ApiErrorException $e) {
+            Log::error('Stripe preview upgrade failed', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+                'code' => $e->getStripeCode(),
+            ]);
+
+            return response()->json([
+                'error' => [
+                    'code' => 'STRIPE_ERROR',
+                    'message' => 'Could not calculate upgrade preview. Please try again.',
+                ],
+            ], 502);
+        } catch (InvalidArgumentException $e) {
+            return response()->json([
+                'error' => [
+                    'code' => 'VALIDATION_ERROR',
+                    'message' => $e->getMessage(),
+                ],
+            ], 400);
+        } catch (\Throwable $e) {
+            Log::error('Preview upgrade unexpected error', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'error' => [
+                    'code' => 'INTERNAL_ERROR',
+                    'message' => 'Unexpected error. Please try again.',
+                ],
+            ], 500);
+        }
+    }
+
+    /**
      * POST /api/billing/portal — tạo Stripe Billing Portal session để người dùng quản lý thẻ thanh toán.
      */
     public function portal(Request $request): JsonResponse
