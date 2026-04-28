@@ -9,8 +9,8 @@ class AdminSeeder extends Seeder
 {
     public function run(): void
     {
-        $email = env('ADMIN_EMAIL', 'admin@signalfeed.test');
-        $password = env('ADMIN_PASSWORD', 'changeme');
+        $email = env('ADMIN_EMAIL', 'admin@gmail.com');
+        $password = env('ADMIN_PASSWORD', 'password');
 
         if (Admin::query()->where('email', $email)->exists()) {
             return;
