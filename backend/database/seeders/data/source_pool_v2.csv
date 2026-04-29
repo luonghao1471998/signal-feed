@@ -1,60 +1,31 @@
 handle,display_name,account_url,categories
-karpathy,Andrej Karpathy,https://twitter.com/karpathy,AI & ML|Tech News
+karpathy,Andrej Karpathy,https://twitter.com/karpathy,AI & ML
 ylecun,Yann LeCun,https://twitter.com/ylecun,AI & ML
-fchollet,Francois Chollet,https://twitter.com/fchollet,AI & ML
-rowancheung,Rowan Cheung,https://twitter.com/rowancheung,AI & ML|Tech News
-swyx,Shawn Wang,https://twitter.com/swyx,AI & ML|Developer Tools
-
-vitalikbuterin,Vitalik Buterin,https://twitter.com/vitalikbuterin,Crypto & Web3
-APompliano,Anthony Pompliano,https://twitter.com/APompliano,Crypto & Web3
-rektcapital,Rekt Capital,https://twitter.com/rektcapital,Crypto & Web3
-cobie,Cobie,https://twitter.com/cobie,Crypto & Web3
-pentosh1,Pentoshi,https://twitter.com/pentosh1,Crypto & Web3
-
-alexhormozi,Alex Hormozi,https://twitter.com/AlexHormozi,Marketing|Startups
-neilpatel,Neil Patel,https://twitter.com/neilpatel,Marketing
-randfish,Rand Fishkin,https://twitter.com/randfish,Marketing|Startups
-harrydry,Harry Dry,https://twitter.com/harrydry,Marketing
-gregisenberg,Greg Isenberg,https://twitter.com/gregisenberg,Marketing|Startups
-
-paulg,Paul Graham,https://twitter.com/paulg,Startups
-naval,Naval Ravikant,https://twitter.com/naval,Startups|Productivity
-mwseibel,Michael Seibel,https://twitter.com/mwseibel,Startups
-jason,Jason Calacanis,https://twitter.com/Jason,Startups
-lennysan,Lenny Rachitsky,https://twitter.com/lennysan,Startups|SaaS
-
-linusgsebastian,Linus Sebastian,https://twitter.com/linusgsebastian,Tech News
-benedictevans,Benedict Evans,https://twitter.com/benedictevans,Tech News
-karaswisher,Kara Swisher,https://twitter.com/karaswisher,Tech News
-cdixon,Chris Dixon,https://twitter.com/cdixon,Tech News|Crypto & Web3
-verge,The Verge,https://twitter.com/verge,Tech News
-
-t3dotgg,Theo Browne,https://twitter.com/t3dotgg,Developer Tools
-dan_abramov,Dan Abramov,https://twitter.com/dan_abramov,Developer Tools
-kentcdodds,Kent C. Dodds,https://twitter.com/kentcdodds,Developer Tools
-addyosmani,Addy Osmani,https://twitter.com/addyosmani,Developer Tools
-antfu7,Anthony Fu,https://twitter.com/antfu7,Developer Tools
-
-refactoringui,Refactoring UI,https://twitter.com/refactoringui,Design
-julie_zhuo,Julie Zhuo,https://twitter.com/julie_zhuo,Design
-danmall,Dan Mall,https://twitter.com/danmall,Design
-uxdesigncc,UX Collective,https://twitter.com/uxdesigncc,Design
-shadcn,shadcn,https://twitter.com/shadcn,Design|Developer Tools
-
-jasonlk,Jason Lemkin,https://twitter.com/jasonlk,SaaS
-hnshah,Hiten Shah,https://twitter.com/hnshah,SaaS
-yongfook,Jon Yongfook,https://twitter.com/yongfook,SaaS
-bentossell,Ben Tossell,https://twitter.com/bentossell,SaaS
-saastr,SaaStr,https://twitter.com/saastr,SaaS
-
-levelsio,Pieter Levels,https://twitter.com/levelsio,Indie Hacking|Startups
-arvidkahl,Arvid Kahl,https://twitter.com/arvidkahl,Indie Hacking
-thepatwalls,Pat Walls,https://twitter.com/thepatwalls,Indie Hacking
-dvassallo,Daniel Vassallo,https://twitter.com/dvassallo,Indie Hacking
-shl,Shlomo Ben-Haim,https://twitter.com/shl,Indie Hacking
-
-sahilbloom,Sahil Bloom,https://twitter.com/SahilBloom,Productivity
-aliabdaal,Ali Abdaal,https://twitter.com/aliabdaal,Productivity
-fortelabs,Tiago Forte,https://twitter.com/fortelabs,Productivity
-shaneaparrish,Shane Parrish,https://twitter.com/ShaneAParrish,Productivity
-david_perell,David Perell,https://twitter.com/david_perell,Productivity
+geoffreyhinton,Geoffrey Hinton,https://twitter.com/geoffreyhinton,AI & ML
+ilyasut,Ilya Sutskever,https://twitter.com/ilyasut,AI & ML
+goodfellow_ian,Ian Goodfellow,https://twitter.com/goodfellow_ian,AI & ML
+demishassabis,Demis Hassabis,https://twitter.com/demishassabis,AI & ML
+sama,Sam Altman,https://twitter.com/sama,AI & ML
+fchollet,François Chollet,https://twitter.com/fchollet,AI & ML
+jeremyphoward,Jeremy Howard,https://twitter.com/jeremyphoward,AI & ML
+radekosmulski,Radek Osmulski,https://twitter.com/radekosmulski,AI & ML
+drfeifei,Fei-Fei Li,https://twitter.com/drfeifei,AI & ML
+lexfridman,Lex Fridman,https://twitter.com/lexfridman,AI & ML
+AndrewYNg,Andrew Ng,https://twitter.com/AndrewYNg,AI & ML
+soumithchintala,Soumith Chintala,https://twitter.com/soumithchintala,AI & ML
+jackclarkSF,Jack Clark,https://twitter.com/jackclarkSF,AI & ML
+mmitchell_ai,Margaret Mitchell,https://twitter.com/mmitchell_ai,AI & ML
+timnitGebru,Timnit Gebru,https://twitter.com/timnitGebru,AI & ML
+emollick,Ethan Mollick,https://twitter.com/emollick,AI & ML
+percyliang,Percy Liang,https://twitter.com/percyliang,AI & ML
+colah,Chris Olah,https://twitter.com/colah,AI & ML
+hardmaru,David Ha,https://twitter.com/hardmaru,AI & ML
+gdb,Greg Brockman,https://twitter.com/gdb,AI & ML
+reidhoffman,Reid Hoffman,https://twitter.com/reidhoffman,AI & ML
+mustafasuleyman,Mustafa Suleyman,https://twitter.com/mustafasuleyman,AI & ML
+nathanbenaich,Nathan Benaich,https://twitter.com/nathanbenaich,AI & ML
+teortaxesTex,Teortaxes,https://twitter.com/teortaxesTex,AI & ML
+minimaxir,Max Woolf,https://twitter.com/minimaxir,AI & ML
+abacaj,Abubakar Abid,https://twitter.com/abacaj,AI & ML
+rasbt,Sebastian Raschka,https://twitter.com/rasbt,AI & ML
+kdnuggets,KDnuggets,https://twitter.com/kdnuggets,AI & ML
